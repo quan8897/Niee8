@@ -28,6 +28,7 @@ export default function AdminDashboard({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [bulkData, setBulkData] = useState('');
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     price: '',
@@ -61,8 +62,13 @@ export default function AdminDashboard({
   };
 
   const handleHeroImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 500 * 1024) {
+        setImageError(`Ảnh ${file.name} quá lớn. Vui lòng chọn ảnh dưới 500KB hoặc sử dụng URL ảnh.`);
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setSettingsForm(prev => ({ ...prev, heroImage: reader.result as string }));
@@ -105,9 +111,14 @@ export default function AdminDashboard({
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
     const files = e.target.files;
     if (files) {
       Array.from(files).forEach((file: File) => {
+        if (file.size > 500 * 1024) {
+          setImageError(`Ảnh ${file.name} quá lớn. Vui lòng chọn ảnh dưới 500KB hoặc sử dụng URL ảnh.`);
+          return;
+        }
         const reader = new FileReader();
         reader.onloadend = () => {
           setFormData(prev => ({ 
@@ -227,6 +238,12 @@ export default function AdminDashboard({
                       </div>
                     </div>
                   </div>
+
+                  {imageError && (
+                    <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-sm border border-red-100">
+                      {imageError}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -405,6 +422,12 @@ export default function AdminDashboard({
                           </div>
                         ))}
                       </div>
+                      
+                      {imageError && (
+                        <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-sm border border-red-100 mt-2">
+                          {imageError}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -472,34 +495,44 @@ export default function AdminDashboard({
                   {products.map((product) => (
                     <div 
                       key={product.id}
-                      className="bg-white p-4 rounded-[30px] border border-nie8-primary/5 flex items-center gap-6 group hover:shadow-lg transition-all"
+                      className="bg-white p-5 rounded-[30px] border border-nie8-primary/10 flex flex-col sm:flex-row items-start sm:items-center gap-6 group hover:shadow-xl hover:border-nie8-primary/30 transition-all"
                     >
-                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-nie8-bg flex-shrink-0">
+                      {/* Hiển thị ảnh đại diện sản phẩm rõ ràng hơn */}
+                      <div className="w-full sm:w-32 h-32 rounded-2xl overflow-hidden bg-nie8-bg flex-shrink-0 relative shadow-sm">
                         {product.images && product.images.length > 0 ? (
-                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-nie8-text/20">
                             <ImageIcon size={32} />
                           </div>
                         )}
+                        <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest text-nie8-primary shadow-sm">
+                          {product.images?.length || 0} Ảnh
+                        </div>
                       </div>
-                      <div className="flex-grow">
+
+                      {/* Thông tin sản phẩm */}
+                      <div className="flex-grow w-full">
                         <p className="text-[10px] text-nie8-secondary font-bold uppercase tracking-widest mb-1">{product.category}</p>
-                        <h4 className="text-xl font-serif italic text-nie8-text">{product.name}</h4>
-                        <p className="text-sm font-medium text-nie8-primary">{product.price}</p>
+                        <h4 className="text-xl font-serif italic text-nie8-text mb-2">{product.name}</h4>
+                        <p className="text-lg font-medium text-nie8-primary">{product.price}</p>
                       </div>
-                      <div className="flex gap-2 pr-4">
+
+                      {/* Khu vực nút hành động được tách biệt rõ ràng */}
+                      <div className="w-full sm:w-auto flex sm:flex-col gap-2 pt-4 sm:pt-0 border-t sm:border-t-0 sm:border-l border-nie8-primary/10 sm:pl-6">
                         <button 
                           onClick={() => handleEdit(product)}
-                          className="w-10 h-10 bg-nie8-primary/5 text-nie8-primary rounded-full flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-nie8-primary/5 text-nie8-primary rounded-xl hover:bg-nie8-primary hover:text-white transition-all text-sm font-medium"
                         >
-                          <Edit2 size={18} />
+                          <Edit2 size={16} />
+                          <span>Chỉnh sửa</span>
                         </button>
                         <button 
                           onClick={() => onDeleteProduct(product.id)}
-                          className="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all text-sm font-medium"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} />
+                          <span>Xóa</span>
                         </button>
                       </div>
                     </div>

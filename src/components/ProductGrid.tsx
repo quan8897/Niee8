@@ -1,16 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, Heart, ArrowRight, X, Sparkles, RefreshCw } from 'lucide-react';
+import { ShoppingBag, Heart, ArrowRight, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product } from '../types';
-import { GoogleGenAI } from "@google/genai";
 
-const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
-  }
-  return new GoogleGenAI({ apiKey });
-};
+const PRODUCTS_PER_PAGE = 6;
 
 interface ProductGridProps {
   products: Product[];
@@ -20,9 +13,22 @@ interface ProductGridProps {
 export default function ProductGrid({ products, onAddToCart }: ProductGridProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [story, setStory] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Tính toán số trang và danh sách sản phẩm hiển thị trên trang hiện tại
+  const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
+  const currentProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+    return products.slice(startIndex, startIndex + PRODUCTS_PER_PAGE);
+  }, [products, currentPage]);
+
+  // Reset về trang 1 nếu danh sách sản phẩm thay đổi
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [products.length]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -39,26 +45,23 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
     return () => clearInterval(interval);
   }, [hoveredProductId, products]);
 
-  const generateStory = async (product: Product) => {
-    setIsGenerating(true);
-    setStory(null);
-    try {
-      const ai = getAI();
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Hãy viết một câu chuyện ngắn (khoảng 3-4 câu) về hoàn cảnh diện bộ đồ "${product.name}" (thuộc danh mục ${product.category}) của thương hiệu niee8. Câu chuyện nên mang phong cách lãng mạn, nhẹ nhàng, gợi cảm hứng về một phong cách sống tinh tế và trân trọng các giá trị thủ công. Ví dụ: "Một buổi chiều nắng nhạt tại tiệm sách cũ...". Hãy trả lời bằng tiếng Việt.`,
-      });
-      setStory(response.text || "Câu chuyện đang được viết tiếp...");
-    } catch (error) {
-      console.error(error);
-      setStory("Cảm hứng đang tạm thời gián đoạn, hãy quay lại sau nhé.");
-    } finally {
-      setIsGenerating(false);
-    }
+  const generateStory = (product: Product) => {
+    const stories: Record<string, string> = {
+      'Áo': `Một buổi chiều nắng nhạt tại tiệm sách cũ, chiếc ${product.name} nhẹ nhàng tung bay theo gió, mang theo vẻ đẹp thanh lịch và tinh tế của người phụ nữ hiện đại.`,
+      'Quần': `Dạo bước trên con phố quen thuộc, ${product.name} mang đến sự thoải mái tuyệt đối nhưng vẫn giữ trọn nét thanh lịch, tự tin trong từng nhịp bước.`,
+      'Váy': `Dưới ánh đèn lung linh của buổi tiệc tối, chiếc ${product.name} tôn lên vẻ đẹp đài các, thu hút mọi ánh nhìn bởi sự tinh tế trong từng đường kim mũi chỉ.`,
+      'Phụ kiện': `Điểm xuyết nhẹ nhàng nhưng đầy tinh tế, ${product.name} là mảnh ghép hoàn hảo, tôn vinh phong cách cá nhân độc đáo của riêng bạn.`,
+      'Áo khoác': `Khoác lên mình chiếc ${product.name} trong một sớm mai se lạnh, cảm nhận sự ấm áp và phong cách vượt thời gian hòa quyện trong từng lớp vải.`
+    };
+    
+    const defaultStory = `Thiết kế ${product.name} mang trong mình câu chuyện về sự tỉ mỉ và tình yêu với cái đẹp, đồng hành cùng bạn trong những khoảnh khắc đáng nhớ nhất.`;
+    
+    setStory(stories[product.category] || defaultStory);
   };
 
   const openProduct = (product: Product) => {
     setSelectedProduct(product);
+    setModalImageIndex(0);
     generateStory(product);
   };
 
@@ -95,7 +98,7 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
-          {products.map((product, index) => (
+          {currentProducts.map((product, index) => (
             <motion.div 
               key={product.id}
               initial={{ opacity: 0, y: 30 }}
@@ -170,14 +173,54 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
           ))}
         </div>
 
-        <div className="mt-24 text-center">
-          <button className="flex items-center gap-4 mx-auto text-nie8-text font-medium group">
-            Xem tất cả sản phẩm
-            <div className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:text-white transition-all">
-              <ArrowRight size={18} />
+        {/* Phân trang (Pagination) */}
+        {totalPages > 1 && (
+          <div className="mt-20 flex justify-center items-center gap-4">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white hover:border-nie8-primary transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-nie8-text disabled:hover:border-nie8-text/20"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            
+            <div className="flex gap-2">
+              {Array.from({ length: totalPages }).map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentPage(idx + 1)}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                    currentPage === idx + 1 
+                      ? 'bg-nie8-primary text-white shadow-md' 
+                      : 'text-nie8-text/60 hover:bg-nie8-primary/10 hover:text-nie8-primary'
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
             </div>
-          </button>
-        </div>
+
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white hover:border-nie8-primary transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-nie8-text disabled:hover:border-nie8-text/20"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
+
+        {/* Nút xem tất cả (chỉ hiển thị nếu có sản phẩm) */}
+        {products.length > 0 && (
+          <div className="mt-16 text-center">
+            <button className="flex items-center gap-4 mx-auto text-nie8-text font-medium group">
+              Xem tất cả sản phẩm
+              <div className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:text-white transition-all">
+                <ArrowRight size={18} />
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Product Detail Modal with AI Story */}
@@ -202,13 +245,38 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 <X size={20} />
               </button>
 
-              <div className="lg:w-1/2 h-64 lg:h-auto">
-                <img 
-                  src={selectedProduct.images[0]} 
-                  alt={selectedProduct.name} 
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="lg:w-1/2 h-64 lg:h-auto relative group">
+                <AnimatePresence mode="wait">
+                  <motion.img 
+                    key={modalImageIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    src={selectedProduct.images[modalImageIndex]} 
+                    alt={selectedProduct.name} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </AnimatePresence>
+                
+                {selectedProduct.images.length > 1 && (
+                  <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 z-10">
+                    {selectedProduct.images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setModalImageIndex(idx)}
+                        className={`w-16 h-16 rounded-2xl overflow-hidden border-2 transition-all ${
+                          modalImageIndex === idx 
+                            ? 'border-white shadow-xl scale-110' 
+                            : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
+                        }`}
+                      >
+                        <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="lg:w-1/2 p-8 sm:p-12 overflow-y-auto scroll-hide flex flex-col">
@@ -231,27 +299,14 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                         <h4 className="text-xs uppercase tracking-widest text-nie8-primary font-bold">Câu chuyện cảm hứng</h4>
                       </div>
                       <AnimatePresence mode="wait">
-                        {isGenerating ? (
-                          <motion.div 
-                            key="loading"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="flex items-center gap-3 text-nie8-text/40 italic font-serif"
-                          >
-                            <RefreshCw size={16} className="animate-spin" />
-                            <span>Đang dệt nên câu chuyện...</span>
-                          </motion.div>
-                        ) : (
-                          <motion.p 
-                            key="story"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-nie8-text italic font-serif text-lg leading-relaxed"
-                          >
-                            "{story}"
-                          </motion.p>
-                        )}
+                        <motion.p 
+                          key="story"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-nie8-text italic font-serif text-lg leading-relaxed"
+                        >
+                          "{story}"
+                        </motion.p>
                       </AnimatePresence>
                     </div>
                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-nie8-primary/10 rounded-full blur-2xl"></div>

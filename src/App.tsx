@@ -197,13 +197,7 @@ export default function App() {
         id: doc.id
       })) as Product[];
       
-      if (productsData.length === 0 && products.length === 0) {
-        // If DB is empty, we could seed it, but let's just show empty for now
-        // or keep INITIAL_PRODUCTS as fallback if needed.
-        setProducts(INITIAL_PRODUCTS);
-      } else {
-        setProducts(productsData);
-      }
+      setProducts(productsData);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'products');
     });
