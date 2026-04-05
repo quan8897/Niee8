@@ -160,38 +160,38 @@ export default function AdminDashboard({
         exit={{ scale: 0.9, y: 20 }}
         className="bg-nie8-bg w-full max-w-4xl rounded-[40px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
       >
-        <div className="p-8 border-b border-nie8-primary/10 flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-serif italic text-nie8-text">Quản trị <span className="text-nie8-primary">Website.</span></h2>
-            <p className="text-sm text-nie8-text/60 mt-1">Quản lý sản phẩm và nội dung hiển thị trên website.</p>
+        <div className="p-4 sm:p-8 border-b border-nie8-primary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 relative">
+          <div className="pr-12 sm:pr-0">
+            <h2 className="text-2xl sm:text-3xl font-serif italic text-nie8-text">Quản trị <span className="text-nie8-primary">Website.</span></h2>
+            <p className="text-xs sm:text-sm text-nie8-text/60 mt-1">Quản lý sản phẩm và nội dung hiển thị trên website.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-nie8-bg p-1 rounded-2xl flex gap-1">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
+            <div className="bg-nie8-bg p-1 rounded-2xl flex gap-1 w-full sm:w-auto overflow-x-auto scroll-hide">
               <button 
                 onClick={() => setActiveTab('products')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-white text-nie8-primary shadow-sm' : 'text-nie8-text/40 hover:text-nie8-text'}`}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex-1 sm:flex-none whitespace-nowrap ${activeTab === 'products' ? 'bg-white text-nie8-primary shadow-sm' : 'text-nie8-text/40 hover:text-nie8-text'}`}
               >
                 <Package size={14} />
                 Sản phẩm
               </button>
               <button 
                 onClick={() => setActiveTab('settings')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white text-nie8-primary shadow-sm' : 'text-nie8-text/40 hover:text-nie8-text'}`}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex-1 sm:flex-none whitespace-nowrap ${activeTab === 'settings' ? 'bg-white text-nie8-primary shadow-sm' : 'text-nie8-text/40 hover:text-nie8-text'}`}
               >
                 <Settings size={14} />
                 Cài đặt
               </button>
             </div>
-            <button 
-              onClick={onClose}
-              className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all shadow-lg"
-            >
-              <X size={24} />
-            </button>
           </div>
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 sm:relative sm:top-auto sm:right-auto w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all shadow-lg flex-shrink-0"
+          >
+            <X size={20} className="sm:w-6 sm:h-6" />
+          </button>
         </div>
 
-        <div className="flex-grow overflow-y-auto p-8 scroll-hide">
+        <div className="flex-grow overflow-y-auto p-4 sm:p-8 scroll-hide">
           <AnimatePresence mode="wait">
             {activeTab === 'settings' ? (
               <motion.form 

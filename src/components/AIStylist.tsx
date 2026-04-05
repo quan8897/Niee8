@@ -77,21 +77,21 @@ export default function AIStylist() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed bottom-24 right-6 z-50 w-80 md:w-96 bg-white rounded-3xl shadow-2xl border border-nie8-primary/20 overflow-hidden flex flex-col"
+            className="fixed inset-x-4 bottom-24 md:inset-auto md:bottom-24 md:right-6 z-50 md:w-96 bg-white rounded-3xl shadow-2xl border border-nie8-primary/20 overflow-hidden flex flex-col h-[60vh] md:h-auto max-h-[500px]"
           >
-            <div className="bg-nie8-primary p-4 flex justify-between items-center">
+            <div className="bg-nie8-primary p-4 flex justify-between items-center flex-shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                   <Sparkles size={16} className="text-white" />
                 </div>
                 <span className="text-white font-serif italic">niee8 AI Stylist</span>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white">
+              <button onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white p-2 -mr-2">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex-grow p-4 overflow-y-auto max-h-96 scroll-hide space-y-4">
+            <div className="flex-grow p-4 overflow-y-auto scroll-hide space-y-4">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
