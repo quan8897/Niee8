@@ -44,7 +44,7 @@ export default function Hero({ settings }: HeroProps) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.2 }}
-            className="text-6xl md:text-8xl font-serif italic text-nie8-text leading-[0.9] mb-10 lowercase"
+            className="text-5xl sm:text-6xl md:text-8xl font-serif italic text-nie8-text leading-[0.9] mb-8 md:mb-10 lowercase"
           >
             {heroTitle.endsWith('.') ? (
               <>
@@ -68,15 +68,15 @@ export default function Hero({ settings }: HeroProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-wrap items-center gap-8"
+            className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8"
           >
-            <button className="px-12 py-5 bg-nie8-primary text-nie8-white text-lg rounded-full font-bold hover:bg-nie8-text hover:scale-105 hover:shadow-2xl hover:shadow-nie8-text/30 transition-all duration-300 flex items-center gap-3 group">
+            <button className="w-full sm:w-auto px-10 py-4 sm:px-12 sm:py-5 bg-nie8-primary text-nie8-white text-base sm:text-lg rounded-full font-bold hover:bg-nie8-text hover:scale-105 hover:shadow-2xl hover:shadow-nie8-text/30 transition-all duration-300 flex items-center justify-center gap-3 group">
               Mua ngay
-              <ArrowRight size={22} className="group-hover:translate-x-2 transition-transform duration-300" />
+              <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform duration-300" />
             </button>
-            <button className="flex items-center gap-4 text-nie8-text text-lg font-bold group hover:text-nie8-primary transition-colors duration-300">
-              <div className="w-16 h-16 rounded-full border-2 border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:border-nie8-primary group-hover:text-nie8-white group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
-                <Play size={20} fill="currentColor" className="ml-1" />
+            <button className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-4 text-nie8-text text-base sm:text-lg font-bold group hover:text-nie8-primary transition-colors duration-300">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:border-nie8-primary group-hover:text-nie8-white group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
+                <Play size={18} fill="currentColor" className="ml-1" />
               </div>
               Xem phim ngắn
             </button>

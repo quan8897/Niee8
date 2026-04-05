@@ -125,8 +125,8 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                   />
                 </AnimatePresence>
                 
-                <div className="absolute top-6 right-6 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all">
+                <div className="absolute top-6 right-6 flex flex-col gap-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
+                  <button className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all">
                     <Heart size={20} />
                   </button>
                   <button 
@@ -134,14 +134,14 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                       e.stopPropagation();
                       onAddToCart(product);
                     }}
-                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all"
+                    className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all"
                   >
                     <ShoppingBag size={20} />
                   </button>
                 </div>
 
                 {product.images.length > 1 && (
-                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                     {product.images.map((_, i) => (
                       <div 
                         key={i} 
@@ -155,8 +155,8 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                   </div>
                 )}
 
-                <div className="absolute bottom-0 left-0 right-0 p-8 translate-y-full group-hover:translate-y-0 transition-transform duration-500 bg-gradient-to-t from-black/20 to-transparent">
-                  <button className="w-full py-4 bg-white text-nie8-text rounded-2xl font-medium text-sm hover:bg-nie8-primary hover:text-white transition-all">
+                <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-8 translate-y-0 lg:translate-y-full lg:group-hover:translate-y-0 transition-transform duration-500 bg-gradient-to-t from-black/40 to-transparent">
+                  <button className="w-full py-3.5 lg:py-4 bg-white/90 backdrop-blur-sm text-nie8-text rounded-2xl font-medium text-sm hover:bg-nie8-primary hover:text-white transition-all">
                     Xem chi tiết
                   </button>
                 </div>
@@ -184,12 +184,12 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
               <ChevronLeft size={20} />
             </button>
             
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {Array.from({ length: totalPages }).map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => setCurrentPage(idx + 1)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
                     currentPage === idx + 1 
                       ? 'bg-nie8-primary text-white shadow-md' 
                       : 'text-nie8-text/60 hover:bg-nie8-primary/10 hover:text-nie8-primary'
@@ -245,7 +245,7 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 <X size={20} />
               </button>
 
-              <div className="lg:w-1/2 h-64 lg:h-auto relative group">
+              <div className="lg:w-1/2 h-[40vh] min-h-[300px] lg:h-auto relative group flex-shrink-0">
                 <AnimatePresence mode="wait">
                   <motion.img 
                     key={modalImageIndex}
@@ -261,12 +261,12 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 </AnimatePresence>
                 
                 {selectedProduct.images.length > 1 && (
-                  <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 z-10">
+                  <div className="absolute bottom-4 lg:bottom-6 left-0 right-0 flex justify-center gap-2 lg:gap-3 px-4 z-10 overflow-x-auto scroll-hide pb-2">
                     {selectedProduct.images.map((img, idx) => (
                       <button
                         key={idx}
                         onClick={() => setModalImageIndex(idx)}
-                        className={`w-16 h-16 rounded-2xl overflow-hidden border-2 transition-all ${
+                        className={`w-14 h-14 lg:w-16 lg:h-16 rounded-xl lg:rounded-2xl overflow-hidden border-2 transition-all flex-shrink-0 ${
                           modalImageIndex === idx 
                             ? 'border-white shadow-xl scale-110' 
                             : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
@@ -279,50 +279,50 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 )}
               </div>
 
-              <div className="lg:w-1/2 p-8 sm:p-12 overflow-y-auto scroll-hide flex flex-col">
-                <div className="mb-8">
-                  <p className="text-xs uppercase tracking-widest text-nie8-secondary font-medium mb-2">{selectedProduct.category}</p>
-                  <h3 className="text-4xl font-serif italic text-nie8-text mb-4">{selectedProduct.name}</h3>
-                  <p className="text-2xl font-medium text-nie8-text">{selectedProduct.price}</p>
+              <div className="lg:w-1/2 p-6 sm:p-8 lg:p-12 overflow-y-auto scroll-hide flex flex-col relative">
+                <div className="mb-6 lg:mb-8">
+                  <p className="text-[10px] lg:text-xs uppercase tracking-widest text-nie8-secondary font-medium mb-2">{selectedProduct.category}</p>
+                  <h3 className="text-3xl lg:text-4xl font-serif italic text-nie8-text mb-2 lg:mb-4">{selectedProduct.name}</h3>
+                  <p className="text-xl lg:text-2xl font-medium text-nie8-text">{selectedProduct.price}</p>
                 </div>
 
-                <div className="space-y-8 flex-grow">
+                <div className="space-y-6 lg:space-y-8 flex-grow pb-24 lg:pb-0">
                   <div>
-                    <h4 className="text-xs uppercase tracking-widest text-nie8-text/40 font-bold mb-4">Mô tả sản phẩm</h4>
-                    <p className="text-nie8-text/60 leading-relaxed">{selectedProduct.description}</p>
+                    <h4 className="text-[10px] lg:text-xs uppercase tracking-widest text-nie8-text/40 font-bold mb-3 lg:mb-4">Mô tả sản phẩm</h4>
+                    <p className="text-sm lg:text-base text-nie8-text/60 leading-relaxed">{selectedProduct.description}</p>
                   </div>
 
-                  <div className="bg-nie8-primary/5 p-8 rounded-3xl border border-nie8-primary/10 relative overflow-hidden">
+                  <div className="bg-nie8-primary/5 p-6 lg:p-8 rounded-2xl lg:rounded-3xl border border-nie8-primary/10 relative overflow-hidden">
                     <div className="relative z-10">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Sparkles size={16} className="text-nie8-primary" />
-                        <h4 className="text-xs uppercase tracking-widest text-nie8-primary font-bold">Câu chuyện cảm hứng</h4>
+                      <div className="flex items-center gap-2 mb-3 lg:mb-4">
+                        <Sparkles size={14} className="text-nie8-primary lg:w-4 lg:h-4" />
+                        <h4 className="text-[10px] lg:text-xs uppercase tracking-widest text-nie8-primary font-bold">Câu chuyện cảm hứng</h4>
                       </div>
                       <AnimatePresence mode="wait">
                         <motion.p 
                           key="story"
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-nie8-text italic font-serif text-lg leading-relaxed"
+                          className="text-nie8-text italic font-serif text-base lg:text-lg leading-relaxed"
                         >
                           "{story}"
                         </motion.p>
                       </AnimatePresence>
                     </div>
-                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-nie8-primary/10 rounded-full blur-2xl"></div>
+                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-24 h-24 lg:w-32 lg:h-32 bg-nie8-primary/10 rounded-full blur-2xl"></div>
                   </div>
                 </div>
 
-                <div className="mt-12 flex gap-4">
+                <div className="absolute bottom-0 left-0 right-0 p-4 lg:p-0 lg:relative lg:mt-12 flex gap-3 lg:gap-4 bg-white/90 backdrop-blur-md lg:bg-transparent border-t border-nie8-primary/10 lg:border-none z-20">
                   <button 
                     onClick={() => onAddToCart(selectedProduct)}
-                    className="flex-grow py-5 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-3 shadow-xl shadow-nie8-primary/20"
+                    className="flex-grow py-3.5 lg:py-5 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 lg:gap-3 shadow-xl shadow-nie8-primary/20 text-sm lg:text-base"
                   >
-                    <ShoppingBag size={20} />
+                    <ShoppingBag size={18} className="lg:w-5 lg:h-5" />
                     Thêm vào giỏ hàng
                   </button>
-                  <button className="w-16 h-16 border border-nie8-primary/20 rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all">
-                    <Heart size={24} />
+                  <button className="w-12 h-12 lg:w-16 lg:h-16 border border-nie8-primary/20 rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all flex-shrink-0">
+                    <Heart size={20} className="lg:w-6 lg:h-6" />
                   </button>
                 </div>
               </div>
