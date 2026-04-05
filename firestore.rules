@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: products
+    // Document ID: product_id
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, 1-100 chars)
+    //   - price: string (required, 1-20 chars)
+    //   - images: list of strings (max 10)
+    //   - description: string (required, 1-1000 chars)
+    //   - category: string (required, 1-50 chars)
+    //
+    // Collection: feedbacks
+    // Document ID: feedback_id
+    // Fields:
+    //   - id: string (required)
+    //   - user: string (required, 1-50 chars)
+    //   - text: string (required, 1-500 chars)
+    //   - avatar: string (optional, URL)
+    //   - authorUid: string (required, immutable)
+    //
+    // Collection: users
+    // Document ID: user_uid
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - email: string (required, immutable)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - role: string (required, ['admin', 'client'])
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "mnhiiudau8897@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidProduct(data) {
+      return hasRequiredFields(['name', 'price', 'category', 'description']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.price is string && data.price.size() > 0 && data.price.size() <= 20 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 50 &&
+             data.description is string && data.description.size() > 0 && data.description.size() <= 1000 &&
+             (!('images' in data) || (data.images is list && data.images.size() <= 10));
+    }
+
+    function isValidFeedback(data) {
+      return hasRequiredFields(['user', 'text', 'authorUid']) &&
+             data.user is string && data.user.size() > 0 && data.user.size() <= 50 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 500 &&
+             data.authorUid is string && data.authorUid == request.auth.uid &&
+             (!('avatar' in data) || isValidUrl(data.avatar));
+    }
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'client'] &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('photoURL' in data) || isValidUrl(data.photoURL));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Products: Publicly readable, admin only write
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Feedbacks: Publicly readable, authenticated users can create, owners/admin can delete
+    match /feedbacks/{feedbackId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+      allow update: if (isAdmin() || isOwner(resource.data.authorUid)) && isValidFeedback(request.resource.data);
+      allow delete: if isAdmin() || isOwner(resource.data.authorUid);
+    }
+
+    // Users: Private data, owner or admin can read. Role update only by admin.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == 'client' || isAdmin());
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Site Settings: Publicly readable, admin only write
+    match /site_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

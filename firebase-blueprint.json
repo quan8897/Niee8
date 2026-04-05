@@ -2,57 +2,56 @@
   "entities": {
     "Product": {
       "title": "Product",
-      "description": "Thông tin chi tiết về sản phẩm thời trang niee8",
+      "description": "Fashion product details for niee8",
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Tên sản phẩm"
-        },
-        "price": {
-          "type": "number",
-          "description": "Giá sản phẩm"
-        },
-        "material": {
-          "type": "string",
-          "description": "Chất liệu (Linen, Silk, Eyelet Lace...)"
-        },
-        "style_tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Các tag phong cách (Romantic, Minimalist, Craftsmanship...)"
-        },
-        "craft_details": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Các chi tiết thủ công (Pin-tucks, Ruffles, Peter Pan collar...)"
-        },
-        "event_tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Các sự kiện phù hợp (Work, Cafe, Date...)"
-        },
-        "skin_tone_recommendation": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Gợi ý tông da phù hợp (Cool, Warm, Neutral...)"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "category": { "type": "string" }
       },
-      "required": ["name", "price", "material"]
+      "required": ["name", "price", "category"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User feedback and testimonials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user": { "type": "string" },
+        "text": { "type": "string" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["user", "text"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "client"] }
+      },
+      "required": ["uid", "email", "role"]
     }
   },
   "firestore": {
     "/products": {
       "schema": "Product",
-      "description": "Danh mục sản phẩm của niee8"
+      "description": "Collection of fashion products"
+    },
+    "/feedbacks": {
+      "schema": "Feedback",
+      "description": "Collection of user feedbacks"
+    },
+    "/users": {
+      "schema": "User",
+      "description": "Collection of user profiles"
     }
   }
 }

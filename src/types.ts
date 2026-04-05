@@ -17,3 +17,10 @@ export interface Feedback {
   text: string;
   avatar: string;
 }
+
+export interface SiteSettings {
+  heroImage: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  heroDescription: string;
+}

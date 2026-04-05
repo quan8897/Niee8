@@ -11,8 +11,14 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Cart from './components/Cart';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
-import { useState, useEffect } from 'react';
-import { Product, CartItem } from './types';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { Product, CartItem, SiteSettings } from './types';
+import { 
+  auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query, 
+  signInWithGoogle, logout, OperationType, handleFirestoreError 
+} from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
 
 const INITIAL_PRODUCTS: Product[] = [
   {
@@ -91,20 +97,14 @@ export default function App() {
     restDelta: 0.001
   });
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem('niee8_products');
-      if (!saved) return INITIAL_PRODUCTS;
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : INITIAL_PRODUCTS;
-    } catch (error) {
-      console.error('Error loading products from localStorage:', error);
-      return INITIAL_PRODUCTS;
-    }
-  });
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'client' | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('niee8_cart');
@@ -115,13 +115,100 @@ export default function App() {
     }
   });
 
+  // Auth Listener
   useEffect(() => {
+    let userDocUnsubscribe: (() => void) | null = null;
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
+      // Clean up previous user doc listener if any
+      if (userDocUnsubscribe) {
+        userDocUnsubscribe();
+        userDocUnsubscribe = null;
+      }
+
+      if (currentUser) {
+        // Check role in Firestore
+        userDocUnsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            setUserRole(docSnap.data().role);
+          } else {
+            // Create default user doc if not exists
+            const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
+            const role = isDefaultAdmin ? 'admin' : 'client';
+            setDoc(doc(db, 'users', currentUser.uid), {
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName,
+              photoURL: currentUser.photoURL,
+              role: role
+            }).catch(err => {
+              // Only log if it's not a permission error during initial creation
+              if (!err.message.includes('insufficient permissions')) {
+                handleFirestoreError(err, OperationType.WRITE, 'users');
+              }
+            });
+            setUserRole(role);
+          }
+        }, (error) => {
+          // If we can't read the user doc, we can't determine the role
+          console.error("Error listening to user doc:", error);
+          // Don't call handleFirestoreError here to avoid potential loops if it re-renders
+        });
+      } else {
+        setUserRole(null);
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => {
+      unsubscribe();
+      if (userDocUnsubscribe) userDocUnsubscribe();
+    };
+  }, []);
+
+  // Site Settings Listener
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'site_settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        setSiteSettings(docSnap.data() as SiteSettings);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'site_settings/global');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleUpdateSettings = async (newSettings: SiteSettings) => {
     try {
-      localStorage.setItem('niee8_products', JSON.stringify(products));
+      await setDoc(doc(db, 'site_settings', 'global'), newSettings);
     } catch (error) {
-      console.error('Error saving products to localStorage:', error);
+      handleFirestoreError(error, OperationType.WRITE, 'site_settings/global');
     }
-  }, [products]);
+  };
+
+  // Products Listener
+  useEffect(() => {
+    const q = query(collection(db, 'products'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as Product[];
+      
+      if (productsData.length === 0 && products.length === 0) {
+        // If DB is empty, we could seed it, but let's just show empty for now
+        // or keep INITIAL_PRODUCTS as fallback if needed.
+        setProducts(INITIAL_PRODUCTS);
+      } else {
+        setProducts(productsData);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     try {
@@ -131,16 +218,29 @@ export default function App() {
     }
   }, [cartItems]);
 
-  const handleAddProduct = (newProduct: Product) => {
-    setProducts([...products, newProduct]);
+  const handleAddProduct = async (newProduct: Product) => {
+    try {
+      const productRef = doc(collection(db, 'products'));
+      await setDoc(productRef, { ...newProduct, id: productRef.id });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'products');
+    }
   };
 
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    try {
+      await setDoc(doc(db, 'products', updatedProduct.id), updatedProduct);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
+    }
   };
 
-  const handleDeleteProduct = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'products', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+    }
   };
 
   const addToCart = (product: Product) => {
@@ -178,64 +278,76 @@ export default function App() {
         transition={{ duration: 1.2, ease: "easeInOut" }}
         className="min-h-screen flex flex-col bg-nie8-bg"
       >
-        <motion.div
-          className="fixed top-0 left-0 right-0 h-[2px] bg-nie8-primary origin-left z-[60]"
-          style={{ scaleX }}
-        />
-        
-        <Header onCartClick={() => setIsCartOpen(true)} cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)} />
-        
-        <main className="flex-grow">
-          <Hero />
+          <motion.div
+            className="fixed top-0 left-0 right-0 h-[2px] bg-nie8-primary origin-left z-[60]"
+            style={{ scaleX }}
+          />
           
-          <section className="py-32 bg-nie8-bg">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-20">
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8 }}
-                  viewport={{ once: true }}
-                  className="text-center"
-                >
-                  <div className="w-20 h-20 bg-nie8-primary/10 rounded-full flex items-center justify-center mx-auto mb-10">
-                    <span className="text-2xl font-serif italic text-nie8-primary">01</span>
-                  </div>
-                  <h3 className="text-2xl font-serif italic text-nie8-text mb-6">Nguồn cung Đạo đức</h3>
-                  <p className="text-nie8-text/60 leading-relaxed text-sm">Chúng tôi hợp tác với các nghệ nhân chia sẻ cam kết về tính bền vững và thực hành lao động công bằng.</p>
-                </motion.div>
+          <Header 
+            onCartClick={() => setIsCartOpen(true)} 
+            cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+            isAdmin={userRole === 'admin'}
+            onAdminClick={() => setIsAdminOpen(true)}
+          />
+          
+          <main className="flex-grow">
+            <Hero settings={siteSettings} />
+            
+            <section className="py-12 bg-white border-b border-nie8-primary/5">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  {user ? (
+                    <div className="flex items-center gap-3">
+                      <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border border-nie8-primary/20" referrerPolicy="no-referrer" />
+                      <div>
+                        <p className="text-xs font-bold text-nie8-text">{user.displayName}</p>
+                        <p className="text-[10px] text-nie8-text/40 uppercase tracking-widest flex items-center gap-1">
+                          {userRole === 'admin' && <ShieldCheck size={10} className="text-nie8-primary" />}
+                          {userRole || 'Client'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 text-nie8-text/40">
+                      <div className="w-10 h-10 rounded-full bg-nie8-primary/5 flex items-center justify-center">
+                        <UserIcon size={20} />
+                      </div>
+                      <p className="text-xs italic font-serif">Chào mừng bạn đến với niee8</p>
+                    </div>
+                  )}
+                </div>
 
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                  viewport={{ once: true }}
-                  className="text-center"
-                >
-                  <div className="w-20 h-20 bg-nie8-primary/10 rounded-full flex items-center justify-center mx-auto mb-10">
-                    <span className="text-2xl font-serif italic text-nie8-primary">02</span>
-                  </div>
-                  <h3 className="text-2xl font-serif italic text-nie8-text mb-6">Thiết kế Vượt thời gian</h3>
-                  <p className="text-nie8-text/60 leading-relaxed text-sm">Các thiết kế của niee8 vượt qua mọi mùa mốt, trở thành những món đồ quý giá trong tủ đồ của bạn.</p>
-                </motion.div>
-
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.4 }}
-                  viewport={{ once: true }}
-                  className="text-center"
-                >
-                  <div className="w-20 h-20 bg-nie8-primary/10 rounded-full flex items-center justify-center mx-auto mb-10">
-                    <span className="text-2xl font-serif italic text-nie8-primary">03</span>
-                  </div>
-                  <h3 className="text-2xl font-serif italic text-nie8-text mb-6">Chất lượng Thủ công</h3>
-                  <p className="text-nie8-text/60 leading-relaxed text-sm">Mỗi đường kim mũi chỉ là minh chứng cho sự tận tâm với nghề thủ công và sự tỉ mỉ đến từng chi tiết.</p>
-                </motion.div>
+                <div className="flex items-center gap-4">
+                  {user ? (
+                    <>
+                      {userRole === 'admin' && (
+                        <button 
+                          onClick={() => setIsAdminOpen(true)}
+                          className="px-6 py-2 bg-nie8-primary/10 text-nie8-primary rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary hover:text-white transition-all"
+                        >
+                          Quản trị viên
+                        </button>
+                      )}
+                      <button 
+                        onClick={logout}
+                        className="flex items-center gap-2 text-xs font-bold text-nie8-text/40 hover:text-red-500 transition-colors"
+                      >
+                        <LogOut size={14} />
+                        Đăng xuất
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      onClick={signInWithGoogle}
+                      className="px-8 py-3 bg-nie8-text text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary transition-all shadow-lg shadow-nie8-text/10"
+                    >
+                      Đăng nhập với Google
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </section>
-
+            </section>
+          
           <ProductGrid products={products} onAddToCart={addToCart} />
           
           <section className="py-32 bg-nie8-text relative overflow-hidden">
@@ -270,16 +382,18 @@ export default function App() {
           </section>
         </main>
         
-        <Footer onAdminClick={() => setIsAdminOpen(true)} />
+        <Footer />
         <AIStylist />
 
         <AnimatePresence>
           {isAdminOpen && (
             <AdminDashboard 
               products={products}
+              siteSettings={siteSettings}
               onAddProduct={handleAddProduct}
               onUpdateProduct={handleUpdateProduct}
               onDeleteProduct={handleDeleteProduct}
+              onUpdateSettings={handleUpdateSettings}
               onClose={() => setIsAdminOpen(false)}
             />
           )}

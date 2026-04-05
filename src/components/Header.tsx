@@ -5,9 +5,11 @@ import { useState, useEffect } from 'react';
 interface HeaderProps {
   onCartClick: () => void;
   cartCount: number;
+  isAdmin?: boolean;
+  onAdminClick?: () => void;
 }
 
-export default function Header({ onCartClick, cartCount }: HeaderProps) {
+export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY } = useScroll();
   
@@ -29,6 +31,14 @@ export default function Header({ onCartClick, cartCount }: HeaderProps) {
             <a href="#" className="hover:text-nie8-primary transition-colors">Cửa hàng</a>
             <a href="#" className="hover:text-nie8-primary transition-colors">Bộ sưu tập</a>
             <a href="#" className="hover:text-nie8-primary transition-colors">Về niee8</a>
+            {isAdmin && (
+              <button 
+                onClick={onAdminClick}
+                className="text-nie8-primary font-bold hover:text-nie8-secondary transition-colors"
+              >
+                Quản trị
+              </button>
+            )}
           </div>
 
           <motion.div 

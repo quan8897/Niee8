@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Star, Quote } from 'lucide-react';
 import { Feedback as FeedbackType } from '../types';
+import { db, collection, onSnapshot, query, handleFirestoreError, OperationType } from '../firebase';
 
-const feedbacks: FeedbackType[] = [
+const INITIAL_FEEDBACKS: FeedbackType[] = [
   {
     id: '1',
     user: 'Linh Nguyễn',
@@ -24,6 +26,27 @@ const feedbacks: FeedbackType[] = [
 ];
 
 export default function Feedback() {
+  const [feedbacks, setFeedbacks] = useState<FeedbackType[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'feedbacks'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as FeedbackType[];
+      
+      if (data.length === 0) {
+        setFeedbacks(INITIAL_FEEDBACKS);
+      } else {
+        setFeedbacks(data);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'feedbacks');
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
     <section className="py-24 bg-nie8-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

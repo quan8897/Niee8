@@ -1,23 +1,28 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon } from 'lucide-react';
-import { Product } from '../types';
+import { X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, Settings, Package } from 'lucide-react';
+import { Product, SiteSettings } from '../types';
 
 interface AdminDashboardProps {
   products: Product[];
+  siteSettings: SiteSettings | null;
   onAddProduct: (product: Product) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
+  onUpdateSettings: (settings: SiteSettings) => void;
   onClose: () => void;
 }
 
 export default function AdminDashboard({ 
   products, 
+  siteSettings,
   onAddProduct, 
   onUpdateProduct, 
   onDeleteProduct, 
+  onUpdateSettings,
   onClose 
 }: AdminDashboardProps) {
+  const [activeTab, setActiveTab] = useState<'products' | 'settings'>('products');
   const [isAdding, setIsAdding] = useState(false);
   const [isBulkAdding, setIsBulkAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -31,6 +36,13 @@ export default function AdminDashboard({
     category: 'Áo'
   });
 
+  const [settingsForm, setSettingsForm] = useState<SiteSettings>(siteSettings || {
+    heroImage: '',
+    heroTitle: '',
+    heroSubtitle: '',
+    heroDescription: ''
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
@@ -41,6 +53,22 @@ export default function AdminDashboard({
       setIsAdding(false);
     }
     setFormData({ name: '', price: '', images: [], description: '', category: 'Áo' });
+  };
+
+  const handleSettingsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateSettings(settingsForm);
+  };
+
+  const handleHeroImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSettingsForm(prev => ({ ...prev, heroImage: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleBulkSubmit = (e: React.FormEvent) => {
@@ -123,20 +151,129 @@ export default function AdminDashboard({
       >
         <div className="p-8 border-b border-nie8-primary/10 flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-serif italic text-nie8-text">Quản trị <span className="text-nie8-primary">Sản phẩm.</span></h2>
-            <p className="text-sm text-nie8-text/60 mt-1">Thêm, sửa hoặc xóa sản phẩm trên website của bạn.</p>
+            <h2 className="text-3xl font-serif italic text-nie8-text">Quản trị <span className="text-nie8-primary">Website.</span></h2>
+            <p className="text-sm text-nie8-text/60 mt-1">Quản lý sản phẩm và nội dung hiển thị trên website.</p>
           </div>
-          <button 
-            onClick={onClose}
-            className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all shadow-lg"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="bg-nie8-bg p-1 rounded-2xl flex gap-1">
+              <button 
+                onClick={() => setActiveTab('products')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-white text-nie8-primary shadow-sm' : 'text-nie8-text/40 hover:text-nie8-text'}`}
+              >
+                <Package size={14} />
+                Sản phẩm
+              </button>
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white text-nie8-primary shadow-sm' : 'text-nie8-text/40 hover:text-nie8-text'}`}
+              >
+                <Settings size={14} />
+                Cài đặt
+              </button>
+            </div>
+            <button 
+              onClick={onClose}
+              className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all shadow-lg"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-grow overflow-y-auto p-8 scroll-hide">
           <AnimatePresence mode="wait">
-            {isBulkAdding ? (
+            {activeTab === 'settings' ? (
+              <motion.form 
+                key="settings-form"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                onSubmit={handleSettingsSubmit}
+                className="space-y-8"
+              >
+                <div className="bg-white p-8 rounded-3xl border border-nie8-primary/10 shadow-sm space-y-8">
+                  <div>
+                    <h3 className="text-xl font-serif italic text-nie8-text mb-6">Ảnh nền đầu trang (Hero Image)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="aspect-video rounded-3xl overflow-hidden bg-nie8-bg border border-nie8-primary/10 relative group">
+                        {settingsForm.heroImage ? (
+                          <img src={settingsForm.heroImage} alt="Hero Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-nie8-text/20">
+                            <ImageIcon size={48} />
+                          </div>
+                        )}
+                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                          <div className="bg-white px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                            <Upload size={14} /> Thay đổi ảnh
+                          </div>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleHeroImageUpload} />
+                        </label>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">URL Ảnh nền</label>
+                          <input 
+                            type="text" 
+                            value={settingsForm.heroImage}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, heroImage: e.target.value })}
+                            className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
+                            placeholder="Nhập URL ảnh hoặc tải lên"
+                          />
+                        </div>
+                        <p className="text-xs text-nie8-text/40 leading-relaxed italic">
+                          * Khuyên dùng ảnh có độ phân giải cao (1920x1080) để hiển thị tốt nhất trên mọi thiết bị.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Tiêu đề chính (Title)</label>
+                      <input 
+                        type="text" 
+                        value={settingsForm.heroTitle}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
+                        className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
+                        placeholder="Ví dụ: niee8."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Tiêu đề phụ (Subtitle)</label>
+                      <input 
+                        type="text" 
+                        value={settingsForm.heroSubtitle}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })}
+                        className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
+                        placeholder="Ví dụ: Minimalist Romantic & Craftsmanship"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Mô tả giới thiệu</label>
+                    <textarea 
+                      rows={4}
+                      value={settingsForm.heroDescription}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, heroDescription: e.target.value })}
+                      className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors resize-none"
+                      placeholder="Viết đoạn giới thiệu ngắn về thương hiệu..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button 
+                    type="submit"
+                    className="px-12 py-4 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center gap-2 shadow-xl shadow-nie8-primary/20"
+                  >
+                    <Save size={20} />
+                    Lưu cài đặt website
+                  </button>
+                </div>
+              </motion.form>
+            ) : isBulkAdding ? (
               <motion.form 
                 key="bulk-form"
                 initial={{ opacity: 0, y: 10 }}

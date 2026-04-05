@@ -1,16 +1,27 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Play } from 'lucide-react';
+import { SiteSettings } from '../types';
 
-export default function Hero() {
+interface HeroProps {
+  settings: SiteSettings | null;
+}
+
+export default function Hero({ settings }: HeroProps) {
+  const heroImage = settings?.heroImage || "https://images.unsplash.com/photo-1551163943-3f6a855d1153?q=80&w=1920&auto=format&fit=crop";
+  const heroTitle = settings?.heroTitle || "niee8.";
+  const heroSubtitle = settings?.heroSubtitle || "Minimalist Romantic & Craftsmanship";
+  const heroDescription = settings?.heroDescription || "Những thiết kế tinh tuyển dành cho người phụ nữ hiện đại, trân trọng chất lượng hơn số lượng. Kiểu dáng vượt thời gian trong bảng màu trung tính.";
+
   return (
     <section className="relative h-screen flex items-center overflow-hidden bg-nie8-bg">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-r from-nie8-bg via-nie8-bg/40 to-transparent z-10"></div>
         <motion.img 
+          key={heroImage}
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
           transition={{ duration: 2, ease: "easeOut" }}
-          src="https://images.unsplash.com/photo-1551163943-3f6a855d1153?q=80&w=1920&auto=format&fit=crop" 
+          src={heroImage} 
           alt="Hero Fashion" 
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
@@ -26,7 +37,7 @@ export default function Hero() {
             className="flex items-center gap-4 mb-8"
           >
             <div className="h-[1px] w-12 bg-nie8-primary"></div>
-            <span className="text-nie8-secondary text-xs font-medium tracking-[0.3em] uppercase">Minimalist Romantic & Craftsmanship</span>
+            <span className="text-nie8-secondary text-xs font-medium tracking-[0.3em] uppercase">{heroSubtitle}</span>
           </motion.div>
           
           <motion.h1 
@@ -35,7 +46,13 @@ export default function Hero() {
             transition={{ duration: 1, delay: 0.2 }}
             className="text-6xl md:text-8xl font-serif italic text-nie8-text leading-[0.9] mb-10 lowercase"
           >
-            niee<span className="text-nie8-primary">8.</span>
+            {heroTitle.endsWith('.') ? (
+              <>
+                {heroTitle.slice(0, -1)}<span className="text-nie8-primary">.</span>
+              </>
+            ) : (
+              heroTitle
+            )}
           </motion.h1>
 
           <motion.p 
@@ -44,23 +61,22 @@ export default function Hero() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-lg text-nie8-text/60 mb-12 leading-relaxed max-w-md"
           >
-            Những thiết kế tinh tuyển dành cho người phụ nữ hiện đại, trân trọng chất lượng hơn số lượng. 
-            Kiểu dáng vượt thời gian trong bảng màu trung tính.
+            {heroDescription}
           </motion.p>
 
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex items-center gap-8"
+            className="flex flex-wrap items-center gap-8"
           >
-            <button className="px-10 py-4 bg-nie8-primary text-nie8-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center gap-3 group shadow-2xl shadow-nie8-primary/20">
+            <button className="px-12 py-5 bg-nie8-primary text-nie8-white text-lg rounded-full font-bold hover:bg-nie8-text hover:scale-105 hover:shadow-2xl hover:shadow-nie8-text/30 transition-all duration-300 flex items-center gap-3 group">
               Mua ngay
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              <ArrowRight size={22} className="group-hover:translate-x-2 transition-transform duration-300" />
             </button>
-            <button className="flex items-center gap-3 text-nie8-text font-medium group">
-              <div className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-text group-hover:text-nie8-white transition-all">
-                <Play size={16} fill="currentColor" />
+            <button className="flex items-center gap-4 text-nie8-text text-lg font-bold group hover:text-nie8-primary transition-colors duration-300">
+              <div className="w-16 h-16 rounded-full border-2 border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:border-nie8-primary group-hover:text-nie8-white group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
+                <Play size={20} fill="currentColor" className="ml-1" />
               </div>
               Xem phim ngắn
             </button>
@@ -87,6 +103,21 @@ export default function Hero() {
             <p className="text-xs font-semibold text-nie8-secondary mt-2">$240.00</p>
           </div>
         </div>
+      </motion.div>
+
+      {/* Small secondary image in the bottom right corner */}
+      <motion.div
+        initial={{ opacity: 0, y: 50, rotate: 5 }}
+        animate={{ opacity: 1, y: 0, rotate: -2 }}
+        transition={{ duration: 1, delay: 0.8 }}
+        className="absolute bottom-12 right-12 z-30 hidden md:block w-48 h-64 rounded-lg overflow-hidden border-[6px] border-white shadow-2xl hover:rotate-0 hover:scale-105 transition-all duration-500"
+      >
+        <img 
+          src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=600&auto=format&fit=crop" 
+          alt="Secondary Fashion" 
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+        />
       </motion.div>
     </section>
   );
