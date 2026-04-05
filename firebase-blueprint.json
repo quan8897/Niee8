@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Thông tin chi tiết về sản phẩm thời trang niee8",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tên sản phẩm"
+        },
+        "price": {
+          "type": "number",
+          "description": "Giá sản phẩm"
+        },
+        "material": {
+          "type": "string",
+          "description": "Chất liệu (Linen, Silk, Eyelet Lace...)"
+        },
+        "style_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Các tag phong cách (Romantic, Minimalist, Craftsmanship...)"
+        },
+        "craft_details": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Các chi tiết thủ công (Pin-tucks, Ruffles, Peter Pan collar...)"
+        },
+        "event_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Các sự kiện phù hợp (Work, Cafe, Date...)"
+        },
+        "skin_tone_recommendation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Gợi ý tông da phù hợp (Cool, Warm, Neutral...)"
+        }
+      },
+      "required": ["name", "price", "material"]
+    }
+  },
+  "firestore": {
+    "/products": {
+      "schema": "Product",
+      "description": "Danh mục sản phẩm của niee8"
+    }
+  }
+}

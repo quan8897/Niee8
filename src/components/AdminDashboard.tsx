@@ -1,0 +1,378 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon } from 'lucide-react';
+import { Product } from '../types';
+
+interface AdminDashboardProps {
+  products: Product[];
+  onAddProduct: (product: Product) => void;
+  onUpdateProduct: (product: Product) => void;
+  onDeleteProduct: (id: string) => void;
+  onClose: () => void;
+}
+
+export default function AdminDashboard({ 
+  products, 
+  onAddProduct, 
+  onUpdateProduct, 
+  onDeleteProduct, 
+  onClose 
+}: AdminDashboardProps) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [bulkData, setBulkData] = useState('');
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<Product>>({
+    name: '',
+    price: '',
+    images: [],
+    description: '',
+    category: 'Áo'
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId) {
+      onUpdateProduct({ ...formData, id: editingId } as Product);
+      setEditingId(null);
+    } else {
+      onAddProduct({ ...formData, id: Date.now().toString() } as Product);
+      setIsAdding(false);
+    }
+    setFormData({ name: '', price: '', images: [], description: '', category: 'Áo' });
+  };
+
+  const handleBulkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setBulkError(null);
+    try {
+      const parsed = JSON.parse(bulkData);
+      if (!Array.isArray(parsed)) throw new Error('Dữ liệu phải là một mảng các sản phẩm.');
+      
+      parsed.forEach((item: any, index: number) => {
+        if (!item.name || !item.price) {
+          throw new Error(`Sản phẩm thứ ${index + 1} thiếu tên hoặc giá.`);
+        }
+        onAddProduct({
+          ...item,
+          id: (Date.now() + index).toString(),
+          images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
+          category: item.category || 'Áo',
+          description: item.description || ''
+        } as Product);
+      });
+      
+      setIsBulkAdding(false);
+      setBulkData('');
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Định dạng JSON không hợp lệ.');
+    }
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingId(product.id);
+    setFormData(product);
+    setIsAdding(true);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData(prev => ({ 
+            ...prev, 
+            images: [...(prev.images || []), reader.result as string] 
+          }));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: (prev.images || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const addImageUrl = (url: string) => {
+    if (url.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        images: [...(prev.images || []), url.trim()]
+      }));
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        className="bg-nie8-bg w-full max-w-4xl rounded-[40px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+      >
+        <div className="p-8 border-b border-nie8-primary/10 flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-serif italic text-nie8-text">Quản trị <span className="text-nie8-primary">Sản phẩm.</span></h2>
+            <p className="text-sm text-nie8-text/60 mt-1">Thêm, sửa hoặc xóa sản phẩm trên website của bạn.</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all shadow-lg"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="flex-grow overflow-y-auto p-8 scroll-hide">
+          <AnimatePresence mode="wait">
+            {isBulkAdding ? (
+              <motion.form 
+                key="bulk-form"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                onSubmit={handleBulkSubmit}
+                className="space-y-6 bg-white p-8 rounded-3xl border border-nie8-primary/10 shadow-sm"
+              >
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Dữ liệu JSON (Mảng sản phẩm)</label>
+                  <textarea 
+                    required
+                    rows={10}
+                    value={bulkData}
+                    onChange={(e) => setBulkData(e.target.value)}
+                    className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 font-mono text-sm focus:outline-none focus:border-nie8-primary transition-colors resize-none"
+                    placeholder={`[
+  {
+    "name": "Sản phẩm 1",
+    "price": "$45.00",
+    "images": ["url1", "url2"],
+    "category": "Áo",
+    "description": "Mô tả..."
+  }
+]`}
+                  />
+                  {bulkError && <p className="text-red-500 text-xs mt-2">{bulkError}</p>}
+                </div>
+                <div className="flex gap-4">
+                  <button 
+                    type="submit"
+                    className="flex-grow py-4 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 shadow-xl shadow-nie8-primary/20"
+                  >
+                    <Plus size={20} />
+                    Thêm tất cả sản phẩm
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsBulkAdding(false);
+                      setBulkData('');
+                      setBulkError(null);
+                    }}
+                    className="px-10 py-4 border border-nie8-primary/20 text-nie8-text rounded-full font-medium hover:bg-white transition-all"
+                  >
+                    Hủy bỏ
+                  </button>
+                </div>
+              </motion.form>
+            ) : isAdding ? (
+              <motion.form 
+                key="form"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                onSubmit={handleSubmit}
+                className="space-y-6 bg-white p-8 rounded-3xl border border-nie8-primary/10 shadow-sm"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Tên sản phẩm</label>
+                    <input 
+                      required
+                      type="text" 
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
+                      placeholder="Ví dụ: Áo Sơ Mi Linen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Giá (VND/USD)</label>
+                    <input 
+                      required
+                      type="text" 
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
+                      placeholder="Ví dụ: $45.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Danh mục</label>
+                    <select 
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors appearance-none"
+                    >
+                      <option value="Áo">Áo</option>
+                      <option value="Quần">Quần</option>
+                      <option value="Váy">Váy</option>
+                      <option value="Áo khoác">Áo khoác</option>
+                      <option value="Phụ kiện">Phụ kiện</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Hình ảnh (Thêm nhiều ảnh)</label>
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <input 
+                          type="text" 
+                          className="flex-grow bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
+                          placeholder="Nhập URL hình ảnh và nhấn Enter"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addImageUrl((e.target as HTMLInputElement).value);
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }}
+                        />
+                        <label className="cursor-pointer w-14 h-14 bg-nie8-primary text-white rounded-2xl flex items-center justify-center hover:bg-nie8-secondary transition-all flex-shrink-0">
+                          <Upload size={20} />
+                          <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                        </label>
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-4">
+                        {formData.images?.map((img, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group border border-nie8-primary/10">
+                            <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <button 
+                              type="button"
+                              onClick={() => removeImage(idx)}
+                              className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Mô tả sản phẩm</label>
+                  <textarea 
+                    required
+                    rows={4}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors resize-none"
+                    placeholder="Viết mô tả ngắn gọn và cảm xúc về sản phẩm..."
+                  />
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button 
+                    type="submit"
+                    className="flex-grow py-4 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 shadow-xl shadow-nie8-primary/20"
+                  >
+                    <Save size={20} />
+                    {editingId ? 'Cập nhật sản phẩm' : 'Đăng sản phẩm'}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsAdding(false);
+                      setEditingId(null);
+                      setFormData({ name: '', price: '', images: [], description: '', category: 'Áo' });
+                    }}
+                    className="px-10 py-4 border border-nie8-primary/20 text-nie8-text rounded-full font-medium hover:bg-white transition-all"
+                  >
+                    Hủy bỏ
+                  </button>
+                </div>
+              </motion.form>
+            ) : (
+              <motion.div 
+                key="list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-4"
+              >
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setIsAdding(true)}
+                    className="flex-grow py-6 border-2 border-dashed border-nie8-primary/20 rounded-[30px] flex flex-col items-center justify-center gap-3 text-nie8-text/40 hover:border-nie8-primary/40 hover:text-nie8-primary transition-all group"
+                  >
+                    <div className="w-12 h-12 bg-nie8-primary/5 rounded-full flex items-center justify-center group-hover:bg-nie8-primary/10 transition-all">
+                      <Plus size={24} />
+                    </div>
+                    <span className="font-medium">Thêm sản phẩm</span>
+                  </button>
+                  <button 
+                    onClick={() => setIsBulkAdding(true)}
+                    className="flex-grow py-6 border-2 border-dashed border-nie8-primary/20 rounded-[30px] flex flex-col items-center justify-center gap-3 text-nie8-text/40 hover:border-nie8-primary/40 hover:text-nie8-primary transition-all group"
+                  >
+                    <div className="w-12 h-12 bg-nie8-primary/5 rounded-full flex items-center justify-center group-hover:bg-nie8-primary/10 transition-all">
+                      <Upload size={24} />
+                    </div>
+                    <span className="font-medium">Đăng nhiều sản phẩm</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {products.map((product) => (
+                    <div 
+                      key={product.id}
+                      className="bg-white p-4 rounded-[30px] border border-nie8-primary/5 flex items-center gap-6 group hover:shadow-lg transition-all"
+                    >
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-nie8-bg flex-shrink-0">
+                        {product.images && product.images.length > 0 ? (
+                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-nie8-text/20">
+                            <ImageIcon size={32} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-grow">
+                        <p className="text-[10px] text-nie8-secondary font-bold uppercase tracking-widest mb-1">{product.category}</p>
+                        <h4 className="text-xl font-serif italic text-nie8-text">{product.name}</h4>
+                        <p className="text-sm font-medium text-nie8-primary">{product.price}</p>
+                      </div>
+                      <div className="flex gap-2 pr-4">
+                        <button 
+                          onClick={() => handleEdit(product)}
+                          className="w-10 h-10 bg-nie8-primary/5 text-nie8-primary rounded-full flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => onDeleteProduct(product.id)}
+                          className="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
