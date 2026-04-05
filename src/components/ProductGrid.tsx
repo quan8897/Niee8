@@ -1,462 +1,504 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, Heart, ArrowRight, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus } from 'lucide-react';
 import { Product } from '../types';
 
 const PRODUCTS_PER_PAGE = 6;
 
 interface ProductGridProps {
   products: Product[];
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, size: string, quantity: number) => void;
+  isLoading?: boolean;
 }
 
-export default function ProductGrid({ products, onAddToCart }: ProductGridProps) {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [story, setStory] = useState<string | null>(null);
-  const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [modalImageIndex, setModalImageIndex] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedSize, setSelectedSize] = useState<string>('S');
-  const [quantity, setQuantity] = useState<number>(1);
+// Skeleton card cho loading state
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse">
+      <div className="aspect-[3/4] rounded-2xl bg-nie8-primary/10 mb-3" />
+      <div className="h-3 bg-nie8-primary/10 rounded w-1/3 mb-2" />
+      <div className="h-4 bg-nie8-primary/10 rounded w-2/3 mb-1" />
+      <div className="h-4 bg-nie8-primary/10 rounded w-1/4" />
+    </div>
+  );
+}
 
-  // Tính toán số trang và danh sách sản phẩm hiển thị trên trang hiện tại
+// Component ảnh với lazy loading
+function LazyImage({ src, alt, className }: { src: string; alt: string; className: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div className="relative w-full h-full">
+      {!loaded && !error && (
+        <div className="absolute inset-0 bg-nie8-primary/10 animate-pulse" />
+      )}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        className={`${className} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        referrerPolicy="no-referrer"
+      />
+    </div>
+  );
+}
+
+export default function ProductGrid({ products, onAddToCart, isLoading = false }: ProductGridProps) {
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<string>('M');
+  const [quantity, setQuantity] = useState(1);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+  const [addedToCart, setAddedToCart] = useState(false);
+  const touchStartX = useRef<number>(0);
+  const sectionRef = useRef<HTMLElement>(null);
+
   const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
   const currentProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
     return products.slice(startIndex, startIndex + PRODUCTS_PER_PAGE);
   }, [products, currentPage]);
 
-  // Reset về trang 1 nếu danh sách sản phẩm thay đổi
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [products.length]);
+  useEffect(() => { setCurrentPage(1); }, [products.length]);
 
+  // Khoá scroll body khi modal mở (quan trọng cho mobile)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (hoveredProductId) {
-      const product = products.find(p => p.id === hoveredProductId);
-      if (product && product.images.length > 1) {
-        interval = setInterval(() => {
-          setCurrentImageIndex(prev => (prev + 1) % product.images.length);
-        }, 1500);
-      }
+    if (selectedProduct) {
+      document.body.style.overflow = 'hidden';
     } else {
-      setCurrentImageIndex(0);
+      document.body.style.overflow = '';
     }
-    return () => clearInterval(interval);
-  }, [hoveredProductId, products]);
-
-  const generateStory = (product: Product) => {
-    const stories: Record<string, string> = {
-      'Áo': `Một buổi chiều nắng nhạt tại tiệm sách cũ, chiếc ${product.name} nhẹ nhàng tung bay theo gió, mang theo vẻ đẹp thanh lịch và tinh tế của người phụ nữ hiện đại.`,
-      'Quần': `Dạo bước trên con phố quen thuộc, ${product.name} mang đến sự thoải mái tuyệt đối nhưng vẫn giữ trọn nét thanh lịch, tự tin trong từng nhịp bước.`,
-      'Váy': `Dưới ánh đèn lung linh của buổi tiệc tối, chiếc ${product.name} tôn lên vẻ đẹp đài các, thu hút mọi ánh nhìn bởi sự tinh tế trong từng đường kim mũi chỉ.`,
-      'Phụ kiện': `Điểm xuyết nhẹ nhàng nhưng đầy tinh tế, ${product.name} là mảnh ghép hoàn hảo, tôn vinh phong cách cá nhân độc đáo của riêng bạn.`,
-      'Áo khoác': `Khoác lên mình chiếc ${product.name} trong một sớm mai se lạnh, cảm nhận sự ấm áp và phong cách vượt thời gian hòa quyện trong từng lớp vải.`
-    };
-    
-    const defaultStory = `Thiết kế ${product.name} mang trong mình câu chuyện về sự tỉ mỉ và tình yêu với cái đẹp, đồng hành cùng bạn trong những khoảnh khắc đáng nhớ nhất.`;
-    
-    setStory(stories[product.category] || defaultStory);
-  };
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedProduct]);
 
   const openProduct = (product: Product) => {
     setSelectedProduct(product);
-    setModalImageIndex(0);
-    setSelectedSize('S');
+    setActiveImageIndex(0);
+    setSelectedSize('M');
     setQuantity(1);
-    generateStory(product);
+    setAddedToCart(false);
+  };
+
+  const closeModal = () => setSelectedProduct(null);
+
+  const toggleWishlist = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWishlist(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedProduct) return;
+    onAddToCart(selectedProduct, selectedSize, quantity);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2000);
+  };
+
+  // Swipe gesture cho ảnh trong modal
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!selectedProduct) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        setActiveImageIndex(prev => (prev + 1) % selectedProduct.images.length);
+      } else {
+        setActiveImageIndex(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length);
+      }
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll lên đầu section khi đổi trang — quan trọng trên mobile
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
-    <section className="py-24 bg-nie8-bg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
-          <div className="max-w-xl">
-            <motion.span 
-              initial={{ opacity: 0, y: 20 }}
+    <section ref={sectionRef} className="py-12 sm:py-24 bg-nie8-bg scroll-mt-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+
+        {/* Header section */}
+        <div className="flex justify-between items-end mb-8 sm:mb-16">
+          <div>
+            <motion.span
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="inline-block text-nie8-secondary text-xs font-medium tracking-[0.2em] uppercase mb-4"
+              className="inline-block text-nie8-secondary text-[10px] sm:text-xs font-medium tracking-[0.2em] uppercase mb-2 sm:mb-4"
             >
               Lựa chọn Tinh tuyển
             </motion.span>
-            <motion.h2 
-              initial={{ opacity: 0, y: 20 }}
+            <motion.h2
+              initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
+              transition={{ delay: 0.1 }}
               viewport={{ once: true }}
-              className="text-5xl font-serif italic text-nie8-text leading-tight"
+              className="text-3xl sm:text-5xl font-serif italic text-nie8-text leading-tight"
             >
-              Tủ đồ <br />
-              <span className="text-nie8-primary">Hiện đại.</span>
+              Tủ đồ <span className="text-nie8-primary">Hiện đại.</span>
             </motion.h2>
           </div>
-          <div className="flex gap-8 text-xs font-medium tracking-[0.1em] uppercase">
-            <button className="text-nie8-text border-b border-nie8-text pb-2">Tất cả</button>
-            <button className="text-nie8-text/40 hover:text-nie8-text transition-colors pb-2">Mới về</button>
-            <button className="text-nie8-text/40 hover:text-nie8-text transition-colors pb-2">Bán chạy</button>
+          {/* Filter pills — mobile friendly */}
+          <div className="flex gap-2 text-[10px] sm:text-xs font-medium tracking-widest uppercase overflow-x-auto pb-1 scroll-hide">
+            <button className="whitespace-nowrap px-3 py-1.5 bg-nie8-primary text-white rounded-full">Tất cả</button>
+            <button className="whitespace-nowrap px-3 py-1.5 text-nie8-text/40 hover:text-nie8-text transition-colors">Mới về</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-8 sm:gap-x-8 sm:gap-y-16">
-          {currentProducts.map((product, index) => (
-            <motion.div 
-              key={product.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className="group cursor-pointer"
-              onClick={() => openProduct(product)}
-              onMouseEnter={() => setHoveredProductId(product.id)}
-              onMouseLeave={() => setHoveredProductId(null)}
-            >
-              <div className="relative aspect-[3/4] overflow-hidden rounded-[30px] bg-white mb-8">
-                <AnimatePresence mode="wait">
-                  <motion.img 
-                    key={hoveredProductId === product.id ? currentImageIndex : 0}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5 }}
-                    src={hoveredProductId === product.id ? product.images[currentImageIndex] : product.images[0]} 
+        {/* Product Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-x-8 sm:gap-y-16">
+          {isLoading
+            ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+            : currentProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.06 }}
+                viewport={{ once: true }}
+                className="group cursor-pointer"
+                onClick={() => openProduct(product)}
+              >
+                {/* Image container — tỷ lệ 3:4 chuẩn thời trang */}
+                <div className="relative aspect-[3/4] overflow-hidden rounded-2xl sm:rounded-[30px] bg-white mb-3 sm:mb-6">
+                  <LazyImage
+                    src={product.images[0]}
                     alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
-                </AnimatePresence>
-                
-                <div className="absolute top-6 right-6 hidden lg:flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all">
-                    <Heart size={20} />
+
+                  {/* Wishlist button — đủ lớn để tap trên mobile (44px min) */}
+                  <button
+                    onClick={(e) => toggleWishlist(product.id, e)}
+                    className="absolute top-3 right-3 w-9 h-9 sm:w-11 sm:h-11 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-transform active:scale-90"
+                    aria-label="Yêu thích"
+                  >
+                    <Heart
+                      size={16}
+                      className={wishlist.has(product.id) ? 'fill-red-500 text-red-500' : 'text-nie8-text/60'}
+                    />
                   </button>
-                  <button 
+
+                  {/* Quick add button — visible trên mobile khi tap */}
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAddToCart(product);
+                      openProduct(product);
                     }}
-                    className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all"
+                    className="absolute bottom-0 left-0 right-0 py-3 bg-nie8-primary/90 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 hidden sm:flex items-center justify-center gap-2"
                   >
-                    <ShoppingBag size={20} />
-                  </button>
-                </div>
-
-                {product.images.length > 1 && (
-                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 hidden lg:flex gap-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {product.images.map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`w-1.5 h-1.5 rounded-full transition-all ${
-                          (hoveredProductId === product.id ? currentImageIndex : 0) === i 
-                            ? 'bg-white w-4' 
-                            : 'bg-white/40'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                <div className="absolute bottom-0 left-0 right-0 p-8 translate-y-full group-hover:translate-y-0 transition-transform duration-500 bg-gradient-to-t from-black/40 to-transparent hidden lg:block">
-                  <button className="w-full py-4 bg-white/90 backdrop-blur-sm text-nie8-text rounded-2xl font-medium text-sm hover:bg-nie8-primary hover:text-white transition-all">
+                    <ShoppingBag size={14} />
                     Xem chi tiết
                   </button>
-                </div>
-              </div>
 
-              <div className="flex flex-col sm:flex-row justify-between items-start px-2 gap-2">
-                <div>
-                  <p className="text-[10px] text-nie8-secondary font-medium uppercase tracking-[0.2em] mb-1 sm:mb-2">{product.category}</p>
-                  <h3 className="text-base sm:text-xl font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-2">{product.name}</h3>
+                  {/* Image count indicator */}
+                  {product.images.length > 1 && (
+                    <div className="absolute bottom-3 left-3 bg-black/40 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
+                      1/{product.images.length}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm sm:text-lg font-medium text-nie8-text whitespace-nowrap">{product.price}</p>
-              </div>
-            </motion.div>
-          ))}
+
+                {/* Product info */}
+                <div className="px-0.5">
+                  <p className="text-[9px] sm:text-[10px] text-nie8-secondary font-bold uppercase tracking-widest mb-1">{product.category}</p>
+                  <h3 className="text-sm sm:text-lg font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-2 leading-snug mb-1">{product.name}</h3>
+                  <p className="text-sm sm:text-base font-semibold text-nie8-text">{product.price}</p>
+                </div>
+              </motion.div>
+            ))
+          }
         </div>
 
-        {/* Phân trang (Pagination) */}
+        {/* Empty state */}
+        {!isLoading && products.length === 0 && (
+          <div className="text-center py-24 text-nie8-text/30">
+            <ShoppingBag size={48} className="mx-auto mb-4" strokeWidth={1} />
+            <p className="font-serif italic text-xl">Bộ sưu tập đang được cập nhật...</p>
+          </div>
+        )}
+
+        {/* Pagination — mobile friendly */}
         {totalPages > 1 && (
-          <div className="mt-20 flex justify-center items-center gap-4">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          <div className="mt-12 sm:mt-20 flex justify-center items-center gap-2 sm:gap-4">
+            <button
+              onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
               disabled={currentPage === 1}
-              className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white hover:border-nie8-primary transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-nie8-text disabled:hover:border-nie8-text/20"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-nie8-text/20 flex items-center justify-center disabled:opacity-30 active:bg-nie8-primary active:text-white transition-colors"
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={18} />
             </button>
-            
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex gap-2">
               {Array.from({ length: totalPages }).map((_, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setCurrentPage(idx + 1)}
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
-                    currentPage === idx + 1 
-                      ? 'bg-nie8-primary text-white shadow-md' 
-                      : 'text-nie8-text/60 hover:bg-nie8-primary/10 hover:text-nie8-primary'
+                  onClick={() => handlePageChange(idx + 1)}
+                  className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full text-sm font-medium transition-all ${
+                    currentPage === idx + 1
+                      ? 'bg-nie8-primary text-white'
+                      : 'text-nie8-text/50 hover:bg-nie8-primary/10'
                   }`}
                 >
                   {idx + 1}
                 </button>
               ))}
             </div>
-
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            <button
+              onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white hover:border-nie8-primary transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-nie8-text disabled:hover:border-nie8-text/20"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-nie8-text/20 flex items-center justify-center disabled:opacity-30 active:bg-nie8-primary active:text-white transition-colors"
             >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
-
-        {/* Nút xem tất cả (chỉ hiển thị nếu có sản phẩm) */}
-        {products.length > 0 && (
-          <div className="mt-16 text-center">
-            <button className="flex items-center gap-4 mx-auto text-nie8-text font-medium group">
-              Xem tất cả sản phẩm
-              <div className="w-12 h-12 rounded-full border border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:text-white transition-all">
-                <ArrowRight size={18} />
-              </div>
+              <ChevronRight size={18} />
             </button>
           </div>
         )}
       </div>
 
-      {/* Product Detail Modal with AI Story */}
+      {/* ===== PRODUCT DETAIL MODAL ===== */}
       <AnimatePresence>
         {selectedProduct && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/40 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white w-full max-w-5xl rounded-[40px] overflow-hidden shadow-2xl relative flex flex-col lg:flex-row max-h-[90vh]"
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm"
+              onClick={closeModal}
+            />
+
+            {/* Modal — bottom sheet trên mobile, centered trên desktop */}
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-[101] sm:static sm:inset-auto sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-5xl bg-white sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh]"
+              style={{ borderRadius: '24px 24px 0 0' }}
             >
-              <button 
-                onClick={() => setSelectedProduct(null)}
-                className="absolute top-6 right-6 z-10 w-10 h-10 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all"
-              >
-                <X size={20} />
-              </button>
+              {/* Drag handle — chỉ mobile */}
+              <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 bg-nie8-text/20 rounded-full" />
+              </div>
 
-              <div className="lg:w-1/2 h-[50vh] min-h-[300px] lg:h-auto relative group flex-shrink-0 flex lg:flex-row overflow-x-auto lg:overflow-hidden snap-x snap-mandatory scroll-hide bg-gray-50">
-                {/* Desktop Vertical Thumbnails */}
-                <div className="hidden lg:flex flex-col gap-2 p-4 w-24 overflow-y-auto scroll-hide">
-                  {selectedProduct.images.map((img, idx) => (
-                    <button 
-                      key={idx} 
-                      onClick={() => setModalImageIndex(idx)} 
-                      className={`w-full aspect-[3/4] border-2 transition-all ${modalImageIndex === idx ? 'border-nie8-text' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                    >
-                      <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Mobile Horizontal Scroll Images */}
-                <div className="flex lg:hidden w-full h-full">
-                  {selectedProduct.images.map((img, idx) => (
-                    <img 
-                      key={idx}
-                      src={img} 
-                      alt={`${selectedProduct.name} ${idx + 1}`} 
-                      className="w-full h-full object-cover flex-shrink-0 snap-center"
-                      referrerPolicy="no-referrer"
-                    />
-                  ))}
-                </div>
-
-                {/* Desktop Main Image */}
-                <div className="hidden lg:block flex-grow relative">
+              <div className="flex flex-col sm:flex-row flex-grow overflow-hidden">
+                {/* === IMAGE SECTION === */}
+                <div
+                  className="sm:w-[45%] flex-shrink-0 bg-nie8-bg relative"
+                  style={{ height: '45vw', maxHeight: '320px' }}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  {/* Main image với swipe */}
                   <AnimatePresence mode="wait">
-                    <motion.img 
-                      key={modalImageIndex}
+                    <motion.div
+                      key={activeImageIndex}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      src={selectedProduct.images[modalImageIndex]} 
-                      alt={selectedProduct.name} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </AnimatePresence>
-                </div>
-                
-                {/* Mobile Dots */}
-                {selectedProduct.images.length > 1 && (
-                  <div className="absolute bottom-4 left-0 right-0 flex lg:hidden justify-center gap-2 z-10 pointer-events-none">
-                    {selectedProduct.images.map((_, idx) => (
-                      <div
-                        key={idx}
-                        className="w-2 h-2 rounded-full bg-white/60 shadow-sm"
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="lg:w-1/2 p-6 sm:p-8 lg:p-10 overflow-y-auto scroll-hide flex flex-col relative">
-                <div className="mb-6 border-b border-nie8-text/10 pb-6">
-                  <h3 className="text-xl lg:text-2xl font-bold text-nie8-text mb-2">{selectedProduct.name}</h3>
-                  <p className="text-xs text-nie8-text/50 mb-4">SKU: {selectedProduct.id}</p>
-                  <p className="text-lg font-bold text-nie8-text">{selectedProduct.price}</p>
-                </div>
-
-                <div className="space-y-6 flex-grow pb-24 lg:pb-0">
-                  {/* Material */}
-                  <div>
-                    <h4 className="text-sm text-nie8-text mb-2">Vật liệu:</h4>
-                    <button className="border border-nie8-text px-4 py-2 text-sm text-nie8-text">Cotton</button>
-                  </div>
-                  
-                  {/* Color */}
-                  <div>
-                    <h4 className="text-sm text-nie8-text mb-2">Màu sắc: Nâu</h4>
-                    <button className="w-8 h-8 rounded-full bg-[#5C4D3F] border-2 border-white ring-1 ring-nie8-text"></button>
-                  </div>
-
-                  {/* Size */}
-                  <div>
-                    <h4 className="text-sm text-nie8-text mb-2">Kích thước:</h4>
-                    <div className="flex gap-2">
-                      {['S', 'M', 'L'].map(size => (
-                        <button 
-                          key={size} 
-                          onClick={() => setSelectedSize(size)}
-                          className={`w-10 h-10 border flex items-center justify-center text-sm transition-colors ${
-                            selectedSize === size 
-                              ? 'border-nie8-text text-nie8-text font-medium' 
-                              : 'border-nie8-text/20 text-nie8-text/60 hover:border-nie8-text/50'
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Quantity */}
-                  <div className="flex items-center gap-4">
-                    <h4 className="text-sm text-nie8-text">Số lượng:</h4>
-                    <div className="flex items-center border border-nie8-text/20 w-fit">
-                      <button 
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="w-8 h-8 flex items-center justify-center text-nie8-text hover:bg-gray-50"
-                      >
-                        -
-                      </button>
-                      <span className="w-12 text-center text-sm text-nie8-text">{quantity}</span>
-                      <button 
-                        onClick={() => setQuantity(quantity + 1)}
-                        className="w-8 h-8 flex items-center justify-center text-nie8-text hover:bg-gray-50"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="flex gap-4 pt-2">
-                    <button 
-                      onClick={() => {
-                        onAddToCart({ ...selectedProduct, name: `${selectedProduct.name} - Size ${selectedSize}` });
-                      }}
-                      className="flex-1 border border-nie8-text py-3 text-sm font-bold text-nie8-text hover:bg-nie8-text hover:text-white transition-colors uppercase tracking-wider"
+                      transition={{ duration: 0.25 }}
+                      className="w-full h-full sm:h-[520px]"
                     >
-                      Thêm vào giỏ hàng
-                    </button>
-                    <button className="flex-1 border border-nie8-text py-3 text-sm font-bold text-nie8-text hover:bg-nie8-text hover:text-white transition-colors uppercase tracking-wider">
-                      Bảng size
-                    </button>
-                  </div>
+                      <LazyImage
+                        src={selectedProduct.images[activeImageIndex]}
+                        alt={selectedProduct.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </motion.div>
+                  </AnimatePresence>
 
-                  {/* Info */}
-                  <div className="pt-6 border-t border-nie8-text/10">
-                    <h4 className="text-sm font-bold text-nie8-text mb-3 uppercase tracking-wider">Thông tin sản phẩm</h4>
-                    <div className="text-sm text-nie8-text/80 space-y-1.5">
-                      <p>{selectedProduct.description}</p>
-                      <p>Chất liệu: Cotton</p>
-                      <p>Màu sắc: Nâu</p>
-                      <br/>
-                      <p className="font-bold text-nie8-text">Kích thước sản phẩm:</p>
-                      <p>Size S: Dài áo 64,5</p>
-                      <p>Size M: Dài áo 65,5</p>
-                      <p>Size L: Dài áo 66,5</p>
-                    </div>
-                  </div>
-
-                  {/* Similar Products */}
-                  <div className="pt-6 border-t border-nie8-text/10">
-                    <h4 className="text-sm font-bold text-nie8-text mb-4 uppercase tracking-wider">Gợi ý cho bạn</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      {products
-                        .filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id)
-                        .slice(0, 2)
-                        .map(similarProduct => (
-                          <div 
-                            key={similarProduct.id} 
-                            className="group cursor-pointer"
-                            onClick={() => openProduct(similarProduct)}
-                          >
-                            <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-2">
-                              <img 
-                                src={similarProduct.images[0]} 
-                                alt={similarProduct.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                            <h5 className="text-xs font-medium text-nie8-text line-clamp-1 group-hover:text-nie8-primary transition-colors">{similarProduct.name}</h5>
-                            <p className="text-xs text-nie8-text/60 mt-0.5">{similarProduct.price}</p>
-                          </div>
-                      ))}
-                      {/* Fallback if no similar products in same category */}
-                      {products.filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id).length === 0 && 
-                        products.filter(p => p.id !== selectedProduct.id).slice(0, 2).map(similarProduct => (
-                          <div 
-                            key={similarProduct.id} 
-                            className="group cursor-pointer"
-                            onClick={() => openProduct(similarProduct)}
-                          >
-                            <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-2">
-                              <img 
-                                src={similarProduct.images[0]} 
-                                alt={similarProduct.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                            <h5 className="text-xs font-medium text-nie8-text line-clamp-1 group-hover:text-nie8-primary transition-colors">{similarProduct.name}</h5>
-                            <p className="text-xs text-nie8-text/60 mt-0.5">{similarProduct.price}</p>
-                          </div>
+                  {/* Image dots indicator */}
+                  {selectedProduct.images.length > 1 && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {selectedProduct.images.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setActiveImageIndex(i)}
+                          className={`h-1.5 rounded-full transition-all ${i === activeImageIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/50'}`}
+                        />
                       ))}
                     </div>
+                  )}
+
+                  {/* Desktop: prev/next arrows */}
+                  {selectedProduct.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setActiveImageIndex(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length)}
+                        className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        onClick={() => setActiveImageIndex(prev => (prev + 1) % selectedProduct.images.length)}
+                        className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Close button */}
+                  <button
+                    onClick={closeModal}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"
+                  >
+                    <X size={18} />
+                  </button>
+
+                  {/* Share button */}
+                  <button className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md">
+                    <Share2 size={16} />
+                  </button>
+                </div>
+
+                {/* === PRODUCT INFO SECTION === */}
+                <div className="flex flex-col flex-grow overflow-hidden sm:w-[55%]">
+                  <div className="flex-grow overflow-y-auto scroll-hide px-5 sm:px-8 pt-4 sm:pt-8 pb-4">
+
+                    {/* Category + Rating */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-nie8-secondary">{selectedProduct.category}</span>
+                      <div className="flex items-center gap-1">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} size={11} fill={i < 4 ? '#5C4D3F' : 'none'} className="text-nie8-primary" />
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-nie8-text/40 ml-1">(24)</span>
+                      </div>
+                    </div>
+
+                    {/* Product name & price */}
+                    <h2 className="text-xl sm:text-2xl font-serif italic text-nie8-text mb-2 leading-tight">{selectedProduct.name}</h2>
+                    <p className="text-2xl font-bold text-nie8-primary mb-4">{selectedProduct.price}</p>
+
+                    {/* Thumbnail images — desktop only */}
+                    {selectedProduct.images.length > 1 && (
+                      <div className="hidden sm:flex gap-2 mb-6">
+                        {selectedProduct.images.map((img, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveImageIndex(i)}
+                            className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-nie8-primary' : 'border-transparent opacity-60'}`}
+                          >
+                            <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Size selector */}
+                    <div className="mb-5">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-nie8-text">Kích thước</span>
+                        <button className="text-[10px] text-nie8-primary underline underline-offset-2">Bảng size</button>
+                      </div>
+                      <div className="flex gap-2">
+                        {['S', 'M', 'L', 'XL'].map(size => (
+                          <button
+                            key={size}
+                            onClick={() => setSelectedSize(size)}
+                            className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 ${
+                              selectedSize === size
+                                ? 'border-nie8-primary bg-nie8-primary text-white'
+                                : 'border-nie8-text/15 text-nie8-text/70 hover:border-nie8-primary/50'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="mb-5">
+                      <span className="text-xs font-bold uppercase tracking-wider text-nie8-text block mb-2.5">Số lượng</span>
+                      <div className="flex items-center gap-0 border border-nie8-text/15 rounded-xl w-fit overflow-hidden">
+                        <button
+                          onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                          className="w-11 h-11 flex items-center justify-center text-nie8-text hover:bg-nie8-primary/5 transition-colors active:bg-nie8-primary/10"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-12 text-center text-sm font-bold">{quantity}</span>
+                        <button
+                          onClick={() => setQuantity(q => q + 1)}
+                          className="w-11 h-11 flex items-center justify-center text-nie8-text hover:bg-nie8-primary/5 transition-colors active:bg-nie8-primary/10"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-4">
+                      <span className="text-xs font-bold uppercase tracking-wider text-nie8-text block mb-2">Mô tả</span>
+                      <p className="text-sm text-nie8-text/70 leading-relaxed">{selectedProduct.description}</p>
+                    </div>
+
+                    {/* Size info */}
+                    <div className="bg-nie8-bg rounded-2xl p-4 mb-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-nie8-secondary mb-2">Thông số size</p>
+                      <div className="grid grid-cols-3 gap-1 text-xs text-nie8-text/70">
+                        <span>S: Dài 64,5cm</span>
+                        <span>M: Dài 65,5cm</span>
+                        <span>L: Dài 66,5cm</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* ===== STICKY CTA — quan trọng nhất trên mobile ===== */}
+                  <div className="flex-shrink-0 px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-nie8-primary/10 safe-area-pb">
+                    <div className="flex gap-3">
+                      {/* Wishlist button */}
+                      <button
+                        onClick={(e) => toggleWishlist(selectedProduct.id, e)}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-nie8-text/15 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
+                      >
+                        <Heart
+                          size={20}
+                          className={wishlist.has(selectedProduct.id) ? 'fill-red-500 text-red-500' : 'text-nie8-text/60'}
+                        />
+                      </button>
+
+                      {/* Add to cart button */}
+                      <button
+                        onClick={handleAddToCart}
+                        className={`flex-grow h-12 sm:h-14 rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg ${
+                          addedToCart
+                            ? 'bg-green-500 text-white shadow-green-500/30'
+                            : 'bg-nie8-primary text-white shadow-nie8-primary/30 hover:bg-nie8-secondary'
+                        }`}
+                      >
+                        <ShoppingBag size={18} />
+                        {addedToCart ? 'Đã thêm vào giỏ ✓' : `Thêm vào giỏ — Size ${selectedSize}`}
+                      </button>
+                    </div>
+
+                    {/* Trust signals */}
+                    <p className="text-center text-[10px] text-nie8-text/30 uppercase tracking-widest mt-3">
+                      Đổi trả miễn phí trong 7 ngày · Giao hàng toàn quốc
+                    </p>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
-
-      {/* Sticky Bottom Button for Mobile */}
-      <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none md:hidden">
-        <button className="pointer-events-auto bg-nie8-primary text-white py-3 px-6 rounded-full shadow-2xl shadow-nie8-primary/30 text-sm font-medium flex items-center justify-center gap-2 hover:scale-105 transition-transform min-h-[44px]">
-          <Sparkles size={16} />
-          Chat với AI Stylist
-        </button>
-      </div>
     </section>
   );
 }

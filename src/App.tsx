@@ -11,130 +11,92 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Cart from './components/Cart';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
-import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, CartItem, SiteSettings } from './types';
-import { 
-  auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query, 
-  signInWithGoogle, logout, OperationType, handleFirestoreError 
+import {
+  auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query,
+  signInWithGoogle, logout, OperationType, handleFirestoreError
 } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { LogOut, ShieldCheck, User as UserIcon, CheckCircle, AlertCircle } from 'lucide-react';
 
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Áo Khoác Cardigan Len Mềm',
-    price: '$55.00',
-    images: [
-      'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?q=80&w=600&auto=format&fit=crop'
-    ],
-    description: 'Chiếc cardigan len mềm mại như một cái ôm nhẹ nhàng cho những buổi sáng se lạnh. Thiết kế tối giản, dễ dàng khoác ngoài mọi bộ trang phục hàng ngày.',
-    category: 'Áo khoác'
-  },
-  {
-    id: '2',
-    name: 'Quần Jean Ống Đứng Daily',
-    price: '$68.00',
-    images: [
-      'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=600&auto=format&fit=crop'
-    ],
-    description: 'Dáng quần ống đứng kinh điển, tôn vinh đôi chân và mang lại sự thoải mái tuyệt đối từ sáng đến tối. Một món đồ không thể thiếu trong tủ đồ của mọi cô gái.',
-    category: 'Quần'
-  },
-  {
-    id: '3',
-    name: 'Áo Blouse Trắng Ruffled',
-    price: '$48.00',
-    images: [
-      'input_file_0.png',
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop'
-    ],
-    description: 'Chiếc blouse trắng tinh khôi với chi tiết bèo nhún điệu đà và dây nơ thắt nhẹ nhàng. Chất liệu vải xô mềm mại, mang lại vẻ ngoài lãng mạn và nữ tính cho những buổi hẹn hò hay dạo phố.',
-    category: 'Áo'
-  },
-  {
-    id: '4',
-    name: 'Váy Suông Cotton Basic',
-    price: '$52.00',
-    images: [
-      'https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1539008835657-9e8e62f85a6d?q=80&w=600&auto=format&fit=crop'
-    ],
-    description: 'Vẻ đẹp đến từ sự đơn giản nhất. Chiếc váy suông cotton mềm mại, là người bạn đồng hành lý tưởng cho những ngày bạn chỉ muốn tận hưởng sự tự do.',
-    category: 'Váy'
-  },
-  {
-    id: '5',
-    name: 'Áo Thun Cotton Dày Dặn',
-    price: '$25.00',
-    images: [
-      'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=600&auto=format&fit=crop'
-    ],
-    description: 'Chất cotton cao cấp với độ dày vừa vặn, giữ form dáng hoàn hảo qua thời gian. Đơn giản nhưng đầy tinh tế trong từng đường kim mũi chỉ.',
-    category: 'Áo'
-  },
-  {
-    id: '6',
-    name: 'Áo Blazer Form Rộng',
-    price: '$89.00',
-    images: [
-      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?q=80&w=600&auto=format&fit=crop'
-    ],
-    description: 'Sự kết hợp hoàn hảo giữa vẻ thanh lịch và nét phóng khoáng hiện đại. Form áo rộng rãi tạo nên phong cách thời thượng mà vẫn vô cùng gần gũi.',
-    category: 'Áo khoác'
-  }
-];
+// ===== TOAST NOTIFICATION COMPONENT =====
+interface Toast {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[500] flex flex-col gap-2 w-full max-w-xs px-4 pointer-events-none">
+      <AnimatePresence>
+        {toasts.map(toast => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm font-medium pointer-events-auto ${
+              toast.type === 'success' ? 'bg-green-500 text-white' :
+              toast.type === 'error' ? 'bg-red-500 text-white' :
+              'bg-nie8-primary text-white'
+            }`}
+          >
+            {toast.type === 'success' && <CheckCircle size={16} />}
+            {toast.type === 'error' && <AlertCircle size={16} />}
+            {toast.message}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function App() {
   const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
-    restDelta: 0.001
-  });
+  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isAIStylistOpen, setIsAIStylistOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'client' | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // Toast helper
+  const showToast = (message: string, type: Toast['type'] = 'success') => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  };
+
+  // Cart state — lưu size vào CartItem
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('niee8_cart');
       return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error);
+    } catch {
       return [];
     }
   });
 
-  // Auth Listener
+  // Auth listener
   useEffect(() => {
     let userDocUnsubscribe: (() => void) | null = null;
-
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      
-      // Clean up previous user doc listener if any
-      if (userDocUnsubscribe) {
-        userDocUnsubscribe();
-        userDocUnsubscribe = null;
-      }
+      if (userDocUnsubscribe) { userDocUnsubscribe(); userDocUnsubscribe = null; }
 
       if (currentUser) {
-        // Check role in Firestore
         userDocUnsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
           if (docSnap.exists()) {
             setUserRole(docSnap.data().role);
           } else {
-            // Create default user doc if not exists
             const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
             const role = isDefaultAdmin ? 'admin' : 'client';
             setDoc(doc(db, 'users', currentUser.uid), {
@@ -142,80 +104,70 @@ export default function App() {
               email: currentUser.email,
               displayName: currentUser.displayName,
               photoURL: currentUser.photoURL,
-              role: role
+              role,
             }).catch(err => {
-              // Only log if it's not a permission error during initial creation
               if (!err.message.includes('insufficient permissions')) {
                 handleFirestoreError(err, OperationType.WRITE, 'users');
               }
             });
             setUserRole(role);
           }
-        }, (error) => {
-          // If we can't read the user doc, we can't determine the role
-          console.error("Error listening to user doc:", error);
-          // Don't call handleFirestoreError here to avoid potential loops if it re-renders
-        });
+        }, (error) => console.error("Error listening to user doc:", error));
       } else {
         setUserRole(null);
       }
       setIsAuthReady(true);
     });
 
-    return () => {
-      unsubscribe();
-      if (userDocUnsubscribe) userDocUnsubscribe();
-    };
+    return () => { unsubscribe(); if (userDocUnsubscribe) userDocUnsubscribe(); };
   }, []);
 
-  // Site Settings Listener
+  // Site settings listener
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'site_settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        setSiteSettings(docSnap.data() as SiteSettings);
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'site_settings/global');
-    });
+      if (docSnap.exists()) setSiteSettings(docSnap.data() as SiteSettings);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'site_settings/global'));
     return () => unsubscribe();
   }, []);
 
   const handleUpdateSettings = async (newSettings: SiteSettings) => {
     try {
       await setDoc(doc(db, 'site_settings', 'global'), newSettings);
+      showToast('Đã cập nhật cài đặt website!');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'site_settings/global');
     }
   };
 
-  // Products Listener
+  // Products listener — với loading state
   useEffect(() => {
     const q = query(collection(db, 'products'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productsData = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      })) as Product[];
-      
+      const productsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
       setProducts(productsData);
+      setIsLoadingProducts(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'products');
+      setIsLoadingProducts(false);
     });
     return () => unsubscribe();
   }, []);
 
+  // Persist cart
   useEffect(() => {
     try {
       localStorage.setItem('niee8_cart', JSON.stringify(cartItems));
     } catch (error) {
-      console.error('Error saving cart to localStorage:', error);
+      console.error('Error saving cart:', error);
     }
   }, [cartItems]);
 
+  // Product CRUD
   const handleAddProduct = async (newProduct: Product) => {
     try {
       const productRef = doc(collection(db, 'products'));
       await setDoc(productRef, { ...newProduct, id: productRef.id });
+      showToast('Đã thêm sản phẩm mới!');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'products');
     }
@@ -224,6 +176,7 @@ export default function App() {
   const handleUpdateProduct = async (updatedProduct: Product) => {
     try {
       await setDoc(doc(db, 'products', updatedProduct.id), updatedProduct);
+      showToast('Đã cập nhật sản phẩm!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
     }
@@ -232,142 +185,169 @@ export default function App() {
   const handleDeleteProduct = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id));
+      showToast('Đã xóa sản phẩm', 'info');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
   };
 
-  const addToCart = (product: Product) => {
+  // Cart logic — key là id + size để phân biệt cùng sản phẩm khác size
+  const addToCart = (product: Product, size: string = 'M', quantity: number = 1) => {
     setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const cartKey = `${product.id}-${size}`;
+      const existing = prev.find(item => `${item.id}-${item.size}` === cartKey);
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item =>
+          `${item.id}-${item.size}` === cartKey
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity, size }];
     });
-    setIsCartOpen(true);
+    showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`);
   };
 
-  const updateCartQuantity = (id: string, delta: number) => {
+  const updateCartQuantity = (id: string, size: string, delta: number) => {
     setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
-        const newQty = Math.max(1, item.quantity + delta);
+      if (item.id === id && item.size === size) {
+        const newQty = item.quantity + delta;
+        if (newQty <= 0) return null as unknown as CartItem;
         return { ...item, quantity: newQty };
       }
       return item;
-    }));
+    }).filter(Boolean));
   };
 
-  const removeCartItem = (id: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const removeCartItem = (id: string, size: string) => {
+    setCartItems(prev => prev.filter(item => !(item.id === id && item.size === size)));
+    showToast('Đã xóa khỏi giỏ hàng', 'info');
   };
+
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <AnimatePresence mode="wait">
-      <motion.div 
+      <motion.div
         key="page"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 1.2, ease: "easeInOut" }}
+        transition={{ duration: 0.8 }}
         className="min-h-screen flex flex-col bg-nie8-bg"
       >
-          <motion.div
-            className="fixed top-0 left-0 right-0 h-[2px] bg-nie8-primary origin-left z-[60]"
-            style={{ scaleX }}
-          />
-          
-          <Header 
-            onCartClick={() => setIsCartOpen(true)} 
-            cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-            isAdmin={userRole === 'admin'}
-            onAdminClick={() => setIsAdminOpen(true)}
-          />
-          
-          <main className="flex-grow">
-            <Hero settings={siteSettings} />
-            
-            <section className="py-12 bg-white border-b border-nie8-primary/5">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  {user ? (
-                    <div className="flex items-center gap-3">
-                      <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border border-nie8-primary/20" referrerPolicy="no-referrer" />
-                      <div>
-                        <p className="text-xs font-bold text-nie8-text">{user.displayName}</p>
-                        <p className="text-[10px] text-nie8-text/40 uppercase tracking-widest flex items-center gap-1">
-                          {userRole === 'admin' && <ShieldCheck size={10} className="text-nie8-primary" />}
-                          {userRole || 'Client'}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 text-nie8-text/40">
-                      <div className="w-10 h-10 rounded-full bg-nie8-primary/5 flex items-center justify-center">
-                        <UserIcon size={20} />
-                      </div>
-                      <p className="text-xs italic font-serif">Chào mừng bạn đến với niee8</p>
-                    </div>
-                  )}
-                </div>
+        {/* Progress bar */}
+        <motion.div
+          className="fixed top-0 left-0 right-0 h-[2px] bg-nie8-primary origin-left z-[60]"
+          style={{ scaleX }}
+        />
 
-                <div className="flex items-center gap-4">
-                  {user ? (
-                    <>
-                      {userRole === 'admin' && (
-                        <button 
-                          onClick={() => setIsAdminOpen(true)}
-                          className="px-6 py-2 bg-nie8-primary/10 text-nie8-primary rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary hover:text-white transition-all"
-                        >
-                          Quản trị viên
-                        </button>
-                      )}
-                      <button 
-                        onClick={logout}
-                        className="flex items-center gap-2 text-xs font-bold text-nie8-text/40 hover:text-red-500 transition-colors"
-                      >
-                        <LogOut size={14} />
-                        Đăng xuất
-                      </button>
-                    </>
-                  ) : (
-                    <button 
-                      onClick={signInWithGoogle}
-                      className="px-8 py-3 bg-nie8-text text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary transition-all shadow-lg shadow-nie8-text/10"
-                    >
-                      Đăng nhập với Google
-                    </button>
-                  )}
-                </div>
+        {/* Toast notifications */}
+        <ToastContainer toasts={toasts} onRemove={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
+
+        <Header
+          onCartClick={() => setIsCartOpen(true)}
+          cartCount={cartCount}
+          isAdmin={userRole === 'admin'}
+          onAdminClick={() => setIsAdminOpen(true)}
+          onAIClick={() => setIsAIStylistOpen(true)}
+        />
+
+        <main className="flex-grow">
+          <Hero settings={siteSettings} />
+
+          {/* Auth section */}
+          <section className="py-8 sm:py-12 bg-white border-b border-nie8-primary/5">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {user ? (
+                  <>
+                    <img
+                      src={user.photoURL || ''}
+                      alt=""
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-nie8-primary/20"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-nie8-text">{user.displayName}</p>
+                      <p className="text-[10px] text-nie8-text/40 uppercase tracking-widest flex items-center gap-1">
+                        {userRole === 'admin' && <ShieldCheck size={10} className="text-nie8-primary" />}
+                        {userRole || 'Client'}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3 text-nie8-text/40">
+                    <div className="w-9 h-9 rounded-full bg-nie8-primary/5 flex items-center justify-center">
+                      <UserIcon size={18} />
+                    </div>
+                    <p className="text-xs italic font-serif">Chào mừng đến với niee8</p>
+                  </div>
+                )}
               </div>
-            </section>
-          
-          <ProductGrid products={products} onAddToCart={addToCart} />
-          
-          <section className="py-32 bg-nie8-text relative overflow-hidden">
+
+              <div className="flex items-center gap-3">
+                {user ? (
+                  <>
+                    {userRole === 'admin' && (
+                      <button
+                        onClick={() => setIsAdminOpen(true)}
+                        className="px-5 py-2 bg-nie8-primary/10 text-nie8-primary rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary hover:text-white transition-all"
+                      >
+                        Quản trị
+                      </button>
+                    )}
+                    <button
+                      onClick={logout}
+                      className="flex items-center gap-2 text-xs font-bold text-nie8-text/40 hover:text-red-500 transition-colors"
+                    >
+                      <LogOut size={14} />
+                      <span className="hidden sm:inline">Đăng xuất</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={signInWithGoogle}
+                    className="px-6 py-2.5 sm:px-8 sm:py-3 bg-nie8-text text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary transition-all shadow-lg active:scale-95"
+                  >
+                    Đăng nhập với Google
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Product Grid — với loading state và addToCart nhận size */}
+          <ProductGrid
+            products={products}
+            onAddToCart={addToCart}
+            isLoading={isLoadingProducts}
+          />
+
+          {/* Newsletter section */}
+          <section className="py-20 sm:py-32 bg-nie8-text relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1 }}
+                transition={{ duration: 0.8 }}
                 viewport={{ once: true }}
-                className="max-w-4xl mx-auto"
+                className="max-w-3xl mx-auto"
               >
-                <h2 className="text-5xl md:text-7xl font-serif italic text-white mb-10 leading-tight">
+                <h2 className="text-4xl sm:text-6xl md:text-7xl font-serif italic text-white mb-6 sm:mb-10 leading-tight">
                   Gia nhập <br />
                   <span className="text-nie8-primary">niee8 Circle.</span>
                 </h2>
-                <p className="text-white/60 text-lg mb-12 leading-relaxed max-w-2xl mx-auto">
-                  Đăng ký để nhận quyền truy cập sớm vào các bộ sưu tập mới, 
-                  mẹo phối đồ độc quyền và lời mời tham gia các sự kiện riêng tư.
+                <p className="text-white/60 text-base sm:text-lg mb-8 sm:mb-12 leading-relaxed max-w-xl mx-auto">
+                  Nhận quyền truy cập sớm vào các bộ sưu tập mới và mẹo phối đồ độc quyền.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-                  <input 
-                    type="email" 
-                    placeholder="Địa chỉ email của bạn" 
-                    className="flex-grow bg-white/10 border border-white/20 rounded-full px-8 py-4 text-white focus:outline-none focus:border-nie8-primary transition-colors"
+                <div className="flex flex-col sm:flex-row gap-3 max-w-sm sm:max-w-md mx-auto">
+                  <input
+                    type="email"
+                    placeholder="Địa chỉ email của bạn"
+                    className="flex-grow bg-white/10 border border-white/20 rounded-full px-6 py-4 text-white placeholder-white/40 focus:outline-none focus:border-nie8-primary transition-colors text-sm"
                   />
-                  <button className="px-10 py-4 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all">
+                  <button className="px-8 py-4 bg-nie8-primary text-white rounded-full font-bold text-sm hover:bg-nie8-secondary transition-all active:scale-95 whitespace-nowrap">
                     Đăng ký
                   </button>
                 </div>
@@ -375,13 +355,19 @@ export default function App() {
             </div>
           </section>
         </main>
-        
-        <Footer />
-        <AIStylist />
 
+        {/* Spacer cho mobile bottom nav */}
+        <div className="h-16 lg:hidden" aria-hidden="true" />
+
+        <Footer />
+
+        {/* AI Stylist — controlled by state thay vì luôn show */}
+        <AIStylist isOpen={isAIStylistOpen} onClose={() => setIsAIStylistOpen(false)} />
+
+        {/* Admin Dashboard */}
         <AnimatePresence>
           {isAdminOpen && (
-            <AdminDashboard 
+            <AdminDashboard
               products={products}
               siteSettings={siteSettings}
               onAddProduct={handleAddProduct}
@@ -393,7 +379,8 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <Cart 
+        {/* Cart */}
+        <Cart
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
           items={cartItems}
@@ -404,5 +391,3 @@ export default function App() {
     </AnimatePresence>
   );
 }
-
-

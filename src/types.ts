@@ -7,8 +7,10 @@ export interface Product {
   category: string;
 }
 
+// CartItem giờ có trường size để phân biệt cùng sản phẩm khác size
 export interface CartItem extends Product {
   quantity: number;
+  size: string; // 'S' | 'M' | 'L' | 'XL'
 }
 
 export interface Feedback {
