@@ -17,6 +17,8 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [modalImageIndex, setModalImageIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<string>('S');
+  const [quantity, setQuantity] = useState<number>(1);
 
   // Tính toán số trang và danh sách sản phẩm hiển thị trên trang hiện tại
   const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
@@ -62,6 +64,8 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
   const openProduct = (product: Product) => {
     setSelectedProduct(product);
     setModalImageIndex(0);
+    setSelectedSize('S');
+    setQuantity(1);
     generateStory(product);
   };
 
@@ -245,19 +249,53 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 <X size={20} />
               </button>
 
-              <div className="lg:w-1/2 h-[50vh] min-h-[300px] lg:h-auto relative group flex-shrink-0 flex overflow-x-auto snap-x snap-mandatory scroll-hide">
-                {selectedProduct.images.map((img, idx) => (
-                  <img 
-                    key={idx}
-                    src={img} 
-                    alt={`${selectedProduct.name} ${idx + 1}`} 
-                    className="w-full h-full object-cover flex-shrink-0 snap-center"
-                    referrerPolicy="no-referrer"
-                  />
-                ))}
+              <div className="lg:w-1/2 h-[50vh] min-h-[300px] lg:h-auto relative group flex-shrink-0 flex lg:flex-row overflow-x-auto lg:overflow-hidden snap-x snap-mandatory scroll-hide bg-gray-50">
+                {/* Desktop Vertical Thumbnails */}
+                <div className="hidden lg:flex flex-col gap-2 p-4 w-24 overflow-y-auto scroll-hide">
+                  {selectedProduct.images.map((img, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => setModalImageIndex(idx)} 
+                      className={`w-full aspect-[3/4] border-2 transition-all ${modalImageIndex === idx ? 'border-nie8-text' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                    >
+                      <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </button>
+                  ))}
+                </div>
                 
+                {/* Mobile Horizontal Scroll Images */}
+                <div className="flex lg:hidden w-full h-full">
+                  {selectedProduct.images.map((img, idx) => (
+                    <img 
+                      key={idx}
+                      src={img} 
+                      alt={`${selectedProduct.name} ${idx + 1}`} 
+                      className="w-full h-full object-cover flex-shrink-0 snap-center"
+                      referrerPolicy="no-referrer"
+                    />
+                  ))}
+                </div>
+
+                {/* Desktop Main Image */}
+                <div className="hidden lg:block flex-grow relative">
+                  <AnimatePresence mode="wait">
+                    <motion.img 
+                      key={modalImageIndex}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      src={selectedProduct.images[modalImageIndex]} 
+                      alt={selectedProduct.name} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </AnimatePresence>
+                </div>
+                
+                {/* Mobile Dots */}
                 {selectedProduct.images.length > 1 && (
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10 pointer-events-none">
+                  <div className="absolute bottom-4 left-0 right-0 flex lg:hidden justify-center gap-2 z-10 pointer-events-none">
                     {selectedProduct.images.map((_, idx) => (
                       <div
                         key={idx}
@@ -268,51 +306,143 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 )}
               </div>
 
-              <div className="lg:w-1/2 p-6 sm:p-8 lg:p-12 overflow-y-auto scroll-hide flex flex-col relative">
-                <div className="mb-6 lg:mb-8">
-                  <p className="text-[10px] lg:text-xs uppercase tracking-widest text-nie8-secondary font-medium mb-2">{selectedProduct.category}</p>
-                  <h3 className="text-3xl lg:text-4xl font-serif italic text-nie8-text mb-2 lg:mb-4">{selectedProduct.name}</h3>
-                  <p className="text-xl lg:text-2xl font-medium text-nie8-text">{selectedProduct.price}</p>
+              <div className="lg:w-1/2 p-6 sm:p-8 lg:p-10 overflow-y-auto scroll-hide flex flex-col relative">
+                <div className="mb-6 border-b border-nie8-text/10 pb-6">
+                  <h3 className="text-xl lg:text-2xl font-bold text-nie8-text mb-2">{selectedProduct.name}</h3>
+                  <p className="text-xs text-nie8-text/50 mb-4">SKU: {selectedProduct.id}</p>
+                  <p className="text-lg font-bold text-nie8-text">{selectedProduct.price}</p>
                 </div>
 
-                <div className="space-y-6 lg:space-y-8 flex-grow pb-24 lg:pb-0">
+                <div className="space-y-6 flex-grow pb-24 lg:pb-0">
+                  {/* Material */}
                   <div>
-                    <h4 className="text-[10px] lg:text-xs uppercase tracking-widest text-nie8-text/40 font-bold mb-3 lg:mb-4">Mô tả sản phẩm</h4>
-                    <p className="text-sm lg:text-base text-nie8-text/60 leading-relaxed">{selectedProduct.description}</p>
+                    <h4 className="text-sm text-nie8-text mb-2">Vật liệu:</h4>
+                    <button className="border border-nie8-text px-4 py-2 text-sm text-nie8-text">Cotton</button>
+                  </div>
+                  
+                  {/* Color */}
+                  <div>
+                    <h4 className="text-sm text-nie8-text mb-2">Màu sắc: Nâu</h4>
+                    <button className="w-8 h-8 rounded-full bg-[#5C4D3F] border-2 border-white ring-1 ring-nie8-text"></button>
                   </div>
 
-                  <div className="bg-nie8-primary/5 p-6 lg:p-8 rounded-2xl lg:rounded-3xl border border-nie8-primary/10 relative overflow-hidden">
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-2 mb-3 lg:mb-4">
-                        <Sparkles size={14} className="text-nie8-primary lg:w-4 lg:h-4" />
-                        <h4 className="text-[10px] lg:text-xs uppercase tracking-widest text-nie8-primary font-bold">Câu chuyện cảm hứng</h4>
-                      </div>
-                      <AnimatePresence mode="wait">
-                        <motion.p 
-                          key="story"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="text-nie8-text italic font-serif text-base lg:text-lg leading-relaxed"
+                  {/* Size */}
+                  <div>
+                    <h4 className="text-sm text-nie8-text mb-2">Kích thước:</h4>
+                    <div className="flex gap-2">
+                      {['S', 'M', 'L'].map(size => (
+                        <button 
+                          key={size} 
+                          onClick={() => setSelectedSize(size)}
+                          className={`w-10 h-10 border flex items-center justify-center text-sm transition-colors ${
+                            selectedSize === size 
+                              ? 'border-nie8-text text-nie8-text font-medium' 
+                              : 'border-nie8-text/20 text-nie8-text/60 hover:border-nie8-text/50'
+                          }`}
                         >
-                          "{story}"
-                        </motion.p>
-                      </AnimatePresence>
+                          {size}
+                        </button>
+                      ))}
                     </div>
-                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-24 h-24 lg:w-32 lg:h-32 bg-nie8-primary/10 rounded-full blur-2xl"></div>
                   </div>
-                </div>
 
-                <div className="absolute bottom-0 left-0 right-0 p-4 lg:p-0 lg:relative lg:mt-12 flex gap-3 lg:gap-4 bg-white/90 backdrop-blur-md lg:bg-transparent border-t border-nie8-primary/10 lg:border-none z-20">
-                  <button 
-                    onClick={() => onAddToCart(selectedProduct)}
-                    className="flex-grow py-3.5 lg:py-5 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 lg:gap-3 shadow-xl shadow-nie8-primary/20 text-sm lg:text-base min-h-[44px]"
-                  >
-                    <ShoppingBag size={18} className="lg:w-5 lg:h-5" />
-                    Thêm vào giỏ hàng
-                  </button>
-                  <button className="w-12 h-12 lg:w-16 lg:h-16 border border-nie8-primary/20 rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all flex-shrink-0 min-w-[44px] min-h-[44px]">
-                    <Heart size={20} className="lg:w-6 lg:h-6" />
-                  </button>
+                  {/* Quantity */}
+                  <div className="flex items-center gap-4">
+                    <h4 className="text-sm text-nie8-text">Số lượng:</h4>
+                    <div className="flex items-center border border-nie8-text/20 w-fit">
+                      <button 
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        className="w-8 h-8 flex items-center justify-center text-nie8-text hover:bg-gray-50"
+                      >
+                        -
+                      </button>
+                      <span className="w-12 text-center text-sm text-nie8-text">{quantity}</span>
+                      <button 
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="w-8 h-8 flex items-center justify-center text-nie8-text hover:bg-gray-50"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-4 pt-2">
+                    <button 
+                      onClick={() => {
+                        onAddToCart({ ...selectedProduct, name: `${selectedProduct.name} - Size ${selectedSize}` });
+                      }}
+                      className="flex-1 border border-nie8-text py-3 text-sm font-bold text-nie8-text hover:bg-nie8-text hover:text-white transition-colors uppercase tracking-wider"
+                    >
+                      Thêm vào giỏ hàng
+                    </button>
+                    <button className="flex-1 border border-nie8-text py-3 text-sm font-bold text-nie8-text hover:bg-nie8-text hover:text-white transition-colors uppercase tracking-wider">
+                      Bảng size
+                    </button>
+                  </div>
+
+                  {/* Info */}
+                  <div className="pt-6 border-t border-nie8-text/10">
+                    <h4 className="text-sm font-bold text-nie8-text mb-3 uppercase tracking-wider">Thông tin sản phẩm</h4>
+                    <div className="text-sm text-nie8-text/80 space-y-1.5">
+                      <p>{selectedProduct.description}</p>
+                      <p>Chất liệu: Cotton</p>
+                      <p>Màu sắc: Nâu</p>
+                      <br/>
+                      <p className="font-bold text-nie8-text">Kích thước sản phẩm:</p>
+                      <p>Size S: Dài áo 64,5</p>
+                      <p>Size M: Dài áo 65,5</p>
+                      <p>Size L: Dài áo 66,5</p>
+                    </div>
+                  </div>
+
+                  {/* Similar Products */}
+                  <div className="pt-6 border-t border-nie8-text/10">
+                    <h4 className="text-sm font-bold text-nie8-text mb-4 uppercase tracking-wider">Gợi ý cho bạn</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {products
+                        .filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id)
+                        .slice(0, 2)
+                        .map(similarProduct => (
+                          <div 
+                            key={similarProduct.id} 
+                            className="group cursor-pointer"
+                            onClick={() => openProduct(similarProduct)}
+                          >
+                            <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-2">
+                              <img 
+                                src={similarProduct.images[0]} 
+                                alt={similarProduct.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <h5 className="text-xs font-medium text-nie8-text line-clamp-1 group-hover:text-nie8-primary transition-colors">{similarProduct.name}</h5>
+                            <p className="text-xs text-nie8-text/60 mt-0.5">{similarProduct.price}</p>
+                          </div>
+                      ))}
+                      {/* Fallback if no similar products in same category */}
+                      {products.filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id).length === 0 && 
+                        products.filter(p => p.id !== selectedProduct.id).slice(0, 2).map(similarProduct => (
+                          <div 
+                            key={similarProduct.id} 
+                            className="group cursor-pointer"
+                            onClick={() => openProduct(similarProduct)}
+                          >
+                            <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-2">
+                              <img 
+                                src={similarProduct.images[0]} 
+                                alt={similarProduct.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <h5 className="text-xs font-medium text-nie8-text line-clamp-1 group-hover:text-nie8-primary transition-colors">{similarProduct.name}</h5>
+                            <p className="text-xs text-nie8-text/60 mt-0.5">{similarProduct.price}</p>
+                          </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
