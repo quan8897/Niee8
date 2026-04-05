@@ -278,21 +278,22 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
               onClick={closeModal}
             />
 
-            {/* Modal — bottom sheet trên mobile, centered trên desktop */}
-            <motion.div
-              initial={{ y: '100%', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-[101] sm:static sm:inset-auto sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-5xl bg-white sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh]"
-              style={{ borderRadius: '24px 24px 0 0' }}
-            >
-              {/* Drag handle — chỉ mobile */}
-              <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div className="w-10 h-1 bg-nie8-text/20 rounded-full" />
-              </div>
+            {/* Modal Container to handle centering without transform conflicts */}
+            <div className="fixed inset-0 z-[101] flex items-end sm:items-center justify-center pointer-events-none">
+              {/* Modal — bottom sheet trên mobile, centered trên desktop */}
+              <motion.div
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '100%', opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                className="w-full sm:max-w-5xl bg-white rounded-t-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] pointer-events-auto"
+              >
+                {/* Drag handle — chỉ mobile */}
+                <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+                  <div className="w-10 h-1 bg-nie8-text/20 rounded-full" />
+                </div>
 
-              <div className="flex flex-col sm:flex-row flex-grow overflow-hidden">
+                <div className="flex flex-col sm:flex-row flex-grow overflow-hidden">
                 {/* === IMAGE SECTION === */}
                 <div
                   className="sm:w-[45%] flex-shrink-0 bg-nie8-bg relative"
@@ -496,6 +497,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                 </div>
               </div>
             </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>

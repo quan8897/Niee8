@@ -76,14 +76,30 @@ export default function App() {
   };
 
   // Cart state — lưu size vào CartItem
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+  const [savedCartItems, setSavedCartItems] = useState<{id: string, size: string, quantity: number}[]>(() => {
     try {
       const saved = localStorage.getItem('niee8_cart');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return parsed.map((item: any) => ({
+        id: item.id,
+        size: item.size,
+        quantity: item.quantity
+      }));
     } catch {
       return [];
     }
   });
+
+  const cartItems: CartItem[] = React.useMemo(() => {
+    return savedCartItems.map(savedItem => {
+      const product = products.find(p => p.id === savedItem.id);
+      if (product) {
+        return { ...product, quantity: savedItem.quantity, size: savedItem.size };
+      }
+      return null;
+    }).filter(Boolean) as CartItem[];
+  }, [savedCartItems, products]);
 
   // Auth listener
   useEffect(() => {
@@ -156,11 +172,11 @@ export default function App() {
   // Persist cart
   useEffect(() => {
     try {
-      localStorage.setItem('niee8_cart', JSON.stringify(cartItems));
+      localStorage.setItem('niee8_cart', JSON.stringify(savedCartItems));
     } catch (error) {
       console.error('Error saving cart:', error);
     }
-  }, [cartItems]);
+  }, [savedCartItems]);
 
   // Product CRUD
   const handleAddProduct = async (newProduct: Product) => {
@@ -193,7 +209,7 @@ export default function App() {
 
   // Cart logic — key là id + size để phân biệt cùng sản phẩm khác size
   const addToCart = (product: Product, size: string = 'M', quantity: number = 1) => {
-    setCartItems(prev => {
+    setSavedCartItems(prev => {
       const cartKey = `${product.id}-${size}`;
       const existing = prev.find(item => `${item.id}-${item.size}` === cartKey);
       if (existing) {
@@ -203,16 +219,16 @@ export default function App() {
             : item
         );
       }
-      return [...prev, { ...product, quantity, size }];
+      return [...prev, { id: product.id, quantity, size }];
     });
     showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`);
   };
 
   const updateCartQuantity = (id: string, size: string, delta: number) => {
-    setCartItems(prev => prev.map(item => {
+    setSavedCartItems(prev => prev.map(item => {
       if (item.id === id && item.size === size) {
         const newQty = item.quantity + delta;
-        if (newQty <= 0) return null as unknown as CartItem;
+        if (newQty <= 0) return null as unknown as {id: string, size: string, quantity: number};
         return { ...item, quantity: newQty };
       }
       return item;
@@ -220,7 +236,7 @@ export default function App() {
   };
 
   const removeCartItem = (id: string, size: string) => {
-    setCartItems(prev => prev.filter(item => !(item.id === id && item.size === size)));
+    setSavedCartItems(prev => prev.filter(item => !(item.id === id && item.size === size)));
     showToast('Đã xóa khỏi giỏ hàng', 'info');
   };
 

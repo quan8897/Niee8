@@ -48,8 +48,7 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="fixed bottom-0 left-0 right-0 sm:bottom-auto sm:top-0 sm:left-auto sm:right-0 sm:h-full sm:w-full sm:max-w-md z-[201] bg-white flex flex-col"
-            style={{ borderRadius: '24px 24px 0 0', maxHeight: '92dvh' }}
+            className="fixed bottom-0 left-0 right-0 sm:bottom-auto sm:top-0 sm:left-auto sm:right-0 sm:h-full sm:w-full sm:max-w-md z-[201] bg-white flex flex-col rounded-t-[24px] sm:rounded-none max-h-[92dvh] sm:max-h-none"
           >
             {/* Drag handle (mobile) */}
             <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
