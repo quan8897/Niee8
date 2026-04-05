@@ -125,23 +125,23 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                   />
                 </AnimatePresence>
                 
-                <div className="absolute top-3 right-3 sm:top-6 sm:right-6 flex flex-col gap-2 sm:gap-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                  <button className="w-9 h-9 sm:w-12 sm:h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all">
-                    <Heart size={16} className="sm:w-5 sm:h-5" />
+                <div className="absolute top-6 right-6 hidden lg:flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <button className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all">
+                    <Heart size={20} />
                   </button>
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddToCart(product);
                     }}
-                    className="w-9 h-9 sm:w-12 sm:h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all"
+                    className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white shadow-xl transition-all"
                   >
-                    <ShoppingBag size={16} className="sm:w-5 sm:h-5" />
+                    <ShoppingBag size={20} />
                   </button>
                 </div>
 
                 {product.images.length > 1 && (
-                  <div className="absolute bottom-16 sm:bottom-24 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 hidden lg:flex gap-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     {product.images.map((_, i) => (
                       <div 
                         key={i} 
@@ -155,8 +155,8 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                   </div>
                 )}
 
-                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6 lg:p-8 translate-y-0 lg:translate-y-full lg:group-hover:translate-y-0 transition-transform duration-500 bg-gradient-to-t from-black/40 to-transparent">
-                  <button className="w-full py-2.5 sm:py-3.5 lg:py-4 bg-white/90 backdrop-blur-sm text-nie8-text rounded-xl sm:rounded-2xl font-medium text-xs sm:text-sm hover:bg-nie8-primary hover:text-white transition-all">
+                <div className="absolute bottom-0 left-0 right-0 p-8 translate-y-full group-hover:translate-y-0 transition-transform duration-500 bg-gradient-to-t from-black/40 to-transparent hidden lg:block">
+                  <button className="w-full py-4 bg-white/90 backdrop-blur-sm text-nie8-text rounded-2xl font-medium text-sm hover:bg-nie8-primary hover:text-white transition-all">
                     Xem chi tiết
                   </button>
                 </div>
@@ -322,8 +322,8 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
 
       {/* Sticky Bottom Button for Mobile */}
       <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none md:hidden">
-        <button className="pointer-events-auto w-full max-w-sm bg-nie8-primary text-white py-4 rounded-full shadow-2xl shadow-nie8-primary/30 font-medium flex items-center justify-center gap-3 hover:scale-105 transition-transform min-h-[44px]">
-          <Sparkles size={20} />
+        <button className="pointer-events-auto bg-nie8-primary text-white py-3 px-6 rounded-full shadow-2xl shadow-nie8-primary/30 text-sm font-medium flex items-center justify-center gap-2 hover:scale-105 transition-transform min-h-[44px]">
+          <Sparkles size={16} />
           Chat với AI Stylist
         </button>
       </div>

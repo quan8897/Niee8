@@ -118,17 +118,19 @@ export default function AIStylist() {
             </div>
 
             <div className="p-4 border-t border-nie8-primary/10">
-              <div className="flex flex-wrap gap-2 mb-4">
-                {quickSuggestions.map((s, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => handleSend(s)}
-                    className="text-[10px] bg-nie8-primary/5 hover:bg-nie8-primary/10 border border-nie8-primary/10 rounded-full px-3 py-1 text-nie8-text transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              {messages.length <= 1 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {quickSuggestions.map((s, i) => (
+                    <button 
+                      key={i}
+                      onClick={() => handleSend(s)}
+                      className="text-[10px] bg-nie8-primary/5 hover:bg-nie8-primary/10 border border-nie8-primary/10 rounded-full px-3 py-1 text-nie8-text transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
                 <input 
                   type="text" 
