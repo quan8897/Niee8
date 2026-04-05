@@ -97,7 +97,7 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-8 sm:gap-x-8 sm:gap-y-16">
           {currentProducts.map((product, index) => (
             <motion.div 
               key={product.id}
@@ -162,12 +162,12 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 </div>
               </div>
 
-              <div className="flex justify-between items-start px-2">
+              <div className="flex flex-col sm:flex-row justify-between items-start px-2 gap-2">
                 <div>
-                  <p className="text-[10px] text-nie8-secondary font-medium uppercase tracking-[0.2em] mb-2">{product.category}</p>
-                  <h3 className="text-xl font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors">{product.name}</h3>
+                  <p className="text-[10px] text-nie8-secondary font-medium uppercase tracking-[0.2em] mb-1 sm:mb-2">{product.category}</p>
+                  <h3 className="text-base sm:text-xl font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-2">{product.name}</h3>
                 </div>
-                <p className="text-lg font-medium text-nie8-text">{product.price}</p>
+                <p className="text-sm sm:text-lg font-medium text-nie8-text whitespace-nowrap">{product.price}</p>
               </div>
             </motion.div>
           ))}
@@ -245,35 +245,24 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 <X size={20} />
               </button>
 
-              <div className="lg:w-1/2 h-[40vh] min-h-[300px] lg:h-auto relative group flex-shrink-0">
-                <AnimatePresence mode="wait">
-                  <motion.img 
-                    key={modalImageIndex}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    src={selectedProduct.images[modalImageIndex]} 
-                    alt={selectedProduct.name} 
-                    className="w-full h-full object-cover"
+              <div className="lg:w-1/2 h-[50vh] min-h-[300px] lg:h-auto relative group flex-shrink-0 flex overflow-x-auto snap-x snap-mandatory scroll-hide">
+                {selectedProduct.images.map((img, idx) => (
+                  <img 
+                    key={idx}
+                    src={img} 
+                    alt={`${selectedProduct.name} ${idx + 1}`} 
+                    className="w-full h-full object-cover flex-shrink-0 snap-center"
                     referrerPolicy="no-referrer"
                   />
-                </AnimatePresence>
+                ))}
                 
                 {selectedProduct.images.length > 1 && (
-                  <div className="absolute bottom-4 lg:bottom-6 left-0 right-0 flex justify-center gap-2 lg:gap-3 px-4 z-10 overflow-x-auto scroll-hide pb-2">
-                    {selectedProduct.images.map((img, idx) => (
-                      <button
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10 pointer-events-none">
+                    {selectedProduct.images.map((_, idx) => (
+                      <div
                         key={idx}
-                        onClick={() => setModalImageIndex(idx)}
-                        className={`w-14 h-14 lg:w-16 lg:h-16 rounded-xl lg:rounded-2xl overflow-hidden border-2 transition-all flex-shrink-0 ${
-                          modalImageIndex === idx 
-                            ? 'border-white shadow-xl scale-110' 
-                            : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
-                        }`}
-                      >
-                        <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      </button>
+                        className="w-2 h-2 rounded-full bg-white/60 shadow-sm"
+                      />
                     ))}
                   </div>
                 )}
@@ -316,12 +305,12 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
                 <div className="absolute bottom-0 left-0 right-0 p-4 lg:p-0 lg:relative lg:mt-12 flex gap-3 lg:gap-4 bg-white/90 backdrop-blur-md lg:bg-transparent border-t border-nie8-primary/10 lg:border-none z-20">
                   <button 
                     onClick={() => onAddToCart(selectedProduct)}
-                    className="flex-grow py-3.5 lg:py-5 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 lg:gap-3 shadow-xl shadow-nie8-primary/20 text-sm lg:text-base"
+                    className="flex-grow py-3.5 lg:py-5 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 lg:gap-3 shadow-xl shadow-nie8-primary/20 text-sm lg:text-base min-h-[44px]"
                   >
                     <ShoppingBag size={18} className="lg:w-5 lg:h-5" />
                     Thêm vào giỏ hàng
                   </button>
-                  <button className="w-12 h-12 lg:w-16 lg:h-16 border border-nie8-primary/20 rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all flex-shrink-0">
+                  <button className="w-12 h-12 lg:w-16 lg:h-16 border border-nie8-primary/20 rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all flex-shrink-0 min-w-[44px] min-h-[44px]">
                     <Heart size={20} className="lg:w-6 lg:h-6" />
                   </button>
                 </div>
@@ -330,6 +319,14 @@ export default function ProductGrid({ products, onAddToCart }: ProductGridProps)
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Sticky Bottom Button for Mobile */}
+      <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none md:hidden">
+        <button className="pointer-events-auto w-full max-w-sm bg-nie8-primary text-white py-4 rounded-full shadow-2xl shadow-nie8-primary/30 font-medium flex items-center justify-center gap-3 hover:scale-105 transition-transform min-h-[44px]">
+          <Sparkles size={20} />
+          Chat với AI Stylist
+        </button>
+      </div>
     </section>
   );
 }
