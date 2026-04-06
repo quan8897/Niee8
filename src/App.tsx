@@ -15,7 +15,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, CartItem, SiteSettings } from './types';
 import {
   auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query,
-  signInWithGoogle, logout, OperationType, handleFirestoreError, getDocs, limit
+  signInWithGoogle, logout, OperationType, handleFirestoreError, getDocs, getDoc, limit
 } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LogOut, ShieldCheck, User as UserIcon, CheckCircle, AlertCircle } from 'lucide-react';
