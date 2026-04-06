@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Star, Quote } from 'lucide-react';
 import { Feedback as FeedbackType } from '../types';
-import { db, collection, onSnapshot, query, handleFirestoreError, OperationType } from '../firebase';
+import { db, collection, getDocs, query, handleFirestoreError, OperationType, limit } from '../firebase';
 
 const INITIAL_FEEDBACKS: FeedbackType[] = [
   {
@@ -27,24 +27,42 @@ const INITIAL_FEEDBACKS: FeedbackType[] = [
 
 export default function Feedback() {
   const [feedbacks, setFeedbacks] = useState<FeedbackType[]>([]);
+  const [asyncError, setAsyncError] = useState<Error | null>(null);
+
+  if (asyncError) {
+    throw asyncError;
+  }
 
   useEffect(() => {
-    const q = query(collection(db, 'feedbacks'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      })) as FeedbackType[];
-      
-      if (data.length === 0) {
-        setFeedbacks(INITIAL_FEEDBACKS);
-      } else {
-        setFeedbacks(data);
+    let isMounted = true;
+    const fetchFeedbacks = async () => {
+      try {
+        const q = query(collection(db, 'feedbacks'), limit(10));
+        const snapshot = await getDocs(q);
+        if (!isMounted) return;
+        
+        const data = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        })) as FeedbackType[];
+        
+        if (data.length === 0) {
+          setFeedbacks(INITIAL_FEEDBACKS);
+        } else {
+          setFeedbacks(data);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'feedbacks');
+        } catch (e) {
+          setAsyncError(e as Error);
+        }
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'feedbacks');
-    });
-    return () => unsubscribe();
+    };
+
+    fetchFeedbacks();
+    return () => { isMounted = false; };
   }, []);
 
   return (

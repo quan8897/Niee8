@@ -57,6 +57,44 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
     if (!text) setInput('');
     setIsTyping(true);
 
+    // 1. Rule-based Size Consulting (Tiết kiệm Token)
+    const lowerText = messageToSend.toLowerCase();
+    const complexKeywords = ['vai', 'eo', 'bụng', 'mông', 'đùi', 'phối', 'màu', 'dịp', 'đi tiệc', 'đi làm', 'rộng', 'chật', 'kích'];
+    const isComplex = complexKeywords.some(kw => lowerText.includes(kw));
+
+    if (!isComplex) {
+      let height = 0;
+      const hMatch1 = lowerText.match(/1m(\d{2})/);
+      const hMatch2 = lowerText.match(/(\d{3})\s*cm/);
+      const hMatch3 = lowerText.match(/cao\s*(\d{3})/);
+      if (hMatch1) height = 100 + parseInt(hMatch1[1]);
+      else if (hMatch2) height = parseInt(hMatch2[1]);
+      else if (hMatch3) height = parseInt(hMatch3[1]);
+
+      let weight = 0;
+      const wMatch = lowerText.match(/(\d{2,3})\s*kg/);
+      const wMatch2 = lowerText.match(/nặng\s*(\d{2,3})/);
+      if (wMatch) weight = parseInt(wMatch[1]);
+      else if (wMatch2) weight = parseInt(wMatch2[1]);
+
+      if (height > 0 && weight > 0) {
+        let suggestedSize = 'XL';
+        if (weight <= 48 && height <= 158) suggestedSize = 'S';
+        else if (weight <= 54 && height <= 162) suggestedSize = 'M';
+        else if (weight <= 60 && height <= 168) suggestedSize = 'L';
+
+        setTimeout(() => {
+          setMessages(prev => [...prev, { 
+            role: 'bot', 
+            text: `Với số đo chiều cao ${height}cm và cân nặng ${weight}kg, size ${suggestedSize} sẽ vừa vặn nhất với bạn nhé! Bạn có cần tư vấn thêm về cách phối đồ không?` 
+          }]);
+          setIsTyping(false);
+        }, 600); // Giả lập độ trễ
+        return;
+      }
+    }
+
+    // 2. Gọi AI cho các ca khó
     try {
       const ai = getAI();
       const chatHistory = messages.map(msg => ({
@@ -65,20 +103,10 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
       }));
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash", // ← đã fix tên model
+        model: "gemini-3-flash-preview", // Sử dụng model mới nhất theo hướng dẫn
         contents: [...chatHistory, { role: 'user', parts: [{ text: messageToSend }] }],
         config: {
-          systemInstruction: `Bạn là AI Stylist của thương hiệu niee8. Nhiệm vụ: tư vấn ngắn gọn, đi thẳng vào vấn đề. CHỈ tư vấn trong phạm vi sản phẩm của niee8 và hướng dẫn chọn size. KHÔNG trả lời dài dòng. Trả lời lịch sự, thân thiện bằng tiếng Việt.
-
-LƯU Ý: Nhớ thông tin khách đã cung cấp (chiều cao, cân nặng, sở thích). KHÔNG hỏi lại thông tin đã có.
-
-BẢNG SIZE:
-- Size S: Eo 62-65, Ngực 79-82, Mông 87-90
-- Size M: Eo 66-69, Ngực 83-86, Mông 91-94
-- Size L: Eo 70-73, Ngực 87-90, Mông 95-98
-- Size XL: Eo 74-77, Ngực 91-94, Mông 99-102
-
-DENIM: Size 25-29 tương ứng eo 61-75cm`,
+          systemInstruction: `Bạn là Stylist của NIEE8. Trả lời cực kỳ ngắn gọn (dưới 50 chữ). Tư vấn size và 1 item phối kèm nếu cần. Bảng size: S(eo 62-65), M(eo 66-69), L(eo 70-73), XL(eo 74-77).`,
         },
       });
 

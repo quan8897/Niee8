@@ -5,6 +5,7 @@ export interface Product {
   images: string[];
   description: string;
   category: string;
+  outfit_suggestions?: string[];
 }
 
 // CartItem giờ có trường size để phân biệt cùng sản phẩm khác size

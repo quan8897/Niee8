@@ -15,7 +15,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, CartItem, SiteSettings } from './types';
 import {
   auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query,
-  signInWithGoogle, logout, OperationType, handleFirestoreError
+  signInWithGoogle, logout, OperationType, handleFirestoreError, getDocs, limit
 } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LogOut, ShieldCheck, User as UserIcon, CheckCircle, AlertCircle } from 'lucide-react';
@@ -67,6 +67,11 @@ export default function App() {
   const [userRole, setUserRole] = useState<'admin' | 'client' | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [asyncError, setAsyncError] = useState<Error | null>(null);
+
+  if (asyncError) {
+    throw asyncError;
+  }
 
   // Toast helper
   const showToast = (message: string, type: Toast['type'] = 'success') => {
@@ -103,13 +108,16 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
-    let userDocUnsubscribe: (() => void) | null = null;
+    let isMounted = true;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!isMounted) return;
       setUser(currentUser);
-      if (userDocUnsubscribe) { userDocUnsubscribe(); userDocUnsubscribe = null; }
 
       if (currentUser) {
-        userDocUnsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+        try {
+          const docSnap = await getDoc(doc(db, 'users', currentUser.uid));
+          if (!isMounted) return;
+          
           if (docSnap.exists()) {
             setUserRole(docSnap.data().role);
           } else {
@@ -123,50 +131,95 @@ export default function App() {
               role,
             }).catch(err => {
               if (!err.message.includes('insufficient permissions')) {
-                handleFirestoreError(err, OperationType.WRITE, 'users');
+                try {
+                  handleFirestoreError(err, OperationType.WRITE, 'users');
+                } catch (e) {
+                  setAsyncError(e as Error);
+                }
               }
             });
             setUserRole(role);
           }
-        }, (error) => console.error("Error listening to user doc:", error));
+        } catch (error) {
+          if (!isMounted) return;
+          console.error("Error fetching user doc:", error);
+          if (error instanceof Error && error.message.includes('Quota limit exceeded')) {
+            setAsyncError(error);
+          }
+        }
       } else {
         setUserRole(null);
       }
       setIsAuthReady(true);
     });
 
-    return () => { unsubscribe(); if (userDocUnsubscribe) userDocUnsubscribe(); };
+    return () => { 
+      isMounted = false;
+      unsubscribe(); 
+    };
   }, []);
 
   // Site settings listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'site_settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) setSiteSettings(docSnap.data() as SiteSettings);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'site_settings/global'));
-    return () => unsubscribe();
+    let isMounted = true;
+    const fetchSettings = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'site_settings', 'global'));
+        if (!isMounted) return;
+        if (docSnap.exists()) setSiteSettings(docSnap.data() as SiteSettings);
+      } catch (error) {
+        if (!isMounted) return;
+        try {
+          handleFirestoreError(error, OperationType.GET, 'site_settings/global');
+        } catch (e) {
+          setAsyncError(e as Error);
+        }
+      }
+    };
+    fetchSettings();
+    return () => { isMounted = false; };
   }, []);
 
   const handleUpdateSettings = async (newSettings: SiteSettings) => {
     try {
       await setDoc(doc(db, 'site_settings', 'global'), newSettings);
+      setSiteSettings(newSettings);
       showToast('Đã cập nhật cài đặt website!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'site_settings/global');
+      try {
+        handleFirestoreError(error, OperationType.WRITE, 'site_settings/global');
+      } catch (e) {
+        setAsyncError(e as Error);
+      }
     }
   };
 
   // Products listener — với loading state
   useEffect(() => {
-    const q = query(collection(db, 'products'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
-      setProducts(productsData);
-      setIsLoadingProducts(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'products');
-      setIsLoadingProducts(false);
-    });
-    return () => unsubscribe();
+    let isMounted = true;
+    const fetchProducts = async () => {
+      try {
+        // Giới hạn 24 sản phẩm để tối ưu hoá số lượt đọc Firebase (Quota limit)
+        const q = query(collection(db, 'products'), limit(24));
+        const snapshot = await getDocs(q);
+        if (!isMounted) return;
+        
+        const productsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
+        setProducts(productsData);
+        setIsLoadingProducts(false);
+      } catch (error) {
+        if (!isMounted) return;
+        setIsLoadingProducts(false);
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'products');
+        } catch (e) {
+          setAsyncError(e as Error);
+        }
+      }
+    };
+
+    fetchProducts();
+    return () => { isMounted = false; };
   }, []);
 
   // Persist cart
@@ -179,31 +232,89 @@ export default function App() {
   }, [savedCartItems]);
 
   // Product CRUD
+  const generateOutfitSuggestions = async (product: Product, allProducts: Product[]): Promise<string[]> => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return [];
+      
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const otherProducts = allProducts.filter(p => p.id !== product.id);
+      if (otherProducts.length === 0) return [];
+
+      const prompt = `Bạn là AI Stylist. Tôi vừa thêm sản phẩm mới: "${product.name}" (Danh mục: ${product.category}).
+Hãy chọn ra tối đa 2 sản phẩm phù hợp nhất để phối cùng từ danh sách sau:
+${otherProducts.map(p => `- ID: ${p.id}, Tên: ${p.name}, Danh mục: ${p.category}`).join('\n')}
+
+CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, ví dụ: ["id1", "id2"]. KHÔNG giải thích gì thêm.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const result = JSON.parse(response.text || "[]");
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      console.error("Error generating outfit suggestions:", error);
+      return [];
+    }
+  };
+
   const handleAddProduct = async (newProduct: Product) => {
     try {
       const productRef = doc(collection(db, 'products'));
-      await setDoc(productRef, { ...newProduct, id: productRef.id });
+      
+      // Pre-compute outfit suggestions
+      const suggestions = await generateOutfitSuggestions(newProduct, products);
+      
+      const productWithId = { ...newProduct, id: productRef.id, outfit_suggestions: suggestions };
+      await setDoc(productRef, productWithId);
+      setProducts(prev => [productWithId, ...prev]);
       showToast('Đã thêm sản phẩm mới!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'products');
+      try {
+        handleFirestoreError(error, OperationType.CREATE, 'products');
+      } catch (e) {
+        setAsyncError(e as Error);
+      }
     }
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
     try {
-      await setDoc(doc(db, 'products', updatedProduct.id), updatedProduct);
+      // Re-compute suggestions if needed, or just keep existing
+      let suggestions = updatedProduct.outfit_suggestions;
+      if (!suggestions || suggestions.length === 0) {
+        suggestions = await generateOutfitSuggestions(updatedProduct, products);
+      }
+      
+      const finalProduct = { ...updatedProduct, outfit_suggestions: suggestions };
+      await setDoc(doc(db, 'products', finalProduct.id), finalProduct);
+      setProducts(prev => prev.map(p => p.id === finalProduct.id ? finalProduct : p));
       showToast('Đã cập nhật sản phẩm!');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
+      try {
+        handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
+      } catch (e) {
+        setAsyncError(e as Error);
+      }
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id));
+      setProducts(prev => prev.filter(p => p.id !== id));
       showToast('Đã xóa sản phẩm', 'info');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+      try {
+        handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+      } catch (e) {
+        setAsyncError(e as Error);
+      }
     }
   };
 
@@ -211,10 +322,10 @@ export default function App() {
   const addToCart = (product: Product, size: string = 'M', quantity: number = 1) => {
     setSavedCartItems(prev => {
       const cartKey = `${product.id}-${size}`;
-      const existing = prev.find(item => `${item.id}-${item.size}` === cartKey);
+      const existing = prev.find(item => `${item.id}-${item.size || 'M'}` === cartKey);
       if (existing) {
         return prev.map(item =>
-          `${item.id}-${item.size}` === cartKey
+          `${item.id}-${item.size || 'M'}` === cartKey
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -226,7 +337,7 @@ export default function App() {
 
   const updateCartQuantity = (id: string, size: string, delta: number) => {
     setSavedCartItems(prev => prev.map(item => {
-      if (item.id === id && item.size === size) {
+      if (item.id === id && (item.size || '') === (size || '')) {
         const newQty = item.quantity + delta;
         if (newQty <= 0) return null as unknown as {id: string, size: string, quantity: number};
         return { ...item, quantity: newQty };
@@ -236,7 +347,7 @@ export default function App() {
   };
 
   const removeCartItem = (id: string, size: string) => {
-    setSavedCartItems(prev => prev.filter(item => !(item.id === id && item.size === size)));
+    setSavedCartItems(prev => prev.filter(item => !(item.id === id && (item.size || '') === (size || ''))));
     showToast('Đã xóa khỏi giỏ hàng', 'info');
   };
 
