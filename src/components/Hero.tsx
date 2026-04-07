@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Play } from 'lucide-react';
 import { SiteSettings } from '../types';
+import ProtectedImage from './ProtectedImage';
 
 interface HeroProps {
   settings: SiteSettings | null;
@@ -16,16 +17,21 @@ export default function Hero({ settings }: HeroProps) {
     <section className="relative h-screen flex items-center overflow-hidden bg-nie8-bg">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-r from-nie8-bg via-nie8-bg/40 to-transparent z-10"></div>
-        <motion.img 
+        <motion.div
           key={heroImage}
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
           transition={{ duration: 2, ease: "easeOut" }}
-          src={heroImage} 
-          alt="Hero Fashion" 
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
+          className="absolute inset-0 w-full h-full"
+        >
+          <ProtectedImage 
+            src={heroImage} 
+            alt="Hero Fashion" 
+            className="w-full h-full object-cover"
+            containerClassName="w-full h-full"
+            referrerPolicy="no-referrer"
+          />
+        </motion.div>
       </div>
 
       <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">

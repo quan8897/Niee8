@@ -72,6 +72,49 @@ export default function AdminDashboard({
     onUpdateSettings(settingsForm);
   };
 
+  // ===== IMAGE OPTIMIZATION (AVIF/WebP) =====
+  const processImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+
+        // Try AVIF first (Chrome 114+, Firefox 113+)
+        canvas.toBlob((blobAvif) => {
+          if (blobAvif && blobAvif.type === 'image/avif') {
+            resolve(new File([blobAvif], file.name.replace(/\.[^/.]+$/, "") + ".avif", { type: 'image/avif' }));
+          } else {
+            // Fallback to WebP
+            canvas.toBlob((blobWebp) => {
+              if (blobWebp) {
+                resolve(new File([blobWebp], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' }));
+              } else {
+                resolve(file); // Fallback to original
+              }
+            }, 'image/webp', 0.85); // 85% quality
+          }
+        }, 'image/avif', 0.85);
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+      img.src = objectUrl;
+    });
+  };
+
   const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError(null);
     const file = e.target.files?.[0];
@@ -84,13 +127,15 @@ export default function AdminDashboard({
 
     setIsUploadingHero(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      // Optimize image before upload
+      const optimizedFile = await processImage(file);
+      const fileExt = optimizedFile.name.split('.').pop();
       const fileName = `hero_${Date.now()}.${fileExt}`;
       const filePath = `settings/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('image')
-        .upload(filePath, file);
+        .upload(filePath, optimizedFile);
 
       if (uploadError) throw uploadError;
 
@@ -156,13 +201,15 @@ export default function AdminDashboard({
 
     for (const file of validFiles) {
       try {
-        const fileExt = file.name.split('.').pop();
+        // Optimize image before upload
+        const optimizedFile = await processImage(file);
+        const fileExt = optimizedFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `products/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('image')
-          .upload(filePath, file);
+          .upload(filePath, optimizedFile);
 
         if (uploadError) throw uploadError;
 

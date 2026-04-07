@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus, Sparkles } from 'lucide-react';
 import { Product } from '../types';
+import ProtectedImage from './ProtectedImage';
 
 const PRODUCTS_PER_PAGE = 6;
 
@@ -33,13 +34,14 @@ function LazyImage({ src, alt, className }: { src: string; alt: string; classNam
       {!loaded && !error && (
         <div className="absolute inset-0 bg-nie8-primary/10 animate-pulse" />
       )}
-      <img
+      <ProtectedImage
         src={src}
         alt={alt}
         loading="lazy"
         onLoad={() => setLoaded(true)}
         onError={() => setError(true)}
         className={`${className} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        containerClassName="w-full h-full"
         referrerPolicy="no-referrer"
       />
     </div>
@@ -321,7 +323,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
 
                   {/* Image dots indicator */}
                   {selectedProduct.images.length > 1 && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
                       {selectedProduct.images.map((_, i) => (
                         <button
                           key={i}
@@ -337,13 +339,13 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                     <>
                       <button
                         onClick={() => setActiveImageIndex(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length)}
-                        className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md"
+                        className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md z-20"
                       >
                         <ChevronLeft size={16} />
                       </button>
                       <button
                         onClick={() => setActiveImageIndex(prev => (prev + 1) % selectedProduct.images.length)}
-                        className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md"
+                        className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md z-20"
                       >
                         <ChevronRight size={16} />
                       </button>
@@ -353,13 +355,13 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                   {/* Close button */}
                   <button
                     onClick={closeModal}
-                    className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"
+                    className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md z-20"
                   >
                     <X size={18} />
                   </button>
 
                   {/* Share button */}
-                  <button className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md">
+                  <button className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md z-20">
                     <Share2 size={16} />
                   </button>
                 </div>
