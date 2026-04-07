@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, Settings, Package } from 'lucide-react';
+import { X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, Settings, Package, Loader2 } from 'lucide-react';
 import { Product, SiteSettings } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -29,6 +30,8 @@ export default function AdminDashboard({
   const [bulkData, setBulkData] = useState('');
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [isUploadingHero, setIsUploadingHero] = useState(false);
+  const [uploadingImagesCount, setUploadingImagesCount] = useState(0);
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     price: '',
@@ -46,6 +49,10 @@ export default function AdminDashboard({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploadingImagesCount > 0) {
+      setImageError('Vui lòng chờ ảnh tải lên xong trước khi lưu.');
+      return;
+    }
     if (editingId) {
       onUpdateProduct({ ...formData, id: editingId } as Product);
       setEditingId(null);
@@ -58,22 +65,42 @@ export default function AdminDashboard({
 
   const handleSettingsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploadingHero) {
+      setImageError('Vui lòng chờ ảnh tải lên xong trước khi lưu.');
+      return;
+    }
     onUpdateSettings(settingsForm);
   };
 
-  const handleHeroImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError(null);
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 500 * 1024) {
-        setImageError(`Ảnh ${file.name} quá lớn. Vui lòng chọn ảnh dưới 500KB hoặc sử dụng URL ảnh.`);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSettingsForm(prev => ({ ...prev, heroImage: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError(`Ảnh ${file.name} quá lớn. Vui lòng chọn ảnh dưới 5MB.`);
+      return;
+    }
+
+    setIsUploadingHero(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `hero_${Date.now()}.${fileExt}`;
+      const filePath = `settings/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('image')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('image').getPublicUrl(filePath);
+      setSettingsForm(prev => ({ ...prev, heroImage: data.publicUrl }));
+    } catch (error) {
+      console.error('Upload error:', error);
+      setImageError('Lỗi khi tải ảnh lên. Vui lòng thử lại.');
+    } finally {
+      setIsUploadingHero(false);
     }
   };
 
@@ -110,24 +137,47 @@ export default function AdminDashboard({
     setIsAdding(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError(null);
     const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach((file: File) => {
-        if (file.size > 500 * 1024) {
-          setImageError(`Ảnh ${file.name} quá lớn. Vui lòng chọn ảnh dưới 500KB hoặc sử dụng URL ảnh.`);
-          return;
-        }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFormData(prev => ({ 
-            ...prev, 
-            images: [...(prev.images || []), reader.result as string] 
-          }));
-        };
-        reader.readAsDataURL(file);
-      });
+    if (!files) return;
+
+    const validFiles = Array.from(files).filter(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        setImageError(prev => prev ? `${prev}\nẢnh ${file.name} quá lớn (>5MB).` : `Ảnh ${file.name} quá lớn (>5MB).`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    setUploadingImagesCount(prev => prev + validFiles.length);
+
+    for (const file of validFiles) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `products/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('image')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('image').getPublicUrl(filePath);
+
+        setFormData(prev => ({
+          ...prev,
+          images: [...(prev.images || []), data.publicUrl]
+        }));
+      } catch (error) {
+        console.error('Upload error:', error);
+        setImageError(prev => prev ? `${prev}\nLỗi tải ảnh ${file.name}.` : `Lỗi tải ảnh ${file.name}.`);
+      } finally {
+        setUploadingImagesCount(prev => prev - 1);
+      }
     }
   };
 
@@ -214,11 +264,15 @@ export default function AdminDashboard({
                             <ImageIcon size={48} />
                           </div>
                         )}
-                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                        <label className={`absolute inset-0 bg-black/40 ${isUploadingHero ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity flex items-center justify-center cursor-pointer`}>
                           <div className="bg-white px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                            <Upload size={14} /> Thay đổi ảnh
+                            {isUploadingHero ? (
+                              <><Loader2 size={14} className="animate-spin" /> Đang tải lên...</>
+                            ) : (
+                              <><Upload size={14} /> Thay đổi ảnh</>
+                            )}
                           </div>
-                          <input type="file" className="hidden" accept="image/*" onChange={handleHeroImageUpload} />
+                          <input type="file" className="hidden" accept="image/*" onChange={handleHeroImageUpload} disabled={isUploadingHero} />
                         </label>
                       </div>
                       <div className="space-y-4">
@@ -402,12 +456,16 @@ export default function AdminDashboard({
                             }
                           }}
                         />
-                        <label className="cursor-pointer w-14 h-14 bg-nie8-primary text-white rounded-2xl flex items-center justify-center hover:bg-nie8-secondary transition-all flex-shrink-0">
-                          <Upload size={20} />
-                          <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                        <label className={`cursor-pointer w-14 h-14 ${uploadingImagesCount > 0 ? 'bg-nie8-primary/50 cursor-not-allowed' : 'bg-nie8-primary hover:bg-nie8-secondary'} text-white rounded-2xl flex items-center justify-center transition-all flex-shrink-0`}>
+                          {uploadingImagesCount > 0 ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+                          <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} disabled={uploadingImagesCount > 0} />
                         </label>
                       </div>
                       
+                      {uploadingImagesCount > 0 && (
+                        <p className="text-xs text-nie8-primary animate-pulse">Đang tải lên {uploadingImagesCount} ảnh...</p>
+                      )}
+
                       <div className="grid grid-cols-4 gap-4">
                         {formData.images?.map((img, idx) => (
                           <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group border border-nie8-primary/10">

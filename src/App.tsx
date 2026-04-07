@@ -18,17 +18,14 @@ import AIStylist from './components/AIStylist';
 import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Cart from './components/Cart';
+import FloatingActions from './components/FloatingActions';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product, CartItem, SiteSettings } from './types';
-import {
-  auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query,
-  signInWithGoogle, logout, OperationType, handleFirestoreError, getDocs, limit, getDoc
-} from './firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { LogOut, ShieldCheck, User as UserIcon, CheckCircle, AlertCircle } from 'lucide-react';
 import { appCache, CACHE_KEYS, CACHE_TTL } from './lib/cache';
 import { useDebounce } from './lib/useDebounce';
+import { supabase } from './lib/supabase';
 
 // ===== TOAST NOTIFICATION COMPONENT =====
 interface Toast {
@@ -73,11 +70,14 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAIStylistOpen, setIsAIStylistOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<'admin' | 'client' | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [asyncError, setAsyncError] = useState<Error | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   if (asyncError) throw asyncError;
 
@@ -129,66 +129,129 @@ export default function App() {
   // ===== AUTH LISTENER =====
   useEffect(() => {
     let isMounted = true;
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user || null;
+      
       if (!isMounted) return;
       setUser(currentUser);
 
       if (currentUser) {
-        // Kiểm tra cache role trước khi gọi Firestore
-        const cachedRole = appCache.get<'admin' | 'client'>(CACHE_KEYS.USER_ROLE(currentUser.uid));
+        // Kiểm tra cache role trước khi gọi DB
+        const cachedRole = appCache.get<'admin' | 'client'>(CACHE_KEYS.USER_ROLE(currentUser.id));
         if (cachedRole) {
           setUserRole(cachedRole);
           setIsAuthReady(true);
           return;
         }
 
-        try {
-          // FIX: getDoc đã được import đúng từ firebase.ts
-          const docSnap = await getDoc(doc(db, 'users', currentUser.uid));
-          if (!isMounted) return;
+        // Fetch role from profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', currentUser.id)
+          .single();
 
-          let role: 'admin' | 'client';
-          if (docSnap.exists()) {
-            role = docSnap.data().role;
-          } else {
-            const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
-            role = isDefaultAdmin ? 'admin' : 'client';
-            // Tạo user doc, không block UI nếu lỗi permission
-            setDoc(doc(db, 'users', currentUser.uid), {
-              uid: currentUser.uid,
-              email: currentUser.email,
-              displayName: currentUser.displayName,
-              photoURL: currentUser.photoURL,
-              role,
-            }).catch(err => {
-              if (!err.message.includes('insufficient permissions')) {
-                try {
-                  handleFirestoreError(err, OperationType.WRITE, 'users');
-                } catch (e) {
-                  setAsyncError(e as Error);
-                }
-              }
-            });
-          }
-
-          // Cache role 15 phút
-          appCache.set(CACHE_KEYS.USER_ROLE(currentUser.uid), role, CACHE_TTL.USER_ROLE);
-          setUserRole(role);
-        } catch (error) {
-          if (!isMounted) return;
-          console.error("Error fetching user doc:", error);
-          if (error instanceof Error && error.message.includes('Quota limit exceeded')) {
-            setAsyncError(error);
-          }
-        }
+        const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
+        const role = profile?.role || (isDefaultAdmin ? 'admin' : 'client');
+        
+        appCache.set(CACHE_KEYS.USER_ROLE(currentUser.id), role, CACHE_TTL.USER_ROLE);
+        setUserRole(role);
       } else {
         setUserRole(null);
       }
       setIsAuthReady(true);
+    };
+
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      if (currentUser) {
+        const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
+        setUserRole(isDefaultAdmin ? 'admin' : 'client');
+      } else {
+        setUserRole(null);
+      }
     });
 
-    return () => { isMounted = false; unsubscribe(); };
+    return () => { 
+      isMounted = false; 
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const handleLogin = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      showToast('Vui lòng nhập email và mật khẩu', 'error');
+      return;
+    }
+    setIsAuthenticating(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      showToast('Đăng nhập thành công!', 'success');
+      setEmail('');
+      setPassword('');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      let errorMsg = error.message || 'Lỗi đăng nhập';
+      if (errorMsg.includes('Invalid login credentials')) {
+        errorMsg = 'Sai email hoặc mật khẩu. Nếu bạn chưa có tài khoản, hãy bấm nút "ĐĂNG KÝ" bên cạnh.';
+      } else if (errorMsg.includes('Email not confirmed')) {
+        errorMsg = 'Vui lòng kiểm tra hộp thư email để xác nhận tài khoản.';
+      }
+      showToast(errorMsg, 'error');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleSignup = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      showToast('Vui lòng nhập email và mật khẩu', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      showToast('Mật khẩu phải có ít nhất 6 ký tự', 'error');
+      return;
+    }
+    setIsAuthenticating(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      
+      if (data.session) {
+        showToast('Đăng ký thành công!', 'success');
+      } else {
+        showToast('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận.', 'success');
+      }
+      setEmail('');
+      setPassword('');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      let errorMsg = error.message || 'Lỗi đăng ký';
+      if (errorMsg.includes('User already registered')) {
+        errorMsg = 'Email này đã được đăng ký. Vui lòng bấm "ĐĂNG NHẬP".';
+      }
+      showToast(errorMsg, 'error');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      showToast('Đã đăng xuất', 'info');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   // ===== SITE SETTINGS — với cache =====
   useEffect(() => {
@@ -203,20 +266,22 @@ export default function App() {
       }
 
       try {
-        const docSnap = await getDoc(doc(db, 'site_settings', 'global'));
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('*')
+          .eq('id', 'global')
+          .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // Ignore not found error
+
         if (!isMounted) return;
-        if (docSnap.exists()) {
-          const data = docSnap.data() as SiteSettings;
+        if (data) {
           appCache.set(CACHE_KEYS.SITE_SETTINGS, data, CACHE_TTL.SITE_SETTINGS);
           setSiteSettings(data);
         }
       } catch (error) {
         if (!isMounted) return;
-        try {
-          handleFirestoreError(error, OperationType.GET, 'site_settings/global');
-        } catch (e) {
-          setAsyncError(e as Error);
-        }
+        console.error('Error fetching site settings:', error);
       }
     };
 
@@ -226,17 +291,19 @@ export default function App() {
 
   const handleUpdateSettings = async (newSettings: SiteSettings) => {
     try {
-      await setDoc(doc(db, 'site_settings', 'global'), newSettings);
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ id: 'global', ...newSettings });
+
+      if (error) throw error;
+
       // Cập nhật cả cache lẫn state
       appCache.set(CACHE_KEYS.SITE_SETTINGS, newSettings, CACHE_TTL.SITE_SETTINGS);
       setSiteSettings(newSettings);
       showToast('Đã cập nhật cài đặt website!');
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.WRITE, 'site_settings/global');
-      } catch (e) {
-        setAsyncError(e as Error);
-      }
+      console.error('Error updating site settings:', error);
+      showToast('Lỗi khi cập nhật cài đặt', 'error');
     }
   };
 
@@ -254,22 +321,23 @@ export default function App() {
       }
 
       try {
-        const q = query(collection(db, 'products'), limit(24));
-        const snapshot = await getDocs(q);
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(24);
+
+        if (error) throw error;
+
         if (!isMounted) return;
 
-        const productsData = snapshot.docs.map(d => ({ ...d.data(), id: d.id })) as Product[];
-        appCache.set(CACHE_KEYS.PRODUCTS, productsData, CACHE_TTL.PRODUCTS);
-        setProducts(productsData);
+        appCache.set(CACHE_KEYS.PRODUCTS, data || [], CACHE_TTL.PRODUCTS);
+        setProducts(data || []);
         setIsLoadingProducts(false);
       } catch (error) {
         if (!isMounted) return;
         setIsLoadingProducts(false);
-        try {
-          handleFirestoreError(error, OperationType.LIST, 'products');
-        } catch (e) {
-          setAsyncError(e as Error);
-        }
+        console.error('Error fetching products:', error);
       }
     };
 
@@ -312,24 +380,26 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
   const handleAddProduct = async (newProduct: Product) => {
     try {
-      const productRef = doc(collection(db, 'products'));
       const suggestions = await generateOutfitSuggestions(newProduct, products);
-      const productWithId = { ...newProduct, id: productRef.id, outfit_suggestions: suggestions };
+      const productWithId = { ...newProduct, outfit_suggestions: suggestions };
 
-      await setDoc(productRef, productWithId);
+      const { data, error } = await supabase
+        .from('products')
+        .insert([productWithId])
+        .select()
+        .single();
+
+      if (error) throw error;
 
       // Cập nhật state và cache đồng thời
-      const updatedProducts = [productWithId, ...products];
+      const updatedProducts = [data, ...products];
       setProducts(updatedProducts);
       appCache.set(CACHE_KEYS.PRODUCTS, updatedProducts, CACHE_TTL.PRODUCTS);
 
       showToast('Đã thêm sản phẩm mới!');
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.CREATE, 'products');
-      } catch (e) {
-        setAsyncError(e as Error);
-      }
+      console.error('Error adding product:', error);
+      showToast('Lỗi khi thêm sản phẩm', 'error');
     }
   };
 
@@ -341,7 +411,13 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
       }
 
       const finalProduct = { ...updatedProduct, outfit_suggestions: suggestions };
-      await setDoc(doc(db, 'products', finalProduct.id), finalProduct);
+      
+      const { error } = await supabase
+        .from('products')
+        .update(finalProduct)
+        .eq('id', finalProduct.id);
+
+      if (error) throw error;
 
       const updatedProducts = products.map(p => p.id === finalProduct.id ? finalProduct : p);
       setProducts(updatedProducts);
@@ -349,27 +425,27 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
       showToast('Đã cập nhật sản phẩm!');
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
-      } catch (e) {
-        setAsyncError(e as Error);
-      }
+      console.error('Error updating product:', error);
+      showToast('Lỗi khi cập nhật sản phẩm', 'error');
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'products', id));
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
       const updatedProducts = products.filter(p => p.id !== id);
       setProducts(updatedProducts);
       appCache.set(CACHE_KEYS.PRODUCTS, updatedProducts, CACHE_TTL.PRODUCTS);
       showToast('Đã xóa sản phẩm', 'info');
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
-      } catch (e) {
-        setAsyncError(e as Error);
-      }
+      console.error('Error deleting product:', error);
+      showToast('Lỗi khi xóa sản phẩm', 'error');
     }
   };
 
@@ -443,14 +519,20 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
               <div className="flex items-center gap-3">
                 {user ? (
                   <>
-                    <img
-                      src={user.photoURL || ''}
-                      alt=""
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-nie8-primary/20"
-                      referrerPolicy="no-referrer"
-                    />
+                    {user.user_metadata?.avatar_url ? (
+                      <img
+                        src={user.user_metadata.avatar_url}
+                        alt=""
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-nie8-primary/20"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-nie8-primary/10 flex items-center justify-center text-nie8-primary font-bold text-sm">
+                        {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
+                      </div>
+                    )}
                     <div>
-                      <p className="text-xs font-bold text-nie8-text">{user.displayName}</p>
+                      <p className="text-xs font-bold text-nie8-text">{user.user_metadata?.full_name || user.email}</p>
                       <p className="text-[10px] text-nie8-text/40 uppercase tracking-widest flex items-center gap-1">
                         {userRole === 'admin' && <ShieldCheck size={10} className="text-nie8-primary" />}
                         {userRole || 'Client'}
@@ -487,12 +569,42 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick={signInWithGoogle}
-                    className="px-6 py-2.5 sm:px-8 sm:py-3 bg-nie8-text text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary transition-all shadow-lg active:scale-95"
-                  >
-                    Đăng nhập với Google
-                  </button>
+                  <form className="flex flex-col sm:flex-row items-center gap-2">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email..."
+                      className="px-4 py-2 sm:px-4 sm:py-2.5 rounded-full border border-nie8-primary/20 text-xs focus:outline-none focus:border-nie8-primary transition-colors w-full sm:w-40"
+                      required
+                    />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mật khẩu..."
+                      className="px-4 py-2 sm:px-4 sm:py-2.5 rounded-full border border-nie8-primary/20 text-xs focus:outline-none focus:border-nie8-primary transition-colors w-full sm:w-40"
+                      required
+                    />
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                      <button
+                        type="button"
+                        onClick={handleLogin}
+                        disabled={isAuthenticating}
+                        className="px-4 py-2 sm:px-6 sm:py-2.5 bg-nie8-text text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary transition-all shadow-lg active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        Đăng nhập
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSignup}
+                        disabled={isAuthenticating}
+                        className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white text-nie8-text border border-nie8-text rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary hover:text-white hover:border-nie8-primary transition-all shadow-lg active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        Đăng ký
+                      </button>
+                    </div>
+                  </form>
                 )}
               </div>
             </div>
@@ -538,6 +650,8 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
         <div className="h-16 lg:hidden" aria-hidden="true" />
         <Footer />
+
+        <FloatingActions onAIClick={() => setIsAIStylistOpen(true)} />
 
         <AIStylist isOpen={isAIStylistOpen} onClose={() => setIsAIStylistOpen(false)} />
 
