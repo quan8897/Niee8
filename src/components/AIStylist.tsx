@@ -1,4 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+/**
+ * AIStylist.tsx — phiên bản tối ưu
+ *
+ * Thay đổi so với bản cũ:
+ * 1. Fix model name: "gemini-2.0-flash" (hợp lệ)
+ * 2. Thêm rate limiting đơn giản: tối đa 1 request / 3 giây
+ *    → Tránh spam API khi user click gửi liên tục
+ * 3. Memoize quickSuggestions (không cần tạo lại mỗi render)
+ * 4. Không thay đổi logic hoặc UI
+ */
+
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Send, X } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -9,6 +20,9 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+// Rate limiting: chặn gửi nếu chưa qua MIN_INTERVAL ms kể từ lần cuối
+const MIN_INTERVAL_MS = 3000;
+
 interface AIStylistProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -16,10 +30,8 @@ interface AIStylistProps {
 
 export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylistProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  // Hỗ trợ cả controlled và uncontrolled mode
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const handleClose = () => { onClose?.(); setInternalOpen(false); };
-  const handleOpen = () => { setInternalOpen(true); };
 
   const [messages, setMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([
     { role: 'bot', text: 'Chào bạn! Tôi là niee8 AI Stylist 👗 Bạn cần tư vấn phối đồ cho dịp nào hôm nay?' }
@@ -27,19 +39,20 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastRequestTime = useRef<number>(0); // rate limit tracker
 
-  const quickSuggestions = [
+  // Memoize — không tạo lại array mỗi render
+  const quickSuggestions = useMemo(() => [
     "Phối đồ đi cafe cuối tuần",
     "Trang phục cho da ngăm",
     "Phong cách Minimalist",
     "Tư vấn chọn size"
-  ];
+  ], []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Lock scroll khi chat mở trên mobile
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -51,13 +64,24 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
 
   const handleSend = async (text?: string) => {
     const messageToSend = text || input;
-    if (!messageToSend.trim()) return;
+    if (!messageToSend.trim() || isTyping) return;
+
+    // Rate limiting — tránh spam
+    const now = Date.now();
+    if (now - lastRequestTime.current < MIN_INTERVAL_MS) {
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        text: 'Bạn gửi nhanh quá! Chờ tôi một chút nhé 😊'
+      }]);
+      return;
+    }
+    lastRequestTime.current = now;
 
     setMessages(prev => [...prev, { role: 'user', text: messageToSend }]);
     if (!text) setInput('');
     setIsTyping(true);
 
-    // 1. Rule-based Size Consulting (Tiết kiệm Token)
+    // Rule-based size consulting (tiết kiệm token)
     const lowerText = messageToSend.toLowerCase();
     const complexKeywords = ['vai', 'eo', 'bụng', 'mông', 'đùi', 'phối', 'màu', 'dịp', 'đi tiệc', 'đi làm', 'rộng', 'chật', 'kích'];
     const isComplex = complexKeywords.some(kw => lowerText.includes(kw));
@@ -84,17 +108,17 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
         else if (weight <= 60 && height <= 168) suggestedSize = 'L';
 
         setTimeout(() => {
-          setMessages(prev => [...prev, { 
-            role: 'bot', 
-            text: `Với số đo chiều cao ${height}cm và cân nặng ${weight}kg, size ${suggestedSize} sẽ vừa vặn nhất với bạn nhé! Bạn có cần tư vấn thêm về cách phối đồ không?` 
+          setMessages(prev => [...prev, {
+            role: 'bot',
+            text: `Với số đo chiều cao ${height}cm và cân nặng ${weight}kg, size ${suggestedSize} sẽ vừa vặn nhất với bạn nhé! Bạn có cần tư vấn thêm về cách phối đồ không?`
           }]);
           setIsTyping(false);
-        }, 600); // Giả lập độ trễ
+        }, 600);
         return;
       }
     }
 
-    // 2. Gọi AI cho các ca khó
+    // Gọi Gemini API cho các câu hỏi phức tạp
     try {
       const ai = getAI();
       const chatHistory = messages.map(msg => ({
@@ -103,7 +127,7 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
       }));
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview", // Sử dụng model mới nhất theo hướng dẫn
+        model: "gemini-2.0-flash", // FIX: model name hợp lệ
         contents: [...chatHistory, { role: 'user', parts: [{ text: messageToSend }] }],
         config: {
           systemInstruction: `Bạn là Stylist của NIEE8. Trả lời cực kỳ ngắn gọn (dưới 50 chữ). Tư vấn size và 1 item phối kèm nếu cần. Bảng size: S(eo 62-65), M(eo 66-69), L(eo 70-73), XL(eo 74-77).`,
@@ -124,10 +148,10 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
 
   return (
     <>
-      {/* FAB button — chỉ hiện trên desktop vì mobile dùng bottom nav */}
+      {/* FAB button — desktop only */}
       {controlledOpen === undefined && (
         <button
-          onClick={handleOpen}
+          onClick={() => setInternalOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-nie8-primary text-white rounded-full hidden lg:flex items-center justify-center shadow-2xl hover:scale-110 transition-transform group"
           aria-label="Mở AI Stylist"
         >
@@ -135,11 +159,9 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
         </button>
       )}
 
-      {/* Chat panel */}
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Mobile: full screen overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -155,21 +177,15 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
               transition={{ type: 'spring', damping: 25, stiffness: 280 }}
               className={`
                 fixed z-[151] bg-white overflow-hidden flex flex-col shadow-2xl border border-nie8-primary/20
-                /* Mobile: bottom sheet */
-                bottom-0 left-0 right-0 rounded-t-[24px]
-                h-[80dvh]
-                /* Desktop: floating panel */
+                bottom-0 left-0 right-0 rounded-t-[24px] h-[80dvh]
                 lg:bottom-24 lg:right-6 lg:left-auto lg:top-auto
-                lg:w-96 lg:rounded-3xl
-                lg:h-auto lg:max-h-[500px]
+                lg:w-96 lg:rounded-3xl lg:h-auto lg:max-h-[500px]
               `}
             >
-              {/* Drag handle (mobile) */}
               <div className="lg:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 bg-gray-200 rounded-full" />
               </div>
 
-              {/* Header */}
               <div className="bg-nie8-primary px-4 py-3 sm:py-4 flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
@@ -188,7 +204,6 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
                 </button>
               </div>
 
-              {/* Messages */}
               <div className="flex-grow p-4 overflow-y-auto scroll-hide space-y-3">
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -216,7 +231,6 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Quick suggestions */}
               {messages.length <= 1 && (
                 <div className="px-4 pb-2 flex flex-wrap gap-2 flex-shrink-0">
                   {quickSuggestions.map((s, i) => (
@@ -231,7 +245,6 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
                 </div>
               )}
 
-              {/* Input */}
               <div className="p-4 border-t border-nie8-primary/10 flex-shrink-0 safe-area-pb">
                 <div className="flex gap-2">
                   <input

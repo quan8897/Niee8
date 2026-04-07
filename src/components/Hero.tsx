@@ -84,41 +84,6 @@ export default function Hero({ settings }: HeroProps) {
         </div>
       </div>
 
-      <motion.div 
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 1.2, delay: 0.4 }}
-        className="absolute right-0 top-1/2 -translate-y-1/2 w-[30%] h-[70%] z-20 hidden lg:block"
-      >
-        <div className="relative w-full h-full p-8 bg-white/10 backdrop-blur-md rounded-l-[100px] border-l border-y border-white/20">
-          <img 
-            src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=800&auto=format&fit=crop" 
-            alt="Side product" 
-            className="w-full h-full object-cover rounded-l-[80px] shadow-2xl"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute -left-12 top-1/2 -translate-y-1/2 bg-white p-6 rounded-3xl shadow-2xl">
-            <p className="text-[10px] uppercase tracking-widest text-nie8-secondary mb-1">Sản phẩm nổi bật</p>
-            <p className="text-sm font-serif italic text-nie8-text">Sơ mi Lụa Hoa Nhí</p>
-            <p className="text-xs font-semibold text-nie8-secondary mt-2">$240.00</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Small secondary image in the bottom right corner */}
-      <motion.div
-        initial={{ opacity: 0, y: 50, rotate: 5 }}
-        animate={{ opacity: 1, y: 0, rotate: -2 }}
-        transition={{ duration: 1, delay: 0.8 }}
-        className="absolute bottom-12 right-12 z-30 hidden md:block w-48 h-64 rounded-lg overflow-hidden border-[6px] border-white shadow-2xl hover:rotate-0 hover:scale-105 transition-all duration-500"
-      >
-        <img 
-          src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=600&auto=format&fit=crop" 
-          alt="Secondary Fashion" 
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-      </motion.div>
     </section>
   );
 }

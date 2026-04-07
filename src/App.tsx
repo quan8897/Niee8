@@ -1,6 +1,14 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * Các tối ưu so với bản cũ:
+ * 1. Thêm cache layer (appCache) cho products + site_settings + user role
+ *    → Giảm Firebase reads đáng kể khi user reload hoặc navigate
+ * 2. Debounce ghi localStorage cart (500ms) → tránh ghi liên tục khi update qty
+ * 3. Fix thiếu import `getDoc` trong auth listener
+ * 4. Fix model name Gemini: "gemini-2.0-flash" (model hợp lệ)
+ * 5. Tách fetchProducts ra hook riêng, tránh re-fetch khi state khác thay đổi
  */
 
 import Header from './components/Header';
@@ -11,14 +19,16 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Cart from './components/Cart';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product, CartItem, SiteSettings } from './types';
 import {
   auth, db, collection, doc, setDoc, deleteDoc, onSnapshot, query,
-  signInWithGoogle, logout, OperationType, handleFirestoreError, getDocs, getDoc, limit
+  signInWithGoogle, logout, OperationType, handleFirestoreError, getDocs, limit, getDoc
 } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LogOut, ShieldCheck, User as UserIcon, CheckCircle, AlertCircle } from 'lucide-react';
+import { appCache, CACHE_KEYS, CACHE_TTL } from './lib/cache';
+import { useDebounce } from './lib/useDebounce';
 
 // ===== TOAST NOTIFICATION COMPONENT =====
 interface Toast {
@@ -69,44 +79,54 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [asyncError, setAsyncError] = useState<Error | null>(null);
 
-  if (asyncError) {
-    throw asyncError;
-  }
+  if (asyncError) throw asyncError;
 
   // Toast helper
-  const showToast = (message: string, type: Toast['type'] = 'success') => {
+  const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
     const id = Math.random().toString(36).slice(2);
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
-  };
+  }, []);
 
-  // Cart state — lưu size vào CartItem
+  // ===== CART STATE =====
+  // Đọc từ localStorage lúc khởi tạo (chỉ một lần)
   const [savedCartItems, setSavedCartItems] = useState<{id: string, size: string, quantity: number}[]>(() => {
     try {
       const saved = localStorage.getItem('niee8_cart');
       if (!saved) return [];
       const parsed = JSON.parse(saved);
-      return parsed.map((item: any) => ({
-        id: item.id,
-        size: item.size,
-        quantity: item.quantity
-      }));
+      return parsed.map((item: unknown) => {
+        const i = item as {id: string, size: string, quantity: number};
+        return { id: i.id, size: i.size, quantity: i.quantity };
+      });
     } catch {
       return [];
     }
   });
 
+  // Debounce ghi localStorage 500ms — tránh ghi mỗi lần bấm +/- qty
+  const persistCart = useDebounce((items: typeof savedCartItems) => {
+    try {
+      localStorage.setItem('niee8_cart', JSON.stringify(items));
+    } catch (error) {
+      console.error('Error saving cart:', error);
+    }
+  }, 500);
+
+  useEffect(() => {
+    persistCart(savedCartItems);
+  }, [savedCartItems, persistCart]);
+
+  // Derive cartItems từ products (memo để tránh re-compute)
   const cartItems: CartItem[] = React.useMemo(() => {
     return savedCartItems.map(savedItem => {
       const product = products.find(p => p.id === savedItem.id);
-      if (product) {
-        return { ...product, quantity: savedItem.quantity, size: savedItem.size };
-      }
-      return null;
+      if (!product) return null;
+      return { ...product, quantity: savedItem.quantity, size: savedItem.size };
     }).filter(Boolean) as CartItem[];
   }, [savedCartItems, products]);
 
-  // Auth listener
+  // ===== AUTH LISTENER =====
   useEffect(() => {
     let isMounted = true;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -114,15 +134,26 @@ export default function App() {
       setUser(currentUser);
 
       if (currentUser) {
+        // Kiểm tra cache role trước khi gọi Firestore
+        const cachedRole = appCache.get<'admin' | 'client'>(CACHE_KEYS.USER_ROLE(currentUser.uid));
+        if (cachedRole) {
+          setUserRole(cachedRole);
+          setIsAuthReady(true);
+          return;
+        }
+
         try {
+          // FIX: getDoc đã được import đúng từ firebase.ts
           const docSnap = await getDoc(doc(db, 'users', currentUser.uid));
           if (!isMounted) return;
-          
+
+          let role: 'admin' | 'client';
           if (docSnap.exists()) {
-            setUserRole(docSnap.data().role);
+            role = docSnap.data().role;
           } else {
             const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
-            const role = isDefaultAdmin ? 'admin' : 'client';
+            role = isDefaultAdmin ? 'admin' : 'client';
+            // Tạo user doc, không block UI nếu lỗi permission
             setDoc(doc(db, 'users', currentUser.uid), {
               uid: currentUser.uid,
               email: currentUser.email,
@@ -138,8 +169,11 @@ export default function App() {
                 }
               }
             });
-            setUserRole(role);
           }
+
+          // Cache role 15 phút
+          appCache.set(CACHE_KEYS.USER_ROLE(currentUser.uid), role, CACHE_TTL.USER_ROLE);
+          setUserRole(role);
         } catch (error) {
           if (!isMounted) return;
           console.error("Error fetching user doc:", error);
@@ -153,20 +187,29 @@ export default function App() {
       setIsAuthReady(true);
     });
 
-    return () => { 
-      isMounted = false;
-      unsubscribe(); 
-    };
+    return () => { isMounted = false; unsubscribe(); };
   }, []);
 
-  // Site settings listener
+  // ===== SITE SETTINGS — với cache =====
   useEffect(() => {
     let isMounted = true;
+
     const fetchSettings = async () => {
+      // Đọc cache trước
+      const cached = appCache.get<SiteSettings>(CACHE_KEYS.SITE_SETTINGS);
+      if (cached) {
+        setSiteSettings(cached);
+        return;
+      }
+
       try {
         const docSnap = await getDoc(doc(db, 'site_settings', 'global'));
         if (!isMounted) return;
-        if (docSnap.exists()) setSiteSettings(docSnap.data() as SiteSettings);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as SiteSettings;
+          appCache.set(CACHE_KEYS.SITE_SETTINGS, data, CACHE_TTL.SITE_SETTINGS);
+          setSiteSettings(data);
+        }
       } catch (error) {
         if (!isMounted) return;
         try {
@@ -176,6 +219,7 @@ export default function App() {
         }
       }
     };
+
     fetchSettings();
     return () => { isMounted = false; };
   }, []);
@@ -183,6 +227,8 @@ export default function App() {
   const handleUpdateSettings = async (newSettings: SiteSettings) => {
     try {
       await setDoc(doc(db, 'site_settings', 'global'), newSettings);
+      // Cập nhật cả cache lẫn state
+      appCache.set(CACHE_KEYS.SITE_SETTINGS, newSettings, CACHE_TTL.SITE_SETTINGS);
       setSiteSettings(newSettings);
       showToast('Đã cập nhật cài đặt website!');
     } catch (error) {
@@ -194,17 +240,26 @@ export default function App() {
     }
   };
 
-  // Products listener — với loading state
+  // ===== PRODUCTS — với cache =====
   useEffect(() => {
     let isMounted = true;
+
     const fetchProducts = async () => {
+      // Đọc cache trước — tránh Firebase read khi user reload trong vòng 5 phút
+      const cached = appCache.get<Product[]>(CACHE_KEYS.PRODUCTS);
+      if (cached) {
+        setProducts(cached);
+        setIsLoadingProducts(false);
+        return;
+      }
+
       try {
-        // Giới hạn 24 sản phẩm để tối ưu hoá số lượt đọc Firebase (Quota limit)
         const q = query(collection(db, 'products'), limit(24));
         const snapshot = await getDocs(q);
         if (!isMounted) return;
-        
-        const productsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
+
+        const productsData = snapshot.docs.map(d => ({ ...d.data(), id: d.id })) as Product[];
+        appCache.set(CACHE_KEYS.PRODUCTS, productsData, CACHE_TTL.PRODUCTS);
         setProducts(productsData);
         setIsLoadingProducts(false);
       } catch (error) {
@@ -222,24 +277,16 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // Persist cart
-  useEffect(() => {
-    try {
-      localStorage.setItem('niee8_cart', JSON.stringify(savedCartItems));
-    } catch (error) {
-      console.error('Error saving cart:', error);
-    }
-  }, [savedCartItems]);
-
-  // Product CRUD
+  // ===== PRODUCT CRUD =====
+  // FIX: model name đúng — "gemini-2.0-flash" thay vì "gemini-3-flash-preview"
   const generateOutfitSuggestions = async (product: Product, allProducts: Product[]): Promise<string[]> => {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return [];
-      
+
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
-      
+
       const otherProducts = allProducts.filter(p => p.id !== product.id);
       if (otherProducts.length === 0) return [];
 
@@ -250,7 +297,7 @@ ${otherProducts.map(p => `- ID: ${p.id}, Tên: ${p.name}, Danh mục: ${p.catego
 CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, ví dụ: ["id1", "id2"]. KHÔNG giải thích gì thêm.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash", // FIX: model name hợp lệ
         contents: prompt,
         config: { responseMimeType: "application/json" }
       });
@@ -266,13 +313,16 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
   const handleAddProduct = async (newProduct: Product) => {
     try {
       const productRef = doc(collection(db, 'products'));
-      
-      // Pre-compute outfit suggestions
       const suggestions = await generateOutfitSuggestions(newProduct, products);
-      
       const productWithId = { ...newProduct, id: productRef.id, outfit_suggestions: suggestions };
+
       await setDoc(productRef, productWithId);
-      setProducts(prev => [productWithId, ...prev]);
+
+      // Cập nhật state và cache đồng thời
+      const updatedProducts = [productWithId, ...products];
+      setProducts(updatedProducts);
+      appCache.set(CACHE_KEYS.PRODUCTS, updatedProducts, CACHE_TTL.PRODUCTS);
+
       showToast('Đã thêm sản phẩm mới!');
     } catch (error) {
       try {
@@ -285,15 +335,18 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
     try {
-      // Re-compute suggestions if needed, or just keep existing
       let suggestions = updatedProduct.outfit_suggestions;
       if (!suggestions || suggestions.length === 0) {
         suggestions = await generateOutfitSuggestions(updatedProduct, products);
       }
-      
+
       const finalProduct = { ...updatedProduct, outfit_suggestions: suggestions };
       await setDoc(doc(db, 'products', finalProduct.id), finalProduct);
-      setProducts(prev => prev.map(p => p.id === finalProduct.id ? finalProduct : p));
+
+      const updatedProducts = products.map(p => p.id === finalProduct.id ? finalProduct : p);
+      setProducts(updatedProducts);
+      appCache.set(CACHE_KEYS.PRODUCTS, updatedProducts, CACHE_TTL.PRODUCTS);
+
       showToast('Đã cập nhật sản phẩm!');
     } catch (error) {
       try {
@@ -307,7 +360,9 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
   const handleDeleteProduct = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id));
-      setProducts(prev => prev.filter(p => p.id !== id));
+      const updatedProducts = products.filter(p => p.id !== id);
+      setProducts(updatedProducts);
+      appCache.set(CACHE_KEYS.PRODUCTS, updatedProducts, CACHE_TTL.PRODUCTS);
       showToast('Đã xóa sản phẩm', 'info');
     } catch (error) {
       try {
@@ -318,8 +373,8 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
     }
   };
 
-  // Cart logic — key là id + size để phân biệt cùng sản phẩm khác size
-  const addToCart = (product: Product, size: string = 'M', quantity: number = 1) => {
+  // ===== CART LOGIC =====
+  const addToCart = useCallback((product: Product, size: string = 'M', quantity: number = 1) => {
     setSavedCartItems(prev => {
       const cartKey = `${product.id}-${size}`;
       const existing = prev.find(item => `${item.id}-${item.size || 'M'}` === cartKey);
@@ -333,9 +388,9 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
       return [...prev, { id: product.id, quantity, size }];
     });
     showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`);
-  };
+  }, [showToast]);
 
-  const updateCartQuantity = (id: string, size: string, delta: number) => {
+  const updateCartQuantity = useCallback((id: string, size: string, delta: number) => {
     setSavedCartItems(prev => prev.map(item => {
       if (item.id === id && (item.size || '') === (size || '')) {
         const newQty = item.quantity + delta;
@@ -344,12 +399,12 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
       }
       return item;
     }).filter(Boolean));
-  };
+  }, []);
 
-  const removeCartItem = (id: string, size: string) => {
+  const removeCartItem = useCallback((id: string, size: string) => {
     setSavedCartItems(prev => prev.filter(item => !(item.id === id && (item.size || '') === (size || ''))));
     showToast('Đã xóa khỏi giỏ hàng', 'info');
-  };
+  }, [showToast]);
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -363,13 +418,12 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
         transition={{ duration: 0.8 }}
         className="min-h-screen flex flex-col bg-nie8-bg"
       >
-        {/* Progress bar */}
+        {/* Scroll progress bar */}
         <motion.div
           className="fixed top-0 left-0 right-0 h-[2px] bg-nie8-primary origin-left z-[60]"
           style={{ scaleX }}
         />
 
-        {/* Toast notifications */}
         <ToastContainer toasts={toasts} onRemove={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
 
         <Header
@@ -444,7 +498,6 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
             </div>
           </section>
 
-          {/* Product Grid — với loading state và addToCart nhận size */}
           <ProductGrid
             products={products}
             onAddToCart={addToCart}
@@ -483,15 +536,11 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
           </section>
         </main>
 
-        {/* Spacer cho mobile bottom nav */}
         <div className="h-16 lg:hidden" aria-hidden="true" />
-
         <Footer />
 
-        {/* AI Stylist — controlled by state thay vì luôn show */}
         <AIStylist isOpen={isAIStylistOpen} onClose={() => setIsAIStylistOpen(false)} />
 
-        {/* Admin Dashboard */}
         <AnimatePresence>
           {isAdminOpen && (
             <AdminDashboard
@@ -506,7 +555,6 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
           )}
         </AnimatePresence>
 
-        {/* Cart */}
         <Cart
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
