@@ -183,7 +183,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                   {/* Wishlist button — đủ lớn để tap trên mobile (44px min) */}
                   <button
                     onClick={(e) => toggleWishlist(product.id, e)}
-                    className="absolute top-3 right-3 w-9 h-9 sm:w-11 sm:h-11 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-transform active:scale-90"
+                    className="absolute top-3 right-3 w-9 h-9 sm:w-11 sm:h-11 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-transform active:scale-90 z-20"
                     aria-label="Yêu thích"
                   >
                     <Heart
@@ -198,7 +198,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                       e.stopPropagation();
                       openProduct(product);
                     }}
-                    className="absolute bottom-0 left-0 right-0 py-3 bg-nie8-primary/90 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 hidden sm:flex items-center justify-center gap-2"
+                    className="absolute bottom-0 left-0 right-0 py-3 bg-nie8-primary/90 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 hidden sm:flex items-center justify-center gap-2 z-20"
                   >
                     <ShoppingBag size={14} />
                     Xem chi tiết
@@ -206,7 +206,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
 
                   {/* Image count indicator */}
                   {product.images.length > 1 && (
-                    <div className="absolute bottom-3 left-3 bg-black/40 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
+                    <div className="absolute bottom-3 left-3 bg-black/40 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full z-20">
                       1/{product.images.length}
                     </div>
                   )}
@@ -298,8 +298,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                 <div className="flex flex-col sm:flex-row flex-grow overflow-hidden">
                 {/* === IMAGE SECTION === */}
                 <div
-                  className="sm:w-[45%] flex-shrink-0 bg-nie8-bg relative"
-                  style={{ height: '45vw', maxHeight: '320px' }}
+                  className="w-full aspect-[4/5] sm:aspect-auto sm:w-[45%] flex-shrink-0 bg-nie8-bg relative"
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                 >
