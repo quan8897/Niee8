@@ -18,6 +18,7 @@ import AIStylist from './components/AIStylist';
 import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Cart from './components/Cart';
+import Checkout from './components/Checkout';
 import FloatingActions from './components/FloatingActions';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -64,12 +65,14 @@ export default function App() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
+  const [currentView, setCurrentView] = useState<'home' | 'checkout'>('home');
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAIStylistOpen, setIsAIStylistOpen] = useState(false);
+  const [aiContextProduct, setAiContextProduct] = useState<Product | null>(null);
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<'admin' | 'client' | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -103,6 +106,21 @@ export default function App() {
       return [];
     }
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      setSavedCartItems([]); // Xoá giỏ hàng
+      showToast('Thanh toán thành công! Cảm ơn bạn đã mua sắm.', 'success');
+      // Xoá param trên URL để tránh lặp lại khi reload
+      const newUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    } else if (params.get('payment') === 'cancel') {
+      showToast('Thanh toán đã bị hủy.', 'error');
+      const newUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [showToast]);
 
   // Debounce ghi localStorage 500ms — tránh ghi mỗi lần bấm +/- qty
   const persistCart = useDebounce((items: typeof savedCartItems) => {
@@ -484,6 +502,36 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
+  // ===== LOADING STATE =====
+  if (!isAuthReady || isLoadingProducts) {
+    return (
+      <div className="min-h-screen bg-nie8-bg flex flex-col items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="w-16 h-16 border-4 border-nie8-primary/20 border-t-nie8-primary rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-serif italic text-nie8-text mb-2">niee8.</h2>
+          <p className="text-nie8-text/40 text-xs uppercase tracking-[0.3em]">Minimalist Romantic</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (currentView === 'checkout') {
+    return (
+      <Checkout
+        items={cartItems}
+        onBack={() => setCurrentView('home')}
+        onComplete={() => {
+          setSavedCartItems([]); // Xoá giỏ hàng sau khi đặt thành công
+          setCurrentView('home'); // Quay lại trang chủ
+        }}
+      />
+    );
+  }
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -613,11 +661,19 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
           <ProductGrid
             products={products}
             onAddToCart={addToCart}
+            onBuyNow={(product, size, quantity) => {
+              addToCart(product, size, quantity);
+              setCurrentView('checkout');
+            }}
+            onChatWithAI={(product) => {
+              setAiContextProduct(product);
+              setIsAIStylistOpen(true);
+            }}
             isLoading={isLoadingProducts}
           />
 
           {/* Newsletter section */}
-          <section className="py-20 sm:py-32 bg-nie8-text relative overflow-hidden">
+          <section className="py-6 sm:py-10 bg-nie8-text relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -626,20 +682,20 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
                 viewport={{ once: true }}
                 className="max-w-3xl mx-auto"
               >
-                <h2 className="text-4xl sm:text-6xl md:text-7xl font-serif italic text-white mb-6 sm:mb-10 leading-tight">
-                  Gia nhập <br />
+                <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif italic text-white mb-2 sm:mb-4 leading-tight">
+                  Gia nhập <br className="sm:hidden" />
                   <span className="text-nie8-primary">niee8 Circle.</span>
                 </h2>
-                <p className="text-white/60 text-base sm:text-lg mb-8 sm:mb-12 leading-relaxed max-w-xl mx-auto">
+                <p className="text-white/60 text-xs sm:text-sm mb-4 sm:mb-6 leading-relaxed max-w-xl mx-auto">
                   Nhận quyền truy cập sớm vào các bộ sưu tập mới và mẹo phối đồ độc quyền.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 max-w-sm sm:max-w-md mx-auto">
+                <div className="flex flex-col sm:flex-row gap-2 max-w-sm sm:max-w-md mx-auto">
                   <input
                     type="email"
                     placeholder="Địa chỉ email của bạn"
-                    className="flex-grow bg-white/10 border border-white/20 rounded-full px-6 py-4 text-white placeholder-white/40 focus:outline-none focus:border-nie8-primary transition-colors text-sm"
+                    className="flex-grow bg-white/10 border border-white/20 rounded-full px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-nie8-primary transition-colors text-xs sm:text-sm"
                   />
-                  <button className="px-8 py-4 bg-nie8-primary text-white rounded-full font-bold text-sm hover:bg-nie8-secondary transition-all active:scale-95 whitespace-nowrap">
+                  <button className="px-6 py-3 bg-nie8-primary text-white rounded-full font-bold text-xs sm:text-sm hover:bg-nie8-secondary transition-all active:scale-95 whitespace-nowrap">
                     Đăng ký
                   </button>
                 </div>
@@ -653,7 +709,11 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
         <FloatingActions onAIClick={() => setIsAIStylistOpen(true)} />
 
-        <AIStylist isOpen={isAIStylistOpen} onClose={() => setIsAIStylistOpen(false)} />
+        <AIStylist 
+          isOpen={isAIStylistOpen} 
+          onClose={() => setIsAIStylistOpen(false)} 
+          productContext={aiContextProduct}
+        />
 
         <AnimatePresence>
           {isAdminOpen && (
@@ -675,6 +735,10 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
           items={cartItems}
           onUpdateQuantity={updateCartQuantity}
           onRemoveItem={removeCartItem}
+          onCheckout={() => {
+            setIsCartOpen(false);
+            setCurrentView('checkout');
+          }}
         />
       </motion.div>
     </AnimatePresence>

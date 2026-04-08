@@ -28,7 +28,7 @@ const moods: MoodOption[] = [
     outfit: {
       name: 'Váy Trắng Hai Dây Yjia',
       image: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=600&auto=format&fit=crop',
-      price: '$45.00'
+      price: '450000'
     },
     playlist: {
       title: 'Acoustic Morning Coffee',
@@ -44,7 +44,7 @@ const moods: MoodOption[] = [
     outfit: {
       name: 'Len Lông Thỏ & Chân Váy Xếp Ly',
       image: 'https://images.unsplash.com/photo-1539109132314-34a77ae68c44?q=80&w=600&auto=format&fit=crop',
-      price: '$52.00'
+      price: '520000'
     },
     playlist: {
       title: 'Upbeat Indie Pop Vibes',
@@ -60,7 +60,7 @@ const moods: MoodOption[] = [
     outfit: {
       name: 'Sơ Mi Ren Hoa Nhí Vintage',
       image: 'https://images.unsplash.com/photo-1551163943-3f6a855d1153?q=80&w=600&auto=format&fit=crop',
-      price: '$38.00'
+      price: '380000'
     },
     playlist: {
       title: 'Classic Jazz & Soul',
@@ -75,6 +75,13 @@ export default function MoodConsultant() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Format tiền VND
+  const formatVND = (priceStr: string) => {
+    const amount = parseFloat(priceStr.replace(/[^0-9]/g, ''));
+    if (isNaN(amount)) return priceStr;
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  };
 
   const handleMoodSelect = (mood: MoodOption) => {
     setIsProcessing(true);
@@ -204,7 +211,7 @@ export default function MoodConsultant() {
                   <div className="flex gap-4">
                     <button className="flex-grow py-4 bg-nie8-primary text-white rounded-full font-medium hover:bg-nie8-secondary transition-all flex items-center justify-center gap-2 shadow-xl shadow-nie8-primary/20">
                       <ShoppingBag size={18} />
-                      Thêm vào giỏ hàng • {selectedMood.outfit.price}
+                      Thêm vào giỏ hàng • {formatVND(selectedMood.outfit.price)}
                     </button>
                     <button className="w-14 h-14 border border-nie8-primary/20 rounded-full flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all">
                       <Heart size={20} />

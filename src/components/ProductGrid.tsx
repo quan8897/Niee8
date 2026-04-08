@@ -1,14 +1,16 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus, Sparkles } from 'lucide-react';
 import { Product } from '../types';
 import ProtectedImage from './ProtectedImage';
 
-const PRODUCTS_PER_PAGE = 6;
+const PRODUCTS_PER_PAGE = 12;
 
 interface ProductGridProps {
   products: Product[];
   onAddToCart: (product: Product, size: string, quantity: number) => void;
+  onBuyNow?: (product: Product, size: string, quantity: number) => void;
+  onChatWithAI?: (product: Product) => void;
   isLoading?: boolean;
 }
 
@@ -48,7 +50,13 @@ function LazyImage({ src, alt, className }: { src: string; alt: string; classNam
   );
 }
 
-export default function ProductGrid({ products, onAddToCart, isLoading = false }: ProductGridProps) {
+export default function ProductGrid({ 
+  products, 
+  onAddToCart, 
+  onBuyNow,
+  onChatWithAI,
+  isLoading = false 
+}: ProductGridProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedSize, setSelectedSize] = useState<string>('M');
@@ -86,6 +94,13 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
   };
 
   const closeModal = () => setSelectedProduct(null);
+
+  // Format tiền VND
+  const formatVND = (priceStr: string) => {
+    const amount = parseFloat(priceStr.replace(/[^0-9]/g, ''));
+    if (isNaN(amount)) return priceStr;
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  };
 
   const toggleWishlist = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -159,7 +174,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-x-8 sm:gap-y-16">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-x-8 sm:gap-y-16">
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
             : currentProducts.map((product, index) => (
@@ -216,7 +231,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                 <div className="px-0.5">
                   <p className="text-[9px] sm:text-[10px] text-nie8-secondary font-bold uppercase tracking-widest mb-1">{product.category}</p>
                   <h3 className="text-sm sm:text-lg font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-2 leading-snug mb-1">{product.name}</h3>
-                  <p className="text-sm sm:text-base font-semibold text-nie8-text">{product.price}</p>
+                  <p className="text-sm sm:text-base font-semibold text-nie8-text">{formatVND(product.price)}</p>
                 </div>
               </motion.div>
             ))
@@ -295,13 +310,14 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                   <div className="w-10 h-1 bg-nie8-text/20 rounded-full" />
                 </div>
 
-                <div className="flex flex-col sm:flex-row flex-grow overflow-hidden">
-                {/* === IMAGE SECTION === */}
-                <div
-                  className="w-full aspect-[4/5] sm:aspect-auto sm:w-[45%] flex-shrink-0 bg-nie8-bg relative"
-                  onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
-                >
+                <div className="flex flex-col flex-grow overflow-hidden">
+                  <div className="flex flex-col sm:flex-row flex-grow overflow-y-auto sm:overflow-hidden">
+                  {/* === IMAGE SECTION === */}
+                  <div
+                    className="w-full aspect-[4/5] sm:h-full sm:aspect-auto sm:w-[45%] flex-shrink-0 bg-nie8-bg relative"
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                  >
                   {/* Main image với swipe */}
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -365,9 +381,9 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                   </button>
                 </div>
 
-                {/* === PRODUCT INFO SECTION === */}
-                <div className="flex flex-col flex-grow overflow-hidden sm:w-[55%]">
-                  <div className="flex-grow overflow-y-auto scroll-hide px-5 sm:px-8 pt-4 sm:pt-8 pb-4">
+                  {/* === PRODUCT INFO SECTION === */}
+                  <div className="flex flex-col flex-grow sm:w-[55%] sm:overflow-y-auto">
+                    <div className="flex-grow px-5 sm:px-8 pt-4 sm:pt-8 pb-4">
 
                     {/* Category + Rating */}
                     <div className="flex items-center justify-between mb-3">
@@ -384,7 +400,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
 
                     {/* Product name & price */}
                     <h2 className="text-xl sm:text-2xl font-serif italic text-nie8-text mb-2 leading-tight">{selectedProduct.name}</h2>
-                    <p className="text-2xl font-bold text-nie8-primary mb-4">{selectedProduct.price}</p>
+                    <p className="text-2xl font-bold text-nie8-primary mb-4">{formatVND(selectedProduct.price)}</p>
 
                     {/* Thumbnail images — desktop only */}
                     {selectedProduct.images.length > 1 && (
@@ -471,7 +487,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                                 </div>
                                 <div className="p-2 bg-white">
                                   <p className="text-[10px] font-bold truncate text-nie8-text">{suggestedProduct.name}</p>
-                                  <p className="text-[10px] text-nie8-primary mt-0.5">{suggestedProduct.price}</p>
+                                  <p className="text-[10px] text-nie8-primary mt-0.5">{formatVND(suggestedProduct.price)}</p>
                                 </div>
                               </div>
                             );
@@ -490,10 +506,12 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                       </div>
                     </div>
 
+                    </div>
                   </div>
+                </div>
 
                   {/* ===== STICKY CTA — quan trọng nhất trên mobile ===== */}
-                  <div className="flex-shrink-0 px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-nie8-primary/10 safe-area-pb">
+                  <div className="flex-shrink-0 px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-nie8-primary/10 safe-area-pb z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                     <div className="flex gap-3">
                       {/* Wishlist button */}
                       <button
@@ -509,14 +527,31 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                       {/* Add to cart button */}
                       <button
                         onClick={handleAddToCart}
-                        className={`flex-grow h-12 sm:h-14 rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg ${
+                        className={`flex-1 h-12 sm:h-14 rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg ${
                           addedToCart
                             ? 'bg-green-500 text-white shadow-green-500/30'
-                            : 'bg-nie8-primary text-white shadow-nie8-primary/30 hover:bg-nie8-secondary'
+                            : 'bg-white border-2 border-nie8-primary text-nie8-primary hover:bg-nie8-primary/5'
                         }`}
                       >
-                        <ShoppingBag size={18} />
-                        {addedToCart ? 'Đã thêm vào giỏ ✓' : `Thêm vào giỏ — Size ${selectedSize}`}
+                        <ShoppingBag size={16} />
+                        {addedToCart ? 'Đã thêm ✓' : 'Thêm vào giỏ'}
+                      </button>
+
+                      {/* Buy Now button */}
+                      <button
+                        onClick={() => onBuyNow?.(selectedProduct, selectedSize, quantity)}
+                        className="flex-1 h-12 sm:h-14 rounded-2xl bg-nie8-primary text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 hover:bg-nie8-secondary"
+                      >
+                        Thanh toán ngay
+                      </button>
+
+                      {/* AI Chat button */}
+                      <button
+                        onClick={() => onChatWithAI?.(selectedProduct)}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-nie8-bg border-2 border-nie8-primary/10 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform hover:border-nie8-primary/30 text-nie8-primary"
+                        title="Hỏi AI Stylist về sản phẩm này"
+                      >
+                        <Sparkles size={20} />
                       </button>
                     </div>
 
@@ -526,8 +561,7 @@ export default function ProductGrid({ products, onAddToCart, isLoading = false }
                     </p>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
             </div>
           </>
         )}

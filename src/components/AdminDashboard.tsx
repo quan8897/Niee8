@@ -47,6 +47,13 @@ export default function AdminDashboard({
     heroDescription: ''
   });
 
+  // Format tiền VND
+  const formatVND = (priceStr: string) => {
+    const amount = parseFloat(priceStr.replace(/[^0-9]/g, ''));
+    if (isNaN(amount)) return priceStr;
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (uploadingImagesCount > 0) {
@@ -187,7 +194,7 @@ export default function AdminDashboard({
     const files = e.target.files;
     if (!files) return;
 
-    const validFiles = Array.from(files).filter(file => {
+    const validFiles = Array.from(files).filter((file: File) => {
       if (file.size > 5 * 1024 * 1024) {
         setImageError(prev => prev ? `${prev}\nẢnh ${file.name} quá lớn (>5MB).` : `Ảnh ${file.name} quá lớn (>5MB).`);
         return false;
@@ -199,7 +206,7 @@ export default function AdminDashboard({
 
     setUploadingImagesCount(prev => prev + validFiles.length);
 
-    for (const file of validFiles) {
+    for (const file of validFiles as File[]) {
       try {
         // Optimize image before upload
         const optimizedFile = await processImage(file);
@@ -411,7 +418,7 @@ export default function AdminDashboard({
                     placeholder={`[
   {
     "name": "Sản phẩm 1",
-    "price": "$45.00",
+    "price": "250.000",
     "images": ["url1", "url2"],
     "category": "Áo",
     "description": "Mô tả..."
@@ -463,14 +470,14 @@ export default function AdminDashboard({
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Giá (VND/USD)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Giá (VND)</label>
                     <input 
                       required
                       type="text" 
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                       className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary transition-colors"
-                      placeholder="Ví dụ: $45.00"
+                      placeholder="Ví dụ: 250.000"
                     />
                   </div>
                   <div className="space-y-2">
@@ -620,7 +627,7 @@ export default function AdminDashboard({
                       <div className="flex-grow w-full">
                         <p className="text-[10px] text-nie8-secondary font-bold uppercase tracking-widest mb-1">{product.category}</p>
                         <h4 className="text-xl font-serif italic text-nie8-text mb-2">{product.name}</h4>
-                        <p className="text-lg font-medium text-nie8-primary">{product.price}</p>
+                        <p className="text-lg font-medium text-nie8-primary">{formatVND(product.price)}</p>
                       </div>
 
                       {/* Khu vực nút hành động được tách biệt rõ ràng */}

@@ -9,15 +9,22 @@ interface CartProps {
   items: CartItem[];
   onUpdateQuantity: (id: string, size: string, delta: number) => void;
   onRemoveItem: (id: string, size: string) => void;
+  onCheckout?: () => void;
 }
 
-export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: CartProps) {
+export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onCheckout }: CartProps) {
   const total = items.reduce((sum, item) => {
-    const price = parseFloat(item.price.replace(/[^0-9.]/g, ''));
+    // Chấp nhận cả định dạng 250000 hoặc 250.000
+    const price = parseFloat(item.price.replace(/[^0-9]/g, ''));
     return sum + price * item.quantity;
   }, 0);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Format tiền VND
+  const formatVND = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  };
 
   // Lock scroll khi cart mở
   useEffect(() => {
@@ -154,31 +161,31 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
                           </div>
                           {/* Price */}
                           <p className="font-bold text-nie8-text text-sm">
-                            ${(parseFloat(item.price.replace(/[^0-9.]/g, '')) * item.quantity).toFixed(2)}
+                            {formatVND(parseFloat(item.price.replace(/[^0-9]/g, '')) * item.quantity)}
                           </p>
                         </div>
                       </div>
                     </motion.div>
                   ))}
 
-                  {/* Free shipping bar */}
-                  {total < 150 && (
+                  {/* Free shipping bar — Ngưỡng 2.000.000đ */}
+                  {total < 2000000 && (
                     <div className="bg-nie8-bg rounded-2xl p-4">
                       <div className="flex justify-between text-xs mb-2">
-                        <span className="text-nie8-text/60">Thêm <span className="font-bold text-nie8-primary">${(150 - total).toFixed(0)}</span> để miễn phí vận chuyển</span>
-                        <span className="font-bold text-nie8-text">{Math.round((total / 150) * 100)}%</span>
+                        <span className="text-nie8-text/60">Thêm <span className="font-bold text-nie8-primary">{formatVND(2000000 - total)}</span> để miễn phí vận chuyển</span>
+                        <span className="font-bold text-nie8-text">{Math.round((total / 2000000) * 100)}%</span>
                       </div>
                       <div className="h-1.5 bg-nie8-primary/10 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: `${Math.min((total / 150) * 100, 100)}%` }}
+                          animate={{ width: `${Math.min((total / 2000000) * 100, 100)}%` }}
                           className="h-full bg-nie8-primary rounded-full"
                         />
                       </div>
                     </div>
                   )}
 
-                  {total >= 150 && (
+                  {total >= 2000000 && (
                     <div className="bg-green-50 border border-green-200 rounded-2xl p-3 text-center">
                       <p className="text-green-600 text-xs font-bold">🎉 Bạn được miễn phí vận chuyển!</p>
                     </div>
@@ -194,16 +201,19 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
                 <div className="flex justify-between items-center mb-4">
                   <div>
                     <p className="text-xs text-nie8-text/40 uppercase tracking-widest">Tổng cộng</p>
-                    <p className="text-2xl sm:text-3xl font-serif italic text-nie8-text mt-0.5">${total.toFixed(2)}</p>
+                    <p className="text-2xl sm:text-3xl font-serif italic text-nie8-text mt-0.5">{formatVND(total)}</p>
                   </div>
                   <div className="text-right text-xs text-nie8-text/40">
                     <p>Đã bao gồm VAT</p>
-                    {total >= 150 && <p className="text-green-500 font-bold">Free ship</p>}
+                    {total >= 2000000 && <p className="text-green-500 font-bold">Free ship</p>}
                   </div>
                 </div>
 
                 {/* Checkout CTA — full width, lớn cho ngón cái */}
-                <button className="w-full py-4 sm:py-5 bg-nie8-primary text-white rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl shadow-nie8-primary/25 hover:bg-nie8-secondary transition-colors active:scale-[0.98] group">
+                <button 
+                  onClick={onCheckout}
+                  className="w-full py-4 sm:py-5 bg-nie8-primary text-white rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl shadow-nie8-primary/25 hover:bg-nie8-secondary transition-colors active:scale-[0.98] group"
+                >
                   Thanh toán ngay
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </button>

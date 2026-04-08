@@ -26,9 +26,10 @@ const MIN_INTERVAL_MS = 3000;
 interface AIStylistProps {
   isOpen?: boolean;
   onClose?: () => void;
+  productContext?: any; // Nhận thông tin sản phẩm để tư vấn
 }
 
-export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylistProps) {
+export default function AIStylist({ isOpen: controlledOpen, onClose, productContext }: AIStylistProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const handleClose = () => { onClose?.(); setInternalOpen(false); };
@@ -36,6 +37,19 @@ export default function AIStylist({ isOpen: controlledOpen, onClose }: AIStylist
   const [messages, setMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([
     { role: 'bot', text: 'Chào bạn! Tôi là niee8 AI Stylist 👗 Bạn cần tư vấn phối đồ cho dịp nào hôm nay?' }
   ]);
+
+  // Xử lý khi có context sản phẩm mới
+  useEffect(() => {
+    if (productContext && isOpen) {
+      const reviewMessage = `Tôi thấy bạn đang quan tâm đến sản phẩm "${productContext.name}". Đây là một lựa chọn tuyệt vời trong bộ sưu tập ${productContext.category} của chúng tôi! ✨\n\nSản phẩm này có phong cách tối giản, rất dễ phối đồ. Bạn có thắc mắc gì về size, chất liệu hay cách phối chiếc ${productContext.name} này không?`;
+      
+      // Kiểm tra xem tin nhắn này đã tồn tại chưa để tránh lặp lại
+      setMessages(prev => {
+        if (prev.some(m => m.text.includes(productContext.name))) return prev;
+        return [...prev, { role: 'bot', text: reviewMessage }];
+      });
+    }
+  }, [productContext, isOpen]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
