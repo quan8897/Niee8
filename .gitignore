@@ -1,8 +1,22 @@
+# Dependencies
 node_modules/
-build/
+
+# Next.js build output
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Vite legacy (không dùng nữa)
 dist/
-coverage/
+
+# OS
 .DS_Store
-*.log
-.env*
-!.env.example
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
