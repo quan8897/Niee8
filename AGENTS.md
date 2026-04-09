@@ -17,3 +17,4 @@ Dưới đây là các quy tắc mà AI phải tuân thủ nghiêm ngặt trong 
   8. "Mỗi đoạn code mới hoặc thay đổi quan trọng phải đi kèm với giải thích ngắn gọn về logic (tại sao làm vậy). Comment 
   trong code phải súc tích, rõ ràng và sử dụng ngôn ngữ thống nhất (tiếng Anh cho code/comment và tiếng Việt cho giao diện người dùng)."
   9. Sau khi cung cấp mã nguồn mới, hãy luôn kèm theo hướng dẫn ngắn gọn để người dùng có thể kiểm tra (test) tính năng đó ngay lập tức trên trình duyệt hoặc môi trường dev.
+  10. **Tài liệu UAT là nguồn dữ liệu tin cậy (Source of Truth):** Mọi công việc kiểm thử, đảm bảo chất lượng (QA) và kiểm tra lỗi phải tuân thủ nghiêm ngặt các kịch bản trong `/UAT.md` và Dashboard tại `/uat.html`. AI phải luôn tham chiếu các tài liệu này để đảm bảo tính nhất quán và tối ưu hóa tài nguyên (token) trong các luồng tự động hóa.

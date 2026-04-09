@@ -4,11 +4,12 @@ import {
   X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, 
   Settings, Package, Loader2, LogOut, LayoutDashboard, 
   Instagram, Calendar, TrendingUp, Users, MessageSquare, 
-  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, Bell
+  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, Bell, PackagePlus
 } from 'lucide-react';
 import { Product, SiteSettings, Order, StockNotification } from '../types';
 import { supabase } from '../lib/supabase';
 import { generateInstagramCaption } from '../services/geminiService';
+
 
 interface AdminDashboardProps {
   products: Product[];
@@ -21,7 +22,7 @@ interface AdminDashboardProps {
   onLogout?: () => void;
 }
 
-type AdminTab = 'overview' | 'products' | 'stock-requests' | 'orders' | 'stock-ledger' | 'create-post' | 'schedule' | 'settings';
+type AdminTab = 'overview' | 'products' | 'stock-requests' | 'orders' | 'stock-ledger' | 'create-post' | 'schedule' | 'settings' | 'technical' | 'uat';
 
 export default function AdminDashboard({ 
   products, 
@@ -47,7 +48,19 @@ export default function AdminDashboard({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  
+  const [stockNotifications, setStockNotifications] = useState<StockNotification[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+
+  // Restock Modal State
+  const [showRestockModal, setShowRestockModal] = useState(false);
+  const [restockProduct, setRestockProduct] = useState<Product | null>(null);
+  const [restockSize, setRestockSize] = useState<string>('M');
+  const [restockQuantity, setRestockQuantity] = useState<number>(0);
+  const [notifyOption, setNotifyOption] = useState<'none' | 'all' | 'custom'>('none');
+  const [notifyCount, setNotifyCount] = useState<number>(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  const [isRestocking, setIsRestocking] = useState(false);
+
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     price: '',
@@ -73,9 +86,6 @@ export default function AdminDashboard({
     isGeneratingCaption: false
   });
 
-  const [stockNotifications, setStockNotifications] = useState<StockNotification[]>([]);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
-
   useEffect(() => {
     if (activeTab === 'stock-requests') {
       fetchStockNotifications();
@@ -86,7 +96,7 @@ export default function AdminDashboard({
     setIsLoadingNotifications(true);
     try {
       const { data, error } = await supabase
-        .from('restock_requests')
+        .from('stock_notifications')
         .select(`
           *,
           products (name)
@@ -108,10 +118,128 @@ export default function AdminDashboard({
     }
   };
 
+  const openRestockModal = (product: Product) => {
+    setRestockProduct(product);
+    setRestockSize('M');
+    setRestockQuantity(0);
+    setNotifyOption('none');
+    setNotifyCount(0);
+    setShowRestockModal(true);
+  };
+
+  const fetchPendingRequestsCount = async (productId: string, size: string) => {
+    try {
+      const { count, error } = await supabase
+        .from('stock_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('product_id', productId)
+        .eq('size', size)
+        .eq('status', 'pending');
+        
+      if (error) throw error;
+      setPendingRequestsCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (restockProduct && showRestockModal) {
+      fetchPendingRequestsCount(restockProduct.id, restockSize);
+    }
+  }, [restockSize, restockProduct, showRestockModal]);
+
+  const handleRestockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockProduct || restockQuantity <= 0) return;
+    
+    setIsRestocking(true);
+    try {
+      // 1. Update product stock
+      const currentStockBySize = restockProduct.stock_by_size || { S: 0, M: 0, L: 0, XL: 0 };
+      const newStockBySize = {
+        ...currentStockBySize,
+        [restockSize]: (currentStockBySize[restockSize] || 0) + restockQuantity
+      };
+      const newTotalStock = Object.values(newStockBySize).reduce((a, b) => a + b, 0);
+      
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({
+          stock_by_size: newStockBySize,
+          stock_quantity: newTotalStock
+        })
+        .eq('id', restockProduct.id);
+        
+      if (updateError) throw updateError;
+
+      // 2. Insert into stock_movements
+      const { error: movementError } = await supabase
+        .from('stock_movements')
+        .insert({
+          product_id: restockProduct.id,
+          size: restockSize,
+          quantity: restockQuantity,
+          type: 'import',
+          note: `Nhập kho thủ công từ Dashboard`
+        });
+        
+      if (movementError) console.error('Error logging stock movement:', movementError);
+
+      // 3. Handle Notifications
+      if (notifyOption !== 'none' && pendingRequestsCount > 0) {
+        let limit = pendingRequestsCount;
+        if (notifyOption === 'custom' && notifyCount > 0) {
+          limit = notifyCount;
+        }
+        
+        const { data: requests, error: fetchError } = await supabase
+          .from('stock_notifications')
+          .select('id, email')
+          .eq('product_id', restockProduct.id)
+          .eq('size', restockSize)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true })
+          .limit(limit);
+          
+        if (fetchError) throw fetchError;
+        
+        if (requests && requests.length > 0) {
+          const requestIds = requests.map(r => r.id);
+          const { error: notifyError } = await supabase
+            .from('stock_notifications')
+            .update({ status: 'notified' })
+            .in('id', requestIds);
+            
+          if (notifyError) throw notifyError;
+          console.log(`Simulating sending emails to:`, requests.map(r => r.email));
+        }
+      }
+
+      onUpdateProduct({
+        ...restockProduct,
+        stock_by_size: newStockBySize,
+        stock_quantity: newTotalStock
+      });
+
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      setShowRestockModal(false);
+      if (activeTab === 'stock-requests') {
+        fetchStockNotifications();
+      }
+    } catch (error: any) {
+      console.error('Error restocking:', error);
+      alert(`Lỗi nhập kho: ${error.message}`);
+    } finally {
+      setIsRestocking(false);
+    }
+  };
+
   const updateNotificationStatus = async (id: string, status: 'pending' | 'notified') => {
     try {
       const { error } = await supabase
-        .from('restock_requests')
+        .from('stock_notifications')
         .update({ status })
         .eq('id', id);
 
@@ -734,6 +862,7 @@ export default function AdminDashboard({
                         <div className="aspect-[3/4] rounded-xl overflow-hidden mb-2 relative">
                           <img src={product.images[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <button onClick={() => openRestockModal(product)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-green-500 shadow-lg hover:bg-green-500 hover:text-white transition-all" title="Nhập kho"><PackagePlus size={14} /></button>
                             <button onClick={() => {setEditingId(product.id); setFormData(product); setIsAdding(true);}} className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-nie8-text shadow-lg hover:bg-nie8-primary hover:text-white transition-all"><Edit2 size={14} /></button>
                             <button onClick={() => onDeleteProduct(product.id)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-red-500 shadow-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14} /></button>
                           </div>
@@ -1061,6 +1190,138 @@ export default function AdminDashboard({
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Restock Modal */}
+      <AnimatePresence>
+        {showRestockModal && restockProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          >
+            <div className="absolute inset-0 bg-nie8-text/20 backdrop-blur-sm" onClick={() => setShowRestockModal(false)} />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-nie8-primary/10 flex justify-between items-center">
+                <h3 className="text-2xl font-serif italic text-nie8-text">Nhập kho</h3>
+                <button onClick={() => setShowRestockModal(false)} className="w-10 h-10 bg-nie8-bg rounded-full flex items-center justify-center text-nie8-text/40 hover:text-nie8-text transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-8 overflow-y-auto scroll-hide">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden bg-nie8-bg flex-shrink-0">
+                    <img src={restockProduct.images[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-nie8-text">{restockProduct.name}</h4>
+                    <p className="text-xs text-nie8-text/60 mt-1">Tồn kho hiện tại: {restockProduct.stock_quantity}</p>
+                  </div>
+                </div>
+
+                <form id="restock-form" onSubmit={handleRestockSubmit} className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Size</label>
+                      <select 
+                        value={restockSize} 
+                        onChange={e => setRestockSize(e.target.value)}
+                        className="w-full bg-nie8-bg border border-nie8-primary/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-nie8-primary text-sm font-medium"
+                      >
+                        {['S', 'M', 'L', 'XL'].map(s => (
+                          <option key={s} value={s}>Size {s} (Hiện còn: {restockProduct.stock_by_size?.[s] || 0})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Số lượng nhập</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        required
+                        value={restockQuantity || ''} 
+                        onChange={e => setRestockQuantity(parseInt(e.target.value) || 0)}
+                        className="w-full bg-nie8-bg border border-nie8-primary/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-nie8-primary text-sm font-medium"
+                        placeholder="VD: 50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-orange-50 border border-orange-100 rounded-3xl p-6 space-y-4">
+                    <div className="flex items-center gap-3 text-orange-600">
+                      <Bell size={20} />
+                      <h5 className="font-bold text-sm">Thông báo khách hàng</h5>
+                    </div>
+                    <p className="text-xs text-orange-800/70">
+                      Đang có <strong className="text-orange-600">{pendingRequestsCount} khách hàng</strong> chờ mua Size {restockSize}.
+                    </p>
+                    
+                    <div className="space-y-3 pt-2">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${notifyOption === 'none' ? 'border-orange-500 bg-orange-500' : 'border-orange-200 group-hover:border-orange-400'}`}>
+                          {notifyOption === 'none' && <div className="w-2 h-2 bg-white rounded-full" />}
+                        </div>
+                        <input type="radio" name="notify" value="none" checked={notifyOption === 'none'} onChange={() => setNotifyOption('none')} className="hidden" />
+                        <span className="text-sm font-medium text-orange-900">Không gửi email</span>
+                      </label>
+                      
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${notifyOption === 'all' ? 'border-orange-500 bg-orange-500' : 'border-orange-200 group-hover:border-orange-400'}`}>
+                          {notifyOption === 'all' && <div className="w-2 h-2 bg-white rounded-full" />}
+                        </div>
+                        <input type="radio" name="notify" value="all" checked={notifyOption === 'all'} onChange={() => setNotifyOption('all')} disabled={pendingRequestsCount === 0} className="hidden" />
+                        <span className={`text-sm font-medium ${pendingRequestsCount === 0 ? 'text-orange-900/40' : 'text-orange-900'}`}>Gửi cho tất cả ({pendingRequestsCount} người)</span>
+                      </label>
+
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${notifyOption === 'custom' ? 'border-orange-500 bg-orange-500' : 'border-orange-200 group-hover:border-orange-400'}`}>
+                          {notifyOption === 'custom' && <div className="w-2 h-2 bg-white rounded-full" />}
+                        </div>
+                        <input type="radio" name="notify" value="custom" checked={notifyOption === 'custom'} onChange={() => setNotifyOption('custom')} disabled={pendingRequestsCount === 0} className="hidden" />
+                        <span className={`text-sm font-medium flex items-center gap-2 ${pendingRequestsCount === 0 ? 'text-orange-900/40' : 'text-orange-900'}`}>
+                          Chỉ gửi cho 
+                          <input 
+                            type="number" 
+                            min="1" 
+                            max={pendingRequestsCount}
+                            value={notifyCount || ''}
+                            onChange={e => {
+                              setNotifyOption('custom');
+                              setNotifyCount(parseInt(e.target.value) || 0);
+                            }}
+                            disabled={notifyOption !== 'custom'}
+                            className="w-16 px-2 py-1 bg-white border border-orange-200 rounded-lg text-center focus:outline-none focus:border-orange-500 disabled:opacity-50" 
+                          />
+                          người sớm nhất
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              
+              <div className="p-8 border-t border-nie8-primary/10 bg-nie8-bg/30 flex gap-4">
+                <button type="button" onClick={() => setShowRestockModal(false)} className="flex-1 py-4 bg-white text-nie8-text rounded-full font-bold uppercase tracking-widest border border-nie8-primary/10">Hủy</button>
+                <button 
+                  type="submit" 
+                  form="restock-form"
+                  disabled={isRestocking || restockQuantity <= 0}
+                  className="flex-1 py-4 bg-green-500 text-white rounded-full font-bold uppercase tracking-widest shadow-lg shadow-green-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isRestocking ? <Loader2 size={16} className="animate-spin" /> : <PackagePlus size={16} />}
+                  Xác nhận
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

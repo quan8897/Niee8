@@ -90,7 +90,15 @@ export default function App() {
   if (asyncError) throw asyncError;
 
   // Toast helper
+  const lastToastRef = useRef<{message: string, time: number} | null>(null);
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
+    // Chống lặp popup cùng nội dung trong 1 giây
+    const now = Date.now();
+    if (lastToastRef.current && lastToastRef.current.message === message && now - lastToastRef.current.time < 1000) {
+      return;
+    }
+    lastToastRef.current = { message, time: now };
+
     const id = Math.random().toString(36).slice(2);
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
@@ -190,8 +198,7 @@ export default function App() {
           .eq('id', currentUser.id)
           .single();
 
-        const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
-        const role = profile?.role || (isDefaultAdmin ? 'admin' : 'client');
+        const role = profile?.role || 'client';
         
         appCache.set(CACHE_KEYS.USER_ROLE(currentUser.id), role, CACHE_TTL.USER_ROLE);
         setUserRole(role);
@@ -206,12 +213,10 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
-      if (currentUser) {
-        const isDefaultAdmin = currentUser.email === "mnhiiudau8897@gmail.com";
-        setUserRole(isDefaultAdmin ? 'admin' : 'client');
-      } else {
+      if (!currentUser) {
         setUserRole(null);
       }
+      // Note: role is updated via checkUser to prioritize DB role
     });
 
     return () => { 
@@ -418,26 +423,37 @@ export default function App() {
   };
 
   // ===== CART LOGIC =====
-  const addToCart = useCallback((product: Product, size: string = 'M', quantity: number = 1) => {
-    const maxStock = product.stock_by_size?.[size] || 0;
+  const addToCart = useCallback((product: Product, selectedSize?: string, quantity: number = 1) => {
+    let actualSize = selectedSize;
+    if (!actualSize) {
+      if (product.stock_by_size) {
+        const availableSizes = Object.entries(product.stock_by_size)
+          .filter(([_, stock]) => stock > 0)
+          .map(([s]) => s);
+        actualSize = availableSizes.length > 0 ? availableSizes[0] : 'S';
+      } else {
+        actualSize = 'M';
+      }
+    }
+    const maxStock = product.stock_by_size?.[actualSize] || 0;
     
     setSavedCartItems(prev => {
-      const cartKey = `${product.id}-${size}`;
-      const existing = prev.find(item => `${item.id}-${item.size || 'M'}` === cartKey);
+      const cartKey = `${product.id}-${actualSize}`;
+      const existing = prev.find(item => `${item.id}-${item.size || actualSize}` === cartKey);
       
       if (existing) {
         const newQty = existing.quantity + quantity;
         if (newQty > maxStock) {
-          setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${size} trong kho`, 'error'), 0);
+          setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${actualSize} trong kho`, 'error'), 0);
           return prev.map(item =>
-            `${item.id}-${item.size || 'M'}` === cartKey
+            `${item.id}-${item.size || actualSize}` === cartKey
               ? { ...item, quantity: maxStock }
               : item
           );
         }
-        setTimeout(() => showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`), 0);
+        setTimeout(() => showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${actualSize} ✓`), 0);
         return prev.map(item =>
-          `${item.id}-${item.size || 'M'}` === cartKey
+          `${item.id}-${item.size || actualSize}` === cartKey
             ? { ...item, quantity: newQty }
             : item
         );
@@ -445,11 +461,11 @@ export default function App() {
       
       const finalQty = quantity > maxStock ? maxStock : quantity;
       if (quantity > maxStock) {
-        setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${size} trong kho`, 'error'), 0);
+        setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${actualSize} trong kho`, 'error'), 0);
       } else {
-        setTimeout(() => showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`), 0);
+        setTimeout(() => showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${actualSize} ✓`), 0);
       }
-      return [...prev, { id: product.id, quantity: finalQty, size }];
+      return [...prev, { id: product.id, quantity: finalQty, size: actualSize }];
     });
   }, [showToast]);
 
@@ -481,7 +497,7 @@ export default function App() {
   const handleRegisterStockNotification = async (productId: string, email: string, size: string = 'M') => {
     try {
       const { error } = await supabase
-        .from('restock_requests')
+        .from('stock_notifications')
         .insert([{
           product_id: productId,
           size: size,

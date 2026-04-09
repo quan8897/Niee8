@@ -55,12 +55,13 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
   };
 
   const total = items.reduce((sum, item) => {
-    const price = parseFloat(item.price.replace(/[^0-9]/g, ''));
-    return sum + price * item.quantity;
+    const priceStr = item.price.toString();
+    const price = parseFloat(priceStr.replace(/[^0-9]/g, ''));
+    return sum + (isNaN(price) ? 0 : price) * item.quantity;
   }, 0);
 
-  const shippingFee = total >= 2000000 ? 0 : 30000; // Phí ship 30k nếu đơn dưới 2 triệu
-  const finalTotal = 2000; // CHẾ ĐỘ TEST: Cố định 2.000đ để thanh toán thử (tối thiểu 2k)
+  const shippingFee = total >= 2000000 ? 0 : 30000;
+  const finalTotal = 2000; // CHẾ ĐỘ TEST
 
   // Format tiền VND
   const formatVND = (amount: number) => {
@@ -72,101 +73,50 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const saveOrderToSupabase = async (orderId: string) => {
-    try {
-      const newOrder: Partial<Order> = {
-        id: orderId,
-        user_id: user?.id || null,
-        customer_name: formData.name,
-        customer_phone: formData.phone,
-        customer_address: formData.address,
-        customer_city: formData.city,
-        items: items,
-        total_amount: finalTotal,
-        status: 'pending',
-        payment_method: formData.paymentMethod,
-        created_at: new Date().toISOString()
-      };
-
-      console.log('Saving order with user_id:', newOrder.user_id);
-
-      const { error } = await supabase
-        .from('orders')
-        .insert([newOrder]);
-
-      if (error) {
-        console.error('Supabase Insert Error:', error);
-        throw error;
-      }
-      console.log('Order saved to Supabase:', orderId);
-      return true;
-    } catch (error: any) {
-      console.error('Error saving order to Supabase:', error);
-      alert(`Lỗi lưu đơn hàng: ${error.message || 'Vui lòng thử lại'}`);
-      return false;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step === 1) {
       setStep(2);
     } else if (step === 2) {
       const orderId = Date.now().toString();
-      
       setIsProcessing(true);
       
-      // 1. Validate stock first
-      let hasError = false;
-      for (const item of items) {
-        const { data: productData, error: fetchError } = await supabase
-          .from('products')
-          .select('stock_by_size')
-          .eq('id', item.id)
-          .single();
-          
-        if (fetchError || !productData) {
-          alert(`Lỗi kiểm tra tồn kho cho sản phẩm ${item.name}`);
-          hasError = true;
-          break;
-        }
-        
-        const currentStock = productData.stock_by_size?.[item.size || 'M'] || 0;
-        if (currentStock < item.quantity) {
-          alert(`Sản phẩm ${item.name} (Size ${item.size}) chỉ còn ${currentStock} chiếc trong kho. Vui lòng cập nhật lại giỏ hàng.`);
-          hasError = true;
-          break;
-        }
-      }
-      
-      if (hasError) {
-        setIsProcessing(false);
-        return;
-      }
+      try {
+        // Thực thi Giao dịch (Transaction) Trừ kho và Lưu đơn cùng lúcrpc
+        const { data: result, error: rpcError } = await supabase.rpc('secure_checkout', {
+          p_order_id: orderId,
+          p_user_id: user?.id || null,
+          p_customer_name: formData.name,
+          p_customer_phone: formData.phone,
+          p_customer_address: formData.address,
+          p_customer_city: formData.city,
+          p_items: items.map(item => ({ id: item.id, size: item.size || 'M', quantity: item.quantity })),
+          p_total_amount: finalTotal,
+          p_payment_method: formData.paymentMethod
+        });
 
-      if (formData.paymentMethod === 'payos') {
-        try {
-          // Lưu đơn hàng vào DB trước khi chuyển sang PayOS
-          const saved = await saveOrderToSupabase(orderId);
-          if (!saved) {
-            setIsProcessing(false);
-            return;
-          }
-          
+        if (rpcError) throw rpcError;
+        
+        if (result && !result.success) {
+          throw new Error(result.error || 'Lỗi hệ thống khi thanh toán.');
+        }
+
+        if (formData.paymentMethod === 'payos') {
           // Lưu tạm số điện thoại để khi quay lại từ PayOS có thể auto-track
           localStorage.setItem('niee8_temp_phone', formData.phone);
 
           const response = await fetch('/api/create-payment-link', {
+             // Giữ nguyên PayOS test data
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              orderId: parseInt(orderId.slice(-6)), // PayOS yêu cầu orderCode là số
-              amount: 2000, // CHẾ ĐỘ TEST
+              orderId: parseInt(orderId.slice(-6)), 
+              amount: 2000, 
               description: `NIEE8-${orderId.slice(-4)}`,
               items: items.map(item => ({
                 name: item.name,
                 quantity: item.quantity,
-                price: 2000 // TEST
+                price: 2000 
               })),
               returnUrl: `${window.location.href.split('?')[0]}?payment=success&orderId=${orderId}`,
               cancelUrl: `${window.location.href.split('?')[0]}?payment=cancel&orderId=${orderId}`
@@ -179,38 +129,19 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
           }
 
           const data = await response.json();
-          if (data.checkoutUrl) {
-            window.location.href = data.checkoutUrl;
-          } else {
-            throw new Error('Không nhận được link thanh toán từ PayOS');
-          }
-        } catch (error: any) {
-          console.error("Payment Error:", error);
-          alert(`Lỗi thanh toán: ${error.message || 'Không thể kết nối với máy chủ'}.`);
-          setIsProcessing(false);
-        }
-      } else {
-        const saved = await saveOrderToSupabase(orderId);
-        if (saved) {
-          // Update stock quantity for each item in the order
-          for (const item of items) {
-            const { error: updateError } = await supabase.rpc('decrement_stock', {
-              p_product_id: item.id,
-              p_size: item.size || 'M',
-              p_quantity: item.quantity,
-              p_order_id: orderId
-            });
-            if (updateError) {
-              console.error('Error updating stock:', updateError);
-            }
-          }
-          
+          if (data.checkoutUrl) window.location.href = data.checkoutUrl;
+          else throw new Error('Không nhận được link thanh toán từ PayOS');
+
+        } else {
+          // COD Payment done
           setIsProcessing(false);
           setCurrentOrderId(orderId);
           setStep(3);
-        } else {
-          setIsProcessing(false);
         }
+      } catch (error: any) {
+        console.error("Payment Error:", error);
+        alert(`Lỗi thanh toán: ${error.message || 'Không đủ tồn kho hoặc lỗi mạng'}`);
+        setIsProcessing(false);
       }
     }
   };

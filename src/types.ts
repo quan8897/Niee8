@@ -27,6 +27,7 @@ export interface StockNotification {
   product_id: string;
   user_id?: string;
   email: string;
+  size?: string;
   status: 'pending' | 'notified';
   created_at: string;
   product_name?: string; // For UI convenience

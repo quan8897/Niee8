@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAT Dashboard - NIE8 Minimalist Fashion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF9; /* Light Beige */
+            color: #4A3F35; /* Dark Brown Text */
+        }
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+        }
+        .status-badge {
+            padding: 2px 10px;
+            border-radius: 99px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .status-pending { background-color: #F3F4F6; color: #6B7280; }
+        .status-pass { background-color: #DEF7EC; color: #03543F; }
+        .status-fail { background-color: #FDE8E8; color: #9B1C1C; }
+        
+        .card {
+            background: white;
+            border: 1px solid rgba(74, 63, 53, 0.05);
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(74, 63, 53, 0.03);
+        }
+    </style>
+</head>
+<body class="p-6 md:p-12 max-w-5xl mx-auto">
+    <header class="mb-16 text-center">
+        <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-[#8C7867] mb-4 block">Quality Assurance</span>
+        <h1 class="text-5xl md:text-6xl font-serif italic mb-4">UAT Dashboard</h1>
+        <p class="text-[#8C7867]/60 max-w-2xl mx-auto leading-relaxed mb-8">
+            Tài liệu kiểm thử chấp nhận người dùng dành cho PO, COO và Khách hàng. 
+            Đảm bảo mọi trải nghiệm tại NIE8 đều đạt chuẩn tinh tế và tối giản.
+        </p>
+        <button id="run-tests-btn" class="px-8 py-3 bg-[#4A3F35] text-white rounded-full font-bold uppercase tracking-widest text-xs hover:bg-[#8C7867] transition-all">
+            Chạy Test Tự Động
+        </button>
+        <div id="test-results" class="mt-8 p-6 bg-white border border-[#4A3F35]/10 rounded-2xl text-left text-xs font-mono hidden max-h-96 overflow-y-auto whitespace-pre-wrap"></div>
+    </header>
+
+    <script>
+        document.getElementById('run-tests-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('run-tests-btn');
+            const results = document.getElementById('test-results');
+            
+            btn.innerText = 'Đang chạy...';
+            btn.disabled = true;
+            results.classList.remove('hidden');
+            results.innerText = 'Đang thực thi bộ test...';
+
+            try {
+                const res = await fetch('/api/run-tests', { method: 'POST' });
+                const data = await res.json();
+                results.innerText = data.output;
+            } catch (error) {
+                results.innerText = 'Lỗi khi chạy test: ' + error.message;
+            } finally {
+                btn.innerText = 'Chạy Test Tự Động';
+                btn.disabled = false;
+            }
+        });
+    </script>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <div class="card p-8 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-[#8C7867]/40 mb-2">Tổng số Case</p>
+            <p class="text-4xl font-serif italic">12</p>
+        </div>
+        <div class="card p-8 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-[#8C7867]/40 mb-2">Đã vượt qua</p>
+            <p class="text-4xl font-serif italic text-green-600">0</p>
+        </div>
+        <div class="card p-8 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-[#8C7867]/40 mb-2">Tỷ lệ hoàn thành</p>
+            <p class="text-4xl font-serif italic">0%</p>
+        </div>
+    </div>
+
+    <!-- Section: Edge Cases -->
+    <section class="mb-16">
+        <div class="flex items-center gap-4 mb-8">
+            <h2 class="text-3xl font-serif italic">01. Edge Cases & Boundary</h2>
+            <div class="h-[1px] flex-grow bg-[#4A3F35]/10"></div>
+        </div>
+        <div class="space-y-4">
+            <div class="card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h4 class="font-bold text-sm mb-1">TC-BC-01: Đặt hàng bằng đúng tồn kho</h4>
+                    <p class="text-xs text-[#8C7867]/60">Kiểm tra việc chuyển trạng thái "Hết hàng" ngay lập tức.</p>
+                </div>
+                <span class="status-badge status-pending">Chờ kiểm thử</span>
+            </div>
+            <div class="card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h4 class="font-bold text-sm mb-1">TC-BC-02: Nhập kho số lượng cực lớn</h4>
+                    <p class="text-xs text-[#8C7867]/60">Kiểm tra khả năng chịu tải và hiển thị của Dashboard.</p>
+                </div>
+                <span class="status-badge status-pending">Chờ kiểm thử</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section: Negative Testing -->
+    <section class="mb-16">
+        <div class="flex items-center gap-4 mb-8">
+            <h2 class="text-3xl font-serif italic">02. Negative Testing</h2>
+            <div class="h-[1px] flex-grow bg-[#4A3F35]/10"></div>
+        </div>
+        <div class="space-y-4">
+            <div class="card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h4 class="font-bold text-sm mb-1">TC-NT-02: Email sai định dạng</h4>
+                    <p class="text-xs text-[#8C7867]/60">Kiểm tra validation tại form đăng ký Restock.</p>
+                </div>
+                <span class="status-badge status-pending">Chờ kiểm thử</span>
+            </div>
+            <div class="card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h4 class="font-bold text-sm mb-1">TC-NT-03: Admin nhập số lượng âm</h4>
+                    <p class="text-xs text-[#8C7867]/60">Chặn các hành vi nhập liệu sai logic tại Admin.</p>
+                </div>
+                <span class="status-badge status-pending">Chờ kiểm thử</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section: Security -->
+    <section class="mb-16">
+        <div class="flex items-center gap-4 mb-8">
+            <h2 class="text-3xl font-serif italic">03. Security Cases</h2>
+            <div class="h-[1px] flex-grow bg-[#4A3F35]/10"></div>
+        </div>
+        <div class="card p-8 bg-[#4A3F35] text-white">
+            <div class="flex items-center gap-3 mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#D9C5B2]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <h3 class="text-xl font-serif italic">Bảo mật hệ thống</h3>
+            </div>
+            <ul class="space-y-4 text-sm text-[#D9C5B2]/80">
+                <li class="flex justify-between border-b border-white/10 pb-2">
+                    <span>TC-SC-01: Truy cập Admin trái phép</span>
+                    <span class="font-bold text-white">PROTECTED</span>
+                </li>
+                <li class="flex justify-between border-b border-white/10 pb-2">
+                    <span>TC-SC-04: Can thiệp giá sản phẩm</span>
+                    <span class="font-bold text-white">VALIDATED</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Section: Advanced Testing -->
+    <section class="mb-16">
+        <div class="flex items-center gap-4 mb-8">
+            <h2 class="text-3xl font-serif italic">04. Advanced Testing</h2>
+            <div class="h-[1px] flex-grow bg-[#4A3F35]/10"></div>
+        </div>
+        <div class="space-y-6">
+            <!-- Performance -->
+            <div class="card p-6">
+                <h4 class="font-bold text-sm mb-4 text-[#8C7867]">Performance & Load</h4>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs">TC-PF-01: Chịu tải 100+ người dùng</span>
+                        <span class="status-badge status-pending">Chờ</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Compatibility -->
+            <div class="card p-6">
+                <h4 class="font-bold text-sm mb-4 text-[#8C7867]">Compatibility & UX</h4>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs">TC-UX-01: Hiển thị Mobile</span>
+                        <span class="status-badge status-pending">Chờ</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Integration -->
+            <div class="card p-6">
+                <h4 class="font-bold text-sm mb-4 text-[#8C7867]">Integration & Data</h4>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs">TC-IT-02: Email thông báo Restock</span>
+                        <span class="status-badge status-pending">Chờ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="mt-24 pt-12 border-t border-[#4A3F35]/10 text-center">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-[#8C7867]/40">
+            NIE8 Minimalist Fashion · 2026 Quality Assurance Report
+        </p>
+    </footer>
+</body>
+</html>

@@ -1,64 +1,36 @@
-import { GoogleGenAI } from "@google/genai";
-
-// Initialize Gemini API
-// Note: In AI Studio Build, process.env.GEMINI_API_KEY is automatically injected
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
-export const SYSTEM_INSTRUCTION = "Bạn là Stylist của NIEE8. Trả lời cực kỳ ngắn gọn (dưới 50 chữ). Tư vấn size và 1 item phối kèm nếu cần. Bảng size: S(eo 62-65), M(eo 66-69), L(eo 70-73), XL(eo 74-77).";
-
 export interface ChatMessage {
   role: 'user' | 'bot';
   text: string;
 }
 
-export async function generateAIResponse(message: string, history: ChatMessage[] = []) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured.");
-  }
-
+export async function generateAIResponse(message: string, history: ChatMessage[] = []): Promise<string> {
   try {
-    const chatHistory = history.map(msg => ({
-      role: msg.role === 'bot' ? 'model' : 'user',
-      parts: [{ text: msg.text }]
-    }));
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        { role: 'user', parts: [{ text: `SYSTEM INSTRUCTION: ${SYSTEM_INSTRUCTION}` }] },
-        ...chatHistory,
-        { role: 'user', parts: [{ text: message }] }
-      ],
-      config: {
-        temperature: 0.7,
-        maxOutputTokens: 250,
-      }
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'chat', message, history }),
     });
 
-    return response.text || "";
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    return data.text || "Xin lỗi, tôi đang phải chuẩn bị một vài bộ trang phục mới nên chưa thể trả lời ngay.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw error;
+    return "Kết nối AI Stylist đang gián đoạn, bạn thử lại sau nha!";
   }
 }
 
-export async function generateOutfitSuggestions(productName: string, productCategory: string, otherProducts: { id: string, name: string }[]) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured.");
-  }
-
+export async function generateOutfitSuggestions(productName: string, productCategory: string, otherProducts: { id: string, name: string }[]): Promise<string[]> {
   try {
-    const prompt = `Dựa trên sản phẩm "${productName}" (${productCategory}), hãy chọn tối đa 2 ID sản phẩm phối hợp tốt nhất từ danh sách này: ${otherProducts.map(p => `${p.id}:${p.name}`).join(', ')}. CHỈ trả về mảng JSON ID, ví dụ ["id1", "id2"].`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'outfit', productName, productCategory, otherProducts }),
     });
 
-    const text = response.text || "[]";
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    const text = data.text || "[]";
     const jsonStr = text.replace(/```json|```/g, "").trim();
     return JSON.parse(jsonStr);
   } catch (error) {
@@ -67,20 +39,17 @@ export async function generateOutfitSuggestions(productName: string, productCate
   }
 }
 
-export async function generateInstagramCaption(productName: string) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured.");
-  }
-
+export async function generateInstagramCaption(productName: string): Promise<string> {
   try {
-    const prompt = `Viết một caption Instagram thu hút cho sản phẩm "${productName}". Phong cách: Tối giản, lãng mạn, sang trọng. Bao gồm cả hashtag phù hợp.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'caption', productName }),
     });
 
-    return response.text || "";
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    return data.text || "";
   } catch (error) {
     console.error("Gemini Instagram Caption Error:", error);
     throw error;

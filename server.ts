@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { PayOS } from "@payos/node";
 import dotenv from "dotenv";
+import { exec } from "child_process";
 
 dotenv.config();
 
@@ -16,6 +17,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  app.use((req, res, next) => {
+    console.log(`Request: ${req.method} ${req.url}`);
+    next();
+  });
+
   // Initialize PayOS
   const payos = new PayOS({
     clientId: process.env.PAYOS_CLIENT_ID || "",
@@ -24,12 +30,35 @@ async function startServer() {
   });
 
   // API Routes
-  app.get("/api/health", (req, res) => {
+  const apiRouter = express.Router();
+  apiRouter.get("/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
+  apiRouter.post("/run-tests", (req, res) => {
+    exec("npx vitest run", (error, stdout, stderr) => {
+      res.json({
+        success: !error,
+        output: stdout || stderr,
+        error: error ? error.message : null,
+      });
+    });
+  });
+
+  apiRouter.post("/run-test/:id", (req, res) => {
+    const { id } = req.params;
+    // Giả lập chạy test case cụ thể
+    // Trong thực tế, bạn sẽ gọi lệnh test tương ứng với ID này
+    exec(`npx vitest run -t "${id}"`, (error, stdout, stderr) => {
+      res.json({
+        passed: !error,
+        output: stdout || stderr,
+      });
+    });
+  });
+
   // Create Payment Link
-  app.post("/api/create-payment-link", async (req, res) => {
+  apiRouter.post("/create-payment-link", async (req, res) => {
     try {
       const { orderId, amount, description, items, returnUrl, cancelUrl } = req.body;
 
@@ -52,16 +81,12 @@ async function startServer() {
   });
 
   // Webhook for PayOS
-  app.post("/api/payos-webhook", async (req, res) => {
+  apiRouter.post("/payos-webhook", async (req, res) => {
     try {
       const webhookData = await payos.webhooks.verify(req.body);
       console.log("=== PayOS Webhook Received ===");
       console.log("Order Code:", webhookData.orderCode);
       console.log("Amount Received:", webhookData.amount);
-      
-      // Giả sử bạn có database để lấy expectedAmount của orderCode này
-      // const order = await supabase.from('orders').select('total_amount').eq('order_code', webhookData.orderCode).single();
-      // const expectedAmount = order.data.total_amount;
       
       const expectedAmount = 2000; // CHẾ ĐỘ TEST: Giá trị mong đợi là 2000đ
 
@@ -71,20 +96,13 @@ async function startServer() {
         console.error(`- Thực nhận: ${webhookData.amount}đ`);
         console.error(`- Kỳ vọng: ${expectedAmount}đ`);
         
-        // TRƯỜNG HỢP SAI SỐ TIỀN:
-        // 1. Không cập nhật trạng thái đơn hàng thành 'PAID'
-        // 2. Có thể cập nhật trạng thái thành 'PAYMENT_ERROR' trong DB
-        // 3. Gửi thông báo cho Admin để xử lý hoàn tiền thủ công
-        
         return res.status(200).json({ 
           status: "error", 
           message: "Số tiền thanh toán không khớp. Đơn hàng không được hoàn thành." 
         });
       }
 
-      // TRƯỜNG HỢP ĐÚNG SỐ TIỀN:
       console.log(`[PAYMENT_SUCCESS] Thanh toán khớp 100%: ${webhookData.amount}đ`);
-      // Cập nhật trạng thái đơn hàng thành 'PAID' tại đây
       
       res.json({ status: "success" });
     } catch (error) {
@@ -92,6 +110,8 @@ async function startServer() {
       res.status(400).json({ error: "Invalid webhook data" });
     }
   });
+
+  app.use("/api", apiRouter);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

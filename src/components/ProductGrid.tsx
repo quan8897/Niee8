@@ -453,25 +453,36 @@ export default function ProductGrid({
                         <button className="text-[10px] text-nie8-primary underline underline-offset-2">Bảng size</button>
                       </div>
                       <div className="flex gap-2">
-                        {['S', 'M', 'L', 'XL'].map(size => (
-                          <button
-                            key={size}
-                            onClick={() => {
-                              setSelectedSize(size);
-                              const maxStock = selectedProduct.stock_by_size?.[size] || 0;
-                              if (quantity > maxStock) {
-                                setQuantity(Math.max(1, maxStock));
-                              }
-                            }}
-                            className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 ${
-                              selectedSize === size
-                                ? 'border-nie8-primary bg-nie8-primary text-white'
-                                : 'border-nie8-text/15 text-nie8-text/70 hover:border-nie8-primary/50'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
+                        {['S', 'M', 'L', 'XL'].map(size => {
+                          const sizeStock = selectedProduct.stock_by_size?.[size] || 0;
+                          const isOutOfStock = sizeStock === 0;
+                          
+                          return (
+                            <button
+                              key={size}
+                              onClick={() => {
+                                setSelectedSize(size);
+                                if (quantity > sizeStock && sizeStock > 0) {
+                                  setQuantity(sizeStock);
+                                } else if (sizeStock === 0) {
+                                  setQuantity(1);
+                                }
+                              }}
+                              className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 relative ${
+                                selectedSize === size
+                                  ? 'border-nie8-primary bg-nie8-primary text-white'
+                                  : isOutOfStock
+                                    ? 'border-nie8-text/5 bg-nie8-text/5 text-nie8-text/30 cursor-not-allowed'
+                                    : 'border-nie8-text/15 text-nie8-text/70 hover:border-nie8-primary/50'
+                              }`}
+                            >
+                              {size}
+                              {isOutOfStock && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -551,7 +562,8 @@ export default function ProductGrid({
 
                   {/* === STICKY CTA — quan trọng nhất trên mobile ===== */}
                   <div className="flex-shrink-0 px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-nie8-primary/10 safe-area-pb z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                    {selectedProduct.stock_quantity > 0 ? (
+                    {/* Check stock for the SPECIFIC selected size */}
+                    {(selectedProduct.stock_by_size?.[selectedSize] || 0) > 0 ? (
                       <div className="flex gap-3">
                         {/* Wishlist button */}
                         <button
@@ -567,22 +579,20 @@ export default function ProductGrid({
                         {/* Add to cart button */}
                         <button
                           onClick={handleAddToCart}
-                          disabled={selectedProduct.stock_by_size?.[selectedSize] === 0}
-                          className={`flex-1 h-12 sm:h-14 rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                          className={`flex-1 h-12 sm:h-14 rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg ${
                             addedToCart
                               ? 'bg-green-500 text-white shadow-green-500/30'
                               : 'bg-white border-2 border-nie8-primary text-nie8-primary hover:bg-nie8-primary/5'
                           }`}
                         >
                           <ShoppingBag size={16} />
-                          {selectedProduct.stock_by_size?.[selectedSize] === 0 ? 'Hết size này' : (addedToCart ? 'Đã thêm ✓' : 'Thêm vào giỏ')}
+                          {addedToCart ? 'Đã thêm ✓' : 'Thêm vào giỏ'}
                         </button>
 
                         {/* Buy Now button */}
                         <button
                           onClick={() => onBuyNow?.(selectedProduct, selectedSize, quantity)}
-                          disabled={selectedProduct.stock_by_size?.[selectedSize] === 0}
-                          className="flex-1 h-12 sm:h-14 rounded-2xl bg-nie8-primary text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 hover:bg-nie8-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 h-12 sm:h-14 rounded-2xl bg-nie8-primary text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 hover:bg-nie8-secondary"
                         >
                           Thanh toán ngay
                         </button>
@@ -599,7 +609,7 @@ export default function ProductGrid({
                     ) : (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-widest mb-2">
-                          <X size={14} /> Sản phẩm hiện đang hết hàng
+                          <X size={14} /> Size {selectedSize} hiện đang hết hàng
                         </div>
                         {notificationSuccess ? (
                           <motion.div 
@@ -607,14 +617,14 @@ export default function ProductGrid({
                             animate={{ opacity: 1, y: 0 }}
                             className="bg-green-50 text-green-700 p-4 rounded-2xl text-xs font-medium text-center border border-green-100"
                           >
-                            Cảm ơn bạn! Chúng tôi sẽ gửi email ngay khi sản phẩm có hàng.
+                            Cảm ơn bạn! Chúng tôi sẽ gửi email ngay khi size {selectedSize} có hàng.
                           </motion.div>
                         ) : (
                           <form onSubmit={handleNotifyMe} className="flex flex-col sm:flex-row gap-2">
                             <input 
                               type="email" 
                               required
-                              placeholder="Nhập email của bạn..."
+                              placeholder="Nhập email nhận thông báo..."
                               value={notificationEmail}
                               onChange={(e) => setNotificationEmail(e.target.value)}
                               className="flex-grow h-12 sm:h-14 bg-nie8-bg border-2 border-nie8-primary/10 rounded-2xl px-4 text-sm focus:outline-none focus:border-nie8-primary transition-all"
