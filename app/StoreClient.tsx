@@ -88,28 +88,54 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
     } catch { return []; }
   });
 
-  // PayOS redirect handling
+  // PayOS redirect handling — KHÔNG trust URL param, verify qua DB
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentStatus = params.get('payment');
     const orderId = params.get('orderId');
-    if (paymentStatus === 'success') {
-      setSavedCartItems([]);
-      showToast('Thanh toán thành công! Cảm ơn bạn đã mua sắm.', 'success');
-      if (orderId) {
-        const tempPhone = localStorage.getItem('niee8_temp_phone');
-        if (tempPhone) {
-          setLastOrderInfo({ id: orderId, phone: tempPhone });
-          setCurrentView('track-order');
-          localStorage.removeItem('niee8_temp_phone');
+
+    if (paymentStatus === 'pending' && orderId) {
+      // PayOS redirect về — kiểm tra trạng thái thực tế từ DB
+      const verifyPayment = async () => {
+        try {
+          const { data: order } = await supabase
+            .from('orders')
+            .select('status, payment_method')
+            .eq('id', orderId)
+            .single();
+
+          if (order?.status === 'processing' || order?.status === 'completed') {
+            // Webhook PayOS đã xác nhận — thành công thực sự
+            setSavedCartItems([]);
+            showToast('Thanh toán thành công! Cảm ơn bạn đã mua sắm.', 'success');
+            const tempPhone = localStorage.getItem('niee8_temp_phone');
+            if (tempPhone) {
+              setLastOrderInfo({ id: orderId, phone: tempPhone });
+              setCurrentView('track-order');
+              localStorage.removeItem('niee8_temp_phone');
+            }
+          } else if (order?.status === 'pending') {
+            // Chưa được xác nhận qua Webhook
+            showToast('Thanh toán đang chờ xác nhận. Vui lòng chờ vài giây...', 'info');
+            const tempPhone = localStorage.getItem('niee8_temp_phone');
+            if (tempPhone) {
+              setLastOrderInfo({ id: orderId, phone: tempPhone });
+              setCurrentView('track-order');
+            }
+          } else {
+            showToast('Thanh toán không thành công.', 'error');
+          }
+        } catch {
+          showToast('Không thể xác nhận trạng thái thanh toán.', 'error');
         }
-      }
+      };
+      verifyPayment();
       window.history.replaceState({}, '', window.location.pathname);
     } else if (paymentStatus === 'cancel') {
       showToast('Thanh toán đã bị hủy.', 'error');
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [showToast]);
+  }, [showToast, supabase]);
 
   // Persist cart to localStorage
   useEffect(() => {

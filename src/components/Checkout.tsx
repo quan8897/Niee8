@@ -61,7 +61,18 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
   }, 0);
 
   const shippingFee = total >= 2000000 ? 0 : 30000;
-  const finalTotal = 2000; // CHẾ ĐỘ TEST
+  // Giá thật: tổng sản phẩm + phí ship (đã là số nguyên VNĐ)
+  const finalTotal = total + shippingFee;
+
+  // Tạo Order ID bảo mật bằng crypto — không thể brute-force
+  const generateSecureOrderId = (): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const randomPart = Array.from(
+      crypto.getRandomValues(new Uint8Array(8)),
+      (b) => chars[b % chars.length]
+    ).join('');
+    return `NIE8-${randomPart}`;
+  };
 
   // Format tiền VND
   const formatVND = (amount: number) => {
@@ -78,11 +89,11 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
     if (step === 1) {
       setStep(2);
     } else if (step === 2) {
-      const orderId = Date.now().toString();
+      const orderId = generateSecureOrderId();
       setIsProcessing(true);
       
       try {
-        // Thực thi Giao dịch (Transaction) Trừ kho và Lưu đơn cùng lúcrpc
+        // Transaction atomic: Trừ kho + Lưu đơn cùng 1 lúc (chống Race Condition)
         const { data: result, error: rpcError } = await supabase.rpc('secure_checkout', {
           p_order_id: orderId,
           p_user_id: user?.id || null,
@@ -90,36 +101,32 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
           p_customer_phone: formData.phone,
           p_customer_address: formData.address,
           p_customer_city: formData.city,
-          p_items: items.map(item => ({ id: item.id, size: item.size || 'M', quantity: item.quantity })),
+          p_items: items.map(item => ({ id: item.id, size: item.size, quantity: item.quantity })),
           p_total_amount: finalTotal,
           p_payment_method: formData.paymentMethod
         });
 
         if (rpcError) throw rpcError;
-        
-        if (result && !result.success) {
-          throw new Error(result.error || 'Lỗi hệ thống khi thanh toán.');
-        }
+        if (result && !result.success) throw new Error(result.error || 'Lỗi hệ thống khi thanh toán.');
 
         if (formData.paymentMethod === 'payos') {
-          // Lưu tạm số điện thoại để khi quay lại từ PayOS có thể auto-track
           localStorage.setItem('niee8_temp_phone', formData.phone);
 
           const response = await fetch('/api/create-payment-link', {
-             // Giữ nguyên PayOS test data
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              orderId: parseInt(orderId.slice(-6)), 
-              amount: 2000, 
-              description: `NIEE8-${orderId.slice(-4)}`,
+              orderId: orderId,
+              amount: finalTotal, // Giá thật
+              description: `NIEE8-${orderId.slice(-6)}`,
               items: items.map(item => ({
                 name: item.name,
                 quantity: item.quantity,
-                price: 2000 
+                price: Math.round(parseFloat(item.price.replace(/[^0-9]/g, '')) || 0)
               })),
-              returnUrl: `${window.location.href.split('?')[0]}?payment=success&orderId=${orderId}`,
-              cancelUrl: `${window.location.href.split('?')[0]}?payment=cancel&orderId=${orderId}`
+              // Trả về ?payment=pending — KHÔNG auto trust, phải verify qua DB
+              returnUrl: `${window.location.origin}?payment=pending&orderId=${orderId}`,
+              cancelUrl: `${window.location.origin}?payment=cancel&orderId=${orderId}`
             })
           });
 
@@ -127,20 +134,18 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `Server error: ${response.status}`);
           }
-
           const data = await response.json();
           if (data.checkoutUrl) window.location.href = data.checkoutUrl;
           else throw new Error('Không nhận được link thanh toán từ PayOS');
 
         } else {
-          // COD Payment done
           setIsProcessing(false);
           setCurrentOrderId(orderId);
           setStep(3);
         }
       } catch (error: any) {
-        console.error("Payment Error:", error);
-        alert(`Lỗi thanh toán: ${error.message || 'Không đủ tồn kho hoặc lỗi mạng'}`);
+        console.error('Payment Error:', error);
+        alert(`Lỗi đặt hàng: ${error.message || 'Không đủ tồn kho hoặc lỗi mạng'}`);
         setIsProcessing(false);
       }
     }

@@ -571,19 +571,21 @@ export default function ProductGrid({
                       <p className="text-sm text-nie8-text/70 leading-relaxed">{selectedProduct.description}</p>
                     </div>
 
-                    {/* Outfit Suggestions */}
-                    {selectedProduct.outfit_suggestions && selectedProduct.outfit_suggestions.length > 0 && (
-                      <div className="mb-4 mt-6">
-                        <span className="text-xs font-bold uppercase tracking-wider text-nie8-primary flex items-center gap-1 mb-3">
-                          <Sparkles size={14} /> Gợi ý phối đồ
-                        </span>
-                        <div className="flex gap-3 overflow-x-auto scroll-hide pb-2">
-                          {selectedProduct.outfit_suggestions.map(id => {
-                            const suggestedProduct = products.find(p => p.id === id);
-                            if (!suggestedProduct) return null;
-                            return (
-                              <div 
-                                key={id} 
+                    {/* Outfit Suggestions — chỉ render khi sản phẩm vẫn còn tồn tại và còn hàng */}
+                    {selectedProduct.outfit_suggestions && selectedProduct.outfit_suggestions.length > 0 && (() => {
+                      const validSuggestions = selectedProduct.outfit_suggestions
+                        .map(id => products.find(p => p.id === id))
+                        .filter((p): p is Product => p != null && p.stock_quantity > 0);
+                      if (validSuggestions.length === 0) return null;
+                      return (
+                        <div className="mb-4 mt-6">
+                          <span className="text-xs font-bold uppercase tracking-wider text-nie8-primary flex items-center gap-1 mb-3">
+                            <Sparkles size={14} /> Gợi ý phối đồ
+                          </span>
+                          <div className="flex gap-3 overflow-x-auto scroll-hide pb-2">
+                            {validSuggestions.map(suggestedProduct => (
+                              <div
+                                key={suggestedProduct.id}
                                 className="min-w-[120px] w-[120px] rounded-xl overflow-hidden border border-nie8-primary/10 cursor-pointer hover:border-nie8-primary/30 transition-colors"
                                 onClick={() => openProduct(suggestedProduct)}
                               >
@@ -595,11 +597,11 @@ export default function ProductGrid({
                                   <p className="text-[10px] text-nie8-primary mt-0.5">{formatVND(suggestedProduct.price)}</p>
                                 </div>
                               </div>
-                            );
-                          })}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Size info */}
                     <div className="bg-nie8-bg rounded-2xl p-4 mb-2">
