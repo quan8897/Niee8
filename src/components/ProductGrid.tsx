@@ -69,16 +69,46 @@ export default function ProductGrid({
   const [notificationEmail, setNotificationEmail] = useState('');
   const [isRegisteringNotification, setIsRegisteringNotification] = useState(false);
   const [notificationSuccess, setNotificationSuccess] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
+  const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc'>('default');
   const touchStartX = useRef<number>(0);
   const sectionRef = useRef<HTMLElement>(null);
 
-  const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
+  // Dynamic categories từ data thực tế
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
+    return ['Tất cả', ...cats.sort()];
+  }, [products]);
+
+  // Filter + Sort logic
+  const filteredProducts = useMemo(() => {
+    let result = activeCategory === 'Tất cả'
+      ? products
+      : products.filter(p => p.category === activeCategory);
+
+    if (activeSort === 'new') {
+      result = [...result].sort((a, b) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+    } else if (activeSort === 'price-asc') {
+      result = [...result].sort((a, b) =>
+        parseFloat(a.price.replace(/[^0-9]/g, '')) - parseFloat(b.price.replace(/[^0-9]/g, ''))
+      );
+    } else if (activeSort === 'price-desc') {
+      result = [...result].sort((a, b) =>
+        parseFloat(b.price.replace(/[^0-9]/g, '')) - parseFloat(a.price.replace(/[^0-9]/g, ''))
+      );
+    }
+    return result;
+  }, [products, activeCategory, activeSort]);
+
+  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
   const currentProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
-    return products.slice(startIndex, startIndex + PRODUCTS_PER_PAGE);
-  }, [products, currentPage]);
+    return filteredProducts.slice(startIndex, startIndex + PRODUCTS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
 
-  useEffect(() => { setCurrentPage(1); }, [products.length]);
+  useEffect(() => { setCurrentPage(1); }, [activeCategory, activeSort]);
 
   // Khoá scroll body khi modal mở (quan trọng cho mobile)
   useEffect(() => {
@@ -188,10 +218,32 @@ export default function ProductGrid({
               Tủ đồ <span className="text-nie8-primary">Hiện đại.</span>
             </motion.h2>
           </div>
-          {/* Filter pills — mobile friendly */}
-          <div className="flex gap-2 text-[10px] sm:text-xs font-medium tracking-widest uppercase overflow-x-auto pb-1 scroll-hide">
-            <button className="whitespace-nowrap px-3 py-1.5 bg-nie8-primary text-white rounded-full">Tất cả</button>
-            <button className="whitespace-nowrap px-3 py-1.5 text-nie8-text/40 hover:text-nie8-text transition-colors">Mới về</button>
+          {/* Filter pills — dynamic từ data thực tế + sort */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scroll-hide">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-medium tracking-widest uppercase transition-all ${
+                  activeCategory === cat
+                    ? 'bg-nie8-primary text-white shadow-md shadow-nie8-primary/20'
+                    : 'text-nie8-text/40 hover:text-nie8-text border border-nie8-text/10 hover:border-nie8-primary/30'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+            <div className="w-px bg-nie8-text/10 mx-1 flex-shrink-0" />
+            <select
+              value={activeSort}
+              onChange={e => setActiveSort(e.target.value as typeof activeSort)}
+              className="text-[10px] sm:text-xs text-nie8-text/60 bg-transparent border border-nie8-text/10 rounded-full px-3 py-1.5 focus:outline-none cursor-pointer hover:border-nie8-primary/30 transition-colors"
+            >
+              <option value="default">Mặc định</option>
+              <option value="new">Mới nhất</option>
+              <option value="price-asc">Giá tăng dần</option>
+              <option value="price-desc">Giá giảm dần</option>
+            </select>
           </div>
         </div>
 
@@ -268,10 +320,13 @@ export default function ProductGrid({
         </div>
 
         {/* Empty state */}
-        {!isLoading && products.length === 0 && (
+        {!isLoading && filteredProducts.length === 0 && (
           <div className="text-center py-24 text-nie8-text/30">
             <ShoppingBag size={48} className="mx-auto mb-4" strokeWidth={1} />
-            <p className="font-serif italic text-xl">Bộ sưu tập đang được cập nhật...</p>
+            {activeCategory !== 'Tất cả'
+              ? <p className="font-serif italic text-xl">Không có sản phẩm trong danh mục <span className="text-nie8-primary">{activeCategory}</span></p>
+              : <p className="font-serif italic text-xl">Bộ sưu tập đang được cập nhật...</p>
+            }
           </div>
         )}
 
