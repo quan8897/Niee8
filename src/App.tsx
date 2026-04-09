@@ -17,8 +17,10 @@ import ProductGrid from './components/ProductGrid';
 import AIStylist from './components/AIStylist';
 import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
+import AuthModal from './components/AuthModal';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
+import OrderTracking from './components/OrderTracking';
 import FloatingActions from './components/FloatingActions';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -27,6 +29,7 @@ import { LogOut, ShieldCheck, User as UserIcon, CheckCircle, AlertCircle } from 
 import { appCache, CACHE_KEYS, CACHE_TTL } from './lib/cache';
 import { useDebounce } from './lib/useDebounce';
 import { supabase } from './lib/supabase';
+import { generateOutfitSuggestions as getAISuggestions } from './services/geminiService';
 
 // ===== TOAST NOTIFICATION COMPONENT =====
 interface Toast {
@@ -65,11 +68,12 @@ export default function App() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
-  const [currentView, setCurrentView] = useState<'home' | 'checkout'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'checkout' | 'admin' | 'track-order'>('home');
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAIStylistOpen, setIsAIStylistOpen] = useState(false);
   const [aiContextProduct, setAiContextProduct] = useState<Product | null>(null);
@@ -81,6 +85,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [lastOrderInfo, setLastOrderInfo] = useState<{id: string, phone: string} | null>(null);
 
   if (asyncError) throw asyncError;
 
@@ -109,13 +114,27 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'success') {
+    const paymentStatus = params.get('payment');
+    const orderId = params.get('orderId');
+
+    if (paymentStatus === 'success') {
       setSavedCartItems([]); // Xoá giỏ hàng
       showToast('Thanh toán thành công! Cảm ơn bạn đã mua sắm.', 'success');
+      
+      // Nếu có orderId, lấy phone từ localStorage (đã lưu tạm lúc checkout)
+      if (orderId) {
+        const tempPhone = localStorage.getItem('niee8_temp_phone');
+        if (tempPhone) {
+          setLastOrderInfo({ id: orderId, phone: tempPhone });
+          setCurrentView('track-order');
+          localStorage.removeItem('niee8_temp_phone');
+        }
+      }
+
       // Xoá param trên URL để tránh lặp lại khi reload
       const newUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, '', newUrl);
-    } else if (params.get('payment') === 'cancel') {
+    } else if (paymentStatus === 'cancel') {
       showToast('Thanh toán đã bị hủy.', 'error');
       const newUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, '', newUrl);
@@ -201,70 +220,10 @@ export default function App() {
     };
   }, []);
 
-  const handleLogin = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      showToast('Vui lòng nhập email và mật khẩu', 'error');
-      return;
-    }
-    setIsAuthenticating(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      showToast('Đăng nhập thành công!', 'success');
-      setEmail('');
-      setPassword('');
-    } catch (error: any) {
-      console.error('Login error:', error);
-      let errorMsg = error.message || 'Lỗi đăng nhập';
-      if (errorMsg.includes('Invalid login credentials')) {
-        errorMsg = 'Sai email hoặc mật khẩu. Nếu bạn chưa có tài khoản, hãy bấm nút "ĐĂNG KÝ" bên cạnh.';
-      } else if (errorMsg.includes('Email not confirmed')) {
-        errorMsg = 'Vui lòng kiểm tra hộp thư email để xác nhận tài khoản.';
-      }
-      showToast(errorMsg, 'error');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const handleSignup = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      showToast('Vui lòng nhập email và mật khẩu', 'error');
-      return;
-    }
-    if (password.length < 6) {
-      showToast('Mật khẩu phải có ít nhất 6 ký tự', 'error');
-      return;
-    }
-    setIsAuthenticating(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      
-      if (data.session) {
-        showToast('Đăng ký thành công!', 'success');
-      } else {
-        showToast('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận.', 'success');
-      }
-      setEmail('');
-      setPassword('');
-    } catch (error: any) {
-      console.error('Signup error:', error);
-      let errorMsg = error.message || 'Lỗi đăng ký';
-      if (errorMsg.includes('User already registered')) {
-        errorMsg = 'Email này đã được đăng ký. Vui lòng bấm "ĐĂNG NHẬP".';
-      }
-      showToast(errorMsg, 'error');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
   const logout = async () => {
     try {
       await supabase.auth.signOut();
+      setCurrentView('home');
       showToast('Đã đăng xuất', 'info');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -364,32 +323,18 @@ export default function App() {
   }, []);
 
   // ===== PRODUCT CRUD =====
-  // FIX: model name đúng — "gemini-2.0-flash" thay vì "gemini-3-flash-preview"
   const generateOutfitSuggestions = async (product: Product, allProducts: Product[]): Promise<string[]> => {
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return [];
-
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-
       const otherProducts = allProducts.filter(p => p.id !== product.id);
       if (otherProducts.length === 0) return [];
 
-      const prompt = `Bạn là AI Stylist. Tôi vừa thêm sản phẩm mới: "${product.name}" (Danh mục: ${product.category}).
-Hãy chọn ra tối đa 2 sản phẩm phù hợp nhất để phối cùng từ danh sách sau:
-${otherProducts.map(p => `- ID: ${p.id}, Tên: ${p.name}, Danh mục: ${p.category}`).join('\n')}
-
-CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, ví dụ: ["id1", "id2"]. KHÔNG giải thích gì thêm.`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash", // FIX: model name hợp lệ
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-
-      const result = JSON.parse(response.text || "[]");
-      return Array.isArray(result) ? result : [];
+      const suggestions = await getAISuggestions(
+        product.name,
+        product.category,
+        otherProducts.map(p => ({ id: p.id, name: p.name }))
+      );
+      
+      return Array.isArray(suggestions) ? suggestions : [];
     } catch (error) {
       console.error("Error generating outfit suggestions:", error);
       return [];
@@ -430,6 +375,11 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
       const finalProduct = { ...updatedProduct, outfit_suggestions: suggestions };
       
+      // Đảm bảo stock_quantity là số
+      if (typeof finalProduct.stock_quantity === 'string') {
+        finalProduct.stock_quantity = parseInt(finalProduct.stock_quantity) || 0;
+      }
+
       const { error } = await supabase
         .from('products')
         .update(finalProduct)
@@ -469,31 +419,56 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
 
   // ===== CART LOGIC =====
   const addToCart = useCallback((product: Product, size: string = 'M', quantity: number = 1) => {
+    const maxStock = product.stock_by_size?.[size] || 0;
+    
     setSavedCartItems(prev => {
       const cartKey = `${product.id}-${size}`;
       const existing = prev.find(item => `${item.id}-${item.size || 'M'}` === cartKey);
+      
       if (existing) {
+        const newQty = existing.quantity + quantity;
+        if (newQty > maxStock) {
+          setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${size} trong kho`, 'error'), 0);
+          return prev.map(item =>
+            `${item.id}-${item.size || 'M'}` === cartKey
+              ? { ...item, quantity: maxStock }
+              : item
+          );
+        }
+        setTimeout(() => showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`), 0);
         return prev.map(item =>
           `${item.id}-${item.size || 'M'}` === cartKey
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: newQty }
             : item
         );
       }
-      return [...prev, { id: product.id, quantity, size }];
+      
+      const finalQty = quantity > maxStock ? maxStock : quantity;
+      if (quantity > maxStock) {
+        setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${size} trong kho`, 'error'), 0);
+      } else {
+        setTimeout(() => showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`), 0);
+      }
+      return [...prev, { id: product.id, quantity: finalQty, size }];
     });
-    showToast(`Đã thêm ${quantity} sản phẩm vào giỏ — Size ${size} ✓`);
   }, [showToast]);
 
   const updateCartQuantity = useCallback((id: string, size: string, delta: number) => {
     setSavedCartItems(prev => prev.map(item => {
       if (item.id === id && (item.size || '') === (size || '')) {
+        const product = products.find(p => p.id === id);
+        const maxStock = product?.stock_by_size?.[size] || 0;
         const newQty = item.quantity + delta;
         if (newQty <= 0) return null as unknown as {id: string, size: string, quantity: number};
+        if (newQty > maxStock) {
+          setTimeout(() => showToast(`Chỉ còn ${maxStock} sản phẩm size ${size} trong kho`, 'error'), 0);
+          return { ...item, quantity: maxStock };
+        }
         return { ...item, quantity: newQty };
       }
       return item;
     }).filter(Boolean));
-  }, []);
+  }, [products, showToast]);
 
   const removeCartItem = useCallback((id: string, size: string) => {
     setSavedCartItems(prev => prev.filter(item => !(item.id === id && (item.size || '') === (size || ''))));
@@ -501,6 +476,28 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
   }, [showToast]);
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  // ===== STOCK NOTIFICATIONS =====
+  const handleRegisterStockNotification = async (productId: string, email: string, size: string = 'M') => {
+    try {
+      const { error } = await supabase
+        .from('restock_requests')
+        .insert([{
+          product_id: productId,
+          size: size,
+          email: email,
+          status: 'pending'
+        }]);
+
+      if (error) throw error;
+      showToast('Đã đăng ký nhận thông báo thành công!');
+      return true;
+    } catch (error) {
+      console.error('Error registering stock notification:', error);
+      showToast('Lỗi khi đăng ký thông báo', 'error');
+      return false;
+    }
+  };
 
   // ===== LOADING STATE =====
   if (!isAuthReady || isLoadingProducts) {
@@ -524,10 +521,38 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
       <Checkout
         items={cartItems}
         onBack={() => setCurrentView('home')}
-        onComplete={() => {
+        onComplete={(orderId, phone) => {
           setSavedCartItems([]); // Xoá giỏ hàng sau khi đặt thành công
-          setCurrentView('home'); // Quay lại trang chủ
+          setLastOrderInfo({ id: orderId, phone });
+          setCurrentView('track-order');
         }}
+        user={user}
+      />
+    );
+  }
+
+  if (currentView === 'track-order') {
+    return (
+      <OrderTracking 
+        onBack={() => setCurrentView('home')} 
+        initialOrderId={lastOrderInfo?.id}
+        initialPhone={lastOrderInfo?.phone}
+        user={user}
+      />
+    );
+  }
+
+  if (currentView === 'admin' && userRole === 'admin') {
+    return (
+      <AdminDashboard
+        products={products}
+        siteSettings={siteSettings}
+        onAddProduct={handleAddProduct}
+        onUpdateProduct={handleUpdateProduct}
+        onDeleteProduct={handleDeleteProduct}
+        onUpdateSettings={handleUpdateSettings}
+        onClose={() => setCurrentView('home')}
+        onLogout={logout}
       />
     );
   }
@@ -554,109 +579,16 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
           onCartClick={() => setIsCartOpen(true)}
           cartCount={cartCount}
           isAdmin={userRole === 'admin'}
-          onAdminClick={() => setIsAdminOpen(true)}
+          onAdminClick={() => setCurrentView('admin')}
+          onLoginClick={() => setIsAuthModalOpen(true)}
           onAIClick={() => setIsAIStylistOpen(true)}
+          onTrackOrderClick={() => setCurrentView('track-order')}
+          user={user}
+          onLogout={logout}
         />
 
         <main className="flex-grow">
           <Hero settings={siteSettings} />
-
-          {/* Auth section */}
-          <section className="py-8 sm:py-12 bg-white border-b border-nie8-primary/5">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {user ? (
-                  <>
-                    {user.user_metadata?.avatar_url ? (
-                      <img
-                        src={user.user_metadata.avatar_url}
-                        alt=""
-                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-nie8-primary/20"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-nie8-primary/10 flex items-center justify-center text-nie8-primary font-bold text-sm">
-                        {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-xs font-bold text-nie8-text">{user.user_metadata?.full_name || user.email}</p>
-                      <p className="text-[10px] text-nie8-text/40 uppercase tracking-widest flex items-center gap-1">
-                        {userRole === 'admin' && <ShieldCheck size={10} className="text-nie8-primary" />}
-                        {userRole || 'Client'}
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-3 text-nie8-text/40">
-                    <div className="w-9 h-9 rounded-full bg-nie8-primary/5 flex items-center justify-center">
-                      <UserIcon size={18} />
-                    </div>
-                    <p className="text-xs italic font-serif">Chào mừng đến với niee8</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                {user ? (
-                  <>
-                    {userRole === 'admin' && (
-                      <button
-                        onClick={() => setIsAdminOpen(true)}
-                        className="px-5 py-2 bg-nie8-primary/10 text-nie8-primary rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary hover:text-white transition-all"
-                      >
-                        Quản trị
-                      </button>
-                    )}
-                    <button
-                      onClick={logout}
-                      className="flex items-center gap-2 text-xs font-bold text-nie8-text/40 hover:text-red-500 transition-colors"
-                    >
-                      <LogOut size={14} />
-                      <span className="hidden sm:inline">Đăng xuất</span>
-                    </button>
-                  </>
-                ) : (
-                  <form className="flex flex-col sm:flex-row items-center gap-2">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email..."
-                      className="px-4 py-2 sm:px-4 sm:py-2.5 rounded-full border border-nie8-primary/20 text-xs focus:outline-none focus:border-nie8-primary transition-colors w-full sm:w-40"
-                      required
-                    />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Mật khẩu..."
-                      className="px-4 py-2 sm:px-4 sm:py-2.5 rounded-full border border-nie8-primary/20 text-xs focus:outline-none focus:border-nie8-primary transition-colors w-full sm:w-40"
-                      required
-                    />
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                      <button
-                        type="button"
-                        onClick={handleLogin}
-                        disabled={isAuthenticating}
-                        className="px-4 py-2 sm:px-6 sm:py-2.5 bg-nie8-text text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary transition-all shadow-lg active:scale-95 disabled:opacity-50 whitespace-nowrap"
-                      >
-                        Đăng nhập
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSignup}
-                        disabled={isAuthenticating}
-                        className="px-4 py-2 sm:px-6 sm:py-2.5 bg-white text-nie8-text border border-nie8-text rounded-full text-xs font-bold uppercase tracking-widest hover:bg-nie8-primary hover:text-white hover:border-nie8-primary transition-all shadow-lg active:scale-95 disabled:opacity-50 whitespace-nowrap"
-                      >
-                        Đăng ký
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            </div>
-          </section>
 
           <ProductGrid
             products={products}
@@ -669,6 +601,7 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
               setAiContextProduct(product);
               setIsAIStylistOpen(true);
             }}
+            onRegisterStockNotification={handleRegisterStockNotification}
             isLoading={isLoadingProducts}
           />
 
@@ -705,9 +638,17 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
         </main>
 
         <div className="h-16 lg:hidden" aria-hidden="true" />
-        <Footer />
+        <Footer onAdminLogin={() => setIsAuthModalOpen(true)} />
 
         <FloatingActions onAIClick={() => setIsAIStylistOpen(true)} />
+
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={() => setIsAuthModalOpen(false)} 
+          onSuccess={() => {
+            showToast('Đăng nhập thành công!', 'success');
+          }}
+        />
 
         <AIStylist 
           isOpen={isAIStylistOpen} 
@@ -725,6 +666,7 @@ CHỈ trả về mảng JSON chứa ID của các sản phẩm được chọn, 
               onDeleteProduct={handleDeleteProduct}
               onUpdateSettings={handleUpdateSettings}
               onClose={() => setIsAdminOpen(false)}
+              onLogout={logout}
             />
           )}
         </AnimatePresence>

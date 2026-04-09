@@ -1,9 +1,10 @@
 import { Instagram, Facebook, Mail, Phone, MapPin, Twitter } from 'lucide-react';
 
 interface FooterProps {
+  onAdminLogin?: () => void;
 }
 
-export default function Footer({ }: FooterProps) {
+export default function Footer({ onAdminLogin }: FooterProps) {
   return (
     <footer className="bg-nie8-bg text-nie8-text py-8 border-t border-nie8-primary/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,7 +44,7 @@ export default function Footer({ }: FooterProps) {
               <li><a href="#" className="hover:text-nie8-primary transition-colors">Giao hàng & Trả hàng</a></li>
               <li><a href="#" className="hover:text-nie8-primary transition-colors">Hướng dẫn chọn size</a></li>
               <li><a href="#" className="hover:text-nie8-primary transition-colors">Tính bền vững</a></li>
-              <li><a href="#" className="hover:text-nie8-primary transition-colors">Liên hệ</a></li>
+              <li><button onClick={onAdminLogin} className="hover:text-nie8-primary transition-colors">Quản trị viên</button></li>
             </ul>
           </div>
 

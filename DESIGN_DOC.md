@@ -36,8 +36,30 @@ Lưu trữ thông tin sản phẩm.
 *   `description` (text): Mô tả chi tiết.
 *   `images` (jsonb): Danh sách URL hình ảnh.
 *   `outfit_suggestions` (jsonb): Danh sách ID các sản phẩm gợi ý phối kèm.
+*   `stock_quantity` (integer): Tổng số lượng tồn kho.
+*   `stock_by_size` (jsonb): Số lượng tồn kho chi tiết theo từng size (vd: `{"S": 10, "M": 5, "L": 0}`).
 
-### 4.3. Table: `site_settings`
+### 4.3. Table: `stock_movements`
+Lưu trữ lịch sử biến động kho (Stock Ledger).
+*   `id` (uuid): Primary key.
+*   `product_id` (text): ID sản phẩm (Foreign key).
+*   `size` (text): Size của sản phẩm có biến động.
+*   `quantity` (integer): Số lượng thay đổi (âm là xuất, dương là nhập).
+*   `type` (text): Loại biến động (`import`, `sale`, `return`, `adjustment`).
+*   `reference_id` (text): Mã tham chiếu (vd: Mã đơn hàng).
+*   `note` (text): Ghi chú chi tiết.
+*   `created_at` (timestamp): Thời gian ghi nhận.
+
+### 4.4. Table: `restock_requests`
+Lưu trữ danh sách khách hàng đăng ký nhận thông báo khi có hàng.
+*   `id` (uuid): Primary key.
+*   `product_id` (text): ID sản phẩm (Foreign key).
+*   `size` (text): Size sản phẩm khách muốn mua.
+*   `email` (text): Email của khách hàng.
+*   `status` (text): Trạng thái (`pending` - đang chờ, `notified` - đã thông báo).
+*   `created_at` (timestamp): Thời gian đăng ký.
+
+### 4.5. Table: `site_settings`
 Lưu trữ cấu hình giao diện động (chỉ có 1 record `id = 'global'`).
 *   `id` (text): Primary key (`'global'`).
 *   `hero_image` (text): URL ảnh nền trang chủ.

@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronLeft, CheckCircle2, CreditCard, Truck, MapPin } from 'lucide-react';
-import { CartItem } from '../types';
+import { CartItem, Order } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface CheckoutProps {
   items: CartItem[];
   onBack: () => void;
-  onComplete: () => void;
+  onComplete: (orderId: string, phone: string) => void;
+  user?: any;
 }
 
-export default function Checkout({ items, onBack, onComplete }: CheckoutProps) {
+export default function Checkout({ items, onBack, onComplete, user }: CheckoutProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 phút tính bằng giây
   const [formData, setFormData] = useState({
     name: '',
@@ -38,6 +41,19 @@ export default function Checkout({ items, onBack, onComplete }: CheckoutProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getExpiryDate = () => {
+    const date = new Date(Date.now() + timeLeft * 1000);
+    return date.toLocaleString('vi-VN', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+  };
+
   const total = items.reduce((sum, item) => {
     const price = parseFloat(item.price.replace(/[^0-9]/g, ''));
     return sum + price * item.quantity;
@@ -56,45 +72,145 @@ export default function Checkout({ items, onBack, onComplete }: CheckoutProps) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const saveOrderToSupabase = async (orderId: string) => {
+    try {
+      const newOrder: Partial<Order> = {
+        id: orderId,
+        user_id: user?.id || null,
+        customer_name: formData.name,
+        customer_phone: formData.phone,
+        customer_address: formData.address,
+        customer_city: formData.city,
+        items: items,
+        total_amount: finalTotal,
+        status: 'pending',
+        payment_method: formData.paymentMethod,
+        created_at: new Date().toISOString()
+      };
+
+      console.log('Saving order with user_id:', newOrder.user_id);
+
+      const { error } = await supabase
+        .from('orders')
+        .insert([newOrder]);
+
+      if (error) {
+        console.error('Supabase Insert Error:', error);
+        throw error;
+      }
+      console.log('Order saved to Supabase:', orderId);
+      return true;
+    } catch (error: any) {
+      console.error('Error saving order to Supabase:', error);
+      alert(`Lỗi lưu đơn hàng: ${error.message || 'Vui lòng thử lại'}`);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step === 1) {
       setStep(2);
     } else if (step === 2) {
+      const orderId = Date.now().toString();
+      
+      setIsProcessing(true);
+      
+      // 1. Validate stock first
+      let hasError = false;
+      for (const item of items) {
+        const { data: productData, error: fetchError } = await supabase
+          .from('products')
+          .select('stock_by_size')
+          .eq('id', item.id)
+          .single();
+          
+        if (fetchError || !productData) {
+          alert(`Lỗi kiểm tra tồn kho cho sản phẩm ${item.name}`);
+          hasError = true;
+          break;
+        }
+        
+        const currentStock = productData.stock_by_size?.[item.size || 'M'] || 0;
+        if (currentStock < item.quantity) {
+          alert(`Sản phẩm ${item.name} (Size ${item.size}) chỉ còn ${currentStock} chiếc trong kho. Vui lòng cập nhật lại giỏ hàng.`);
+          hasError = true;
+          break;
+        }
+      }
+      
+      if (hasError) {
+        setIsProcessing(false);
+        return;
+      }
+
       if (formData.paymentMethod === 'payos') {
-        setIsProcessing(true);
         try {
+          // Lưu đơn hàng vào DB trước khi chuyển sang PayOS
+          const saved = await saveOrderToSupabase(orderId);
+          if (!saved) {
+            setIsProcessing(false);
+            return;
+          }
+          
+          // Lưu tạm số điện thoại để khi quay lại từ PayOS có thể auto-track
+          localStorage.setItem('niee8_temp_phone', formData.phone);
+
           const response = await fetch('/api/create-payment-link', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              orderId: parseInt(orderId.slice(-6)), // PayOS yêu cầu orderCode là số
               amount: 2000, // CHẾ ĐỘ TEST
-              description: `TEST-NIEE8-${formData.phone.slice(-4)}`,
-              items: [
-                {
-                  name: "Đơn hàng thử nghiệm (Test)",
-                  quantity: 1,
-                  price: 2000
-                }
-              ],
-              returnUrl: `${window.location.href.split('?')[0]}?payment=success`,
-              cancelUrl: `${window.location.href.split('?')[0]}?payment=cancel`
+              description: `NIEE8-${orderId.slice(-4)}`,
+              items: items.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: 2000 // TEST
+              })),
+              returnUrl: `${window.location.href.split('?')[0]}?payment=success&orderId=${orderId}`,
+              cancelUrl: `${window.location.href.split('?')[0]}?payment=cancel&orderId=${orderId}`
             })
           });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Server error: ${response.status}`);
+          }
+
           const data = await response.json();
           if (data.checkoutUrl) {
             window.location.href = data.checkoutUrl;
           } else {
-            throw new Error(data.error || 'Failed to create payment link');
+            throw new Error('Không nhận được link thanh toán từ PayOS');
           }
-        } catch (error) {
-          console.error(error);
-          alert('Có lỗi xảy ra khi kết nối với PayOS. Vui lòng kiểm tra API Key trong .env');
-        } finally {
+        } catch (error: any) {
+          console.error("Payment Error:", error);
+          alert(`Lỗi thanh toán: ${error.message || 'Không thể kết nối với máy chủ'}.`);
           setIsProcessing(false);
         }
       } else {
-        setStep(3);
+        const saved = await saveOrderToSupabase(orderId);
+        if (saved) {
+          // Update stock quantity for each item in the order
+          for (const item of items) {
+            const { error: updateError } = await supabase.rpc('decrement_stock', {
+              p_product_id: item.id,
+              p_size: item.size || 'M',
+              p_quantity: item.quantity,
+              p_order_id: orderId
+            });
+            if (updateError) {
+              console.error('Error updating stock:', updateError);
+            }
+          }
+          
+          setIsProcessing(false);
+          setCurrentOrderId(orderId);
+          setStep(3);
+        } else {
+          setIsProcessing(false);
+        }
       }
     }
   };
@@ -183,15 +299,20 @@ export default function Checkout({ items, onBack, onComplete }: CheckoutProps) {
                     </h2>
                     
                     {/* Countdown Timer UI */}
-                    <motion.div 
-                      animate={timeLeft < 60 ? { scale: [1, 1.05, 1] } : {}}
-                      transition={{ duration: 1, repeat: Infinity }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full border ${timeLeft < 60 ? 'bg-red-50 border-red-200 text-red-600' : 'bg-nie8-primary/5 border-nie8-primary/10 text-nie8-primary'}`}
-                    >
-                      <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
-                      <span className="text-[10px] uppercase tracking-widest font-bold">Hết hạn sau:</span>
-                      <span className="text-sm font-mono font-bold">{formatTime(timeLeft)}</span>
-                    </motion.div>
+                    <div className="flex flex-col items-end gap-1">
+                      <motion.div 
+                        animate={timeLeft < 60 ? { scale: [1, 1.05, 1] } : {}}
+                        transition={{ duration: 1, repeat: Infinity }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full border ${timeLeft < 60 ? 'bg-red-50 border-red-200 text-red-600' : 'bg-nie8-primary/5 border-nie8-primary/10 text-nie8-primary'}`}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                        <span className="text-[10px] uppercase tracking-widest font-bold">Hết hạn sau:</span>
+                        <span className="text-sm font-mono font-bold">{formatTime(timeLeft)}</span>
+                      </motion.div>
+                      <p className="text-[9px] text-nie8-text/40 font-medium italic">
+                        Thanh toán trước {getExpiryDate()}
+                      </p>
+                    </div>
                   </div>
                   
                   <div className="space-y-3">
@@ -258,7 +379,10 @@ export default function Checkout({ items, onBack, onComplete }: CheckoutProps) {
                       />
                       
                       <div className="flex justify-between items-center mb-4">
-                        <p className="text-xs uppercase tracking-widest text-nie8-text/60 font-bold">Thông tin chuyển khoản</p>
+                        <div className="flex flex-col">
+                          <p className="text-xs uppercase tracking-widest text-nie8-text/60 font-bold">Thông tin chuyển khoản</p>
+                          <p className="text-[9px] text-nie8-text/40 italic">Thanh toán trước {getExpiryDate()}</p>
+                        </div>
                         <span className={`text-xs font-mono font-bold ${timeLeft < 60 ? 'text-red-500' : 'text-nie8-primary'}`}>
                           {formatTime(timeLeft)}
                         </span>
@@ -273,8 +397,12 @@ export default function Checkout({ items, onBack, onComplete }: CheckoutProps) {
                     </div>
                   )}
 
-                  <button type="button" onClick={onComplete} className="px-8 py-4 bg-nie8-primary text-white rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-nie8-secondary transition-colors active:scale-95">
-                    Tiếp tục mua sắm
+                  <button 
+                    type="button" 
+                    onClick={() => onComplete(currentOrderId || '', formData.phone)} 
+                    className="px-8 py-4 bg-nie8-primary text-white rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-nie8-secondary transition-colors active:scale-95"
+                  >
+                    Theo dõi đơn hàng
                   </button>
                 </motion.div>
               ) : null}

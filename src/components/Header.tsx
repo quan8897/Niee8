@@ -1,4 +1,4 @@
-import { ShoppingBag, Search, Menu, Heart, Home, Sparkles, User as UserIcon, X } from 'lucide-react';
+import { ShoppingBag, Search, Menu, Heart, Home, Sparkles, User as UserIcon, X, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 
@@ -7,10 +7,14 @@ interface HeaderProps {
   cartCount: number;
   isAdmin?: boolean;
   onAdminClick?: () => void;
+  onLoginClick?: () => void;
   onAIClick?: () => void;
+  onTrackOrderClick?: () => void;
+  user?: any;
+  onLogout?: () => void;
 }
 
-export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, onAIClick }: HeaderProps) {
+export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, onLoginClick, onAIClick, onTrackOrderClick, user, onLogout }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('home');
@@ -71,6 +75,33 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
 
             {/* Right actions */}
             <div className="flex items-center gap-3 sm:gap-5">
+              {user ? (
+                <div className="hidden sm:flex items-center gap-4">
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-bold text-nie8-text truncate max-w-[100px]">{user.email}</span>
+                    <button onClick={onLogout} className="text-[9px] text-nie8-primary hover:underline uppercase tracking-widest font-bold">Đăng xuất</button>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-nie8-bg flex items-center justify-center text-nie8-primary border border-nie8-primary/10">
+                    <UserIcon size={16} />
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={onLoginClick}
+                  className="hidden sm:flex items-center gap-2 text-nie8-text hover:text-nie8-primary transition-colors"
+                >
+                  <UserIcon size={18} />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Đăng nhập</span>
+                </button>
+              )}
+              
+              <button
+                onClick={onTrackOrderClick}
+                aria-label="Theo dõi đơn hàng"
+                className="text-nie8-text hover:text-nie8-primary transition-colors"
+              >
+                <Package size={20} />
+              </button>
               <button
                 aria-label="Tìm kiếm"
                 className="hidden sm:flex text-nie8-text hover:text-nie8-primary transition-colors"
@@ -145,14 +176,25 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
                   { label: 'Cửa hàng', href: '#' },
                   { label: 'Bộ sưu tập', href: '#' },
                   { label: 'Hàng mới về', href: '#', badge: 'Mới' },
+                  { label: 'Theo dõi đơn hàng', onClick: onTrackOrderClick },
                   { label: 'Về niee8', href: '#' },
                   { label: 'Liên hệ', href: '#' },
-                ].map(item => (
-                  <a
+                  ...(user ? [
+                    { label: 'Đăng xuất', onClick: onLogout }
+                  ] : [
+                    { label: 'Đăng nhập', onClick: onLoginClick }
+                  ])
+                ].map((item: any) => (
+                  <motion.a
                     key={item.label}
-                    href={item.href}
-                    className="flex items-center justify-between py-3.5 border-b border-nie8-primary/5 text-nie8-text hover:text-nie8-primary transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
+                    href={item.href || '#'}
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center justify-between py-3.5 border-b border-nie8-primary/5 text-nie8-text hover:text-nie8-primary transition-all duration-200 origin-left"
+                    onClick={() => {
+                      if (item.onClick) item.onClick();
+                      setIsMenuOpen(false);
+                    }}
                   >
                     <span className="font-medium">{item.label}</span>
                     {item.badge && (
@@ -160,16 +202,27 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
                         {item.badge}
                       </span>
                     )}
-                  </a>
+                  </motion.a>
                 ))}
 
-                {isAdmin && (
-                  <button
+                {isAdmin ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => { onAdminClick?.(); setIsMenuOpen(false); }}
-                    className="w-full text-left py-3.5 border-b border-nie8-primary/5 text-nie8-primary font-bold"
+                    className="w-full text-left py-3.5 border-b border-nie8-primary/5 text-nie8-primary font-bold origin-left"
                   >
                     ⚙️ Quản trị viên
-                  </button>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02, x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => { onLoginClick?.(); setIsMenuOpen(false); }}
+                    className="w-full text-left py-3.5 border-b border-nie8-primary/5 text-nie8-text/40 origin-left"
+                  >
+                    🔐 Đăng nhập Admin
+                  </motion.button>
                 )}
               </nav>
 
@@ -219,11 +272,11 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
 
             {/* Wishlist */}
             <button
-              onClick={() => setActiveNav('wishlist')}
-              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'wishlist' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
+              onClick={() => { setActiveNav('track'); onTrackOrderClick?.(); }}
+              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'track' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
             >
-              <Heart size={22} strokeWidth={activeNav === 'wishlist' ? 2.5 : 1.8} />
-              <span className="text-[9px] font-bold uppercase tracking-widest">Yêu thích</span>
+              <Package size={22} strokeWidth={activeNav === 'track' ? 2.5 : 1.8} />
+              <span className="text-[9px] font-bold uppercase tracking-widest">Đơn hàng</span>
             </button>
 
             {/* Cart */}

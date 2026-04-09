@@ -12,13 +12,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Send, X } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-
-const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
-  return new GoogleGenAI({ apiKey });
-};
+import { generateAIResponse } from '../services/geminiService';
 
 // Rate limiting: chặn gửi nếu chưa qua MIN_INTERVAL ms kể từ lần cuối
 const MIN_INTERVAL_MS = 3000;
@@ -132,29 +126,20 @@ export default function AIStylist({ isOpen: controlledOpen, onClose, productCont
       }
     }
 
-    // Gọi Gemini API cho các câu hỏi phức tạp
+    // Gọi Gemini Service trực tiếp từ Frontend
     try {
-      const ai = getAI();
-      const chatHistory = messages.map(msg => ({
-        role: msg.role === 'bot' ? 'model' : 'user',
-        parts: [{ text: msg.text }]
-      }));
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash", // FIX: model name hợp lệ
-        contents: [...chatHistory, { role: 'user', parts: [{ text: messageToSend }] }],
-        config: {
-          systemInstruction: `Bạn là Stylist của NIEE8. Trả lời cực kỳ ngắn gọn (dưới 50 chữ). Tư vấn size và 1 item phối kèm nếu cần. Bảng size: S(eo 62-65), M(eo 66-69), L(eo 70-73), XL(eo 74-77).`,
-        },
-      });
+      const responseText = await generateAIResponse(messageToSend, messages);
 
       setMessages(prev => [...prev, {
         role: 'bot',
-        text: response.text || 'Xin lỗi, tôi đang gặp chút trục trặc. Bạn thử lại sau nhé?'
+        text: responseText || 'Xin lỗi, tôi đang gặp chút trục trặc. Bạn thử lại sau nhé?'
       }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'bot', text: 'Không thể kết nối ngay lúc này. Hãy thử lại sau nhé!' }]);
+      const errorMsg = error.message?.includes('API key not valid') 
+        ? 'Lỗi cấu hình AI: API Key không hợp lệ. Vui lòng kiểm tra cài đặt.' 
+        : 'Không thể kết nối ngay lúc này. Hãy thử lại sau nhé!';
+      setMessages(prev => [...prev, { role: 'bot', text: errorMsg }]);
     } finally {
       setIsTyping(false);
     }

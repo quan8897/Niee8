@@ -11,6 +11,7 @@ interface ProductGridProps {
   onAddToCart: (product: Product, size: string, quantity: number) => void;
   onBuyNow?: (product: Product, size: string, quantity: number) => void;
   onChatWithAI?: (product: Product) => void;
+  onRegisterStockNotification?: (productId: string, email: string, size: string) => Promise<boolean>;
   isLoading?: boolean;
 }
 
@@ -55,6 +56,7 @@ export default function ProductGrid({
   onAddToCart, 
   onBuyNow,
   onChatWithAI,
+  onRegisterStockNotification,
   isLoading = false 
 }: ProductGridProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -64,6 +66,9 @@ export default function ProductGrid({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [addedToCart, setAddedToCart] = useState(false);
+  const [notificationEmail, setNotificationEmail] = useState('');
+  const [isRegisteringNotification, setIsRegisteringNotification] = useState(false);
+  const [notificationSuccess, setNotificationSuccess] = useState(false);
   const touchStartX = useRef<number>(0);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -141,6 +146,23 @@ export default function ProductGrid({
     sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const handleNotifyMe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct || !notificationEmail) return;
+    
+    setIsRegisteringNotification(true);
+    const success = await onRegisterStockNotification?.(selectedProduct.id, notificationEmail, selectedSize);
+    setIsRegisteringNotification(false);
+    
+    if (success) {
+      setNotificationSuccess(true);
+      setTimeout(() => {
+        setNotificationSuccess(false);
+        setNotificationEmail('');
+      }, 3000);
+    }
+  };
+
   return (
     <section ref={sectionRef} className="py-12 sm:py-24 bg-nie8-bg scroll-mt-16">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -189,11 +211,18 @@ export default function ProductGrid({
               >
                 {/* Image container — tỷ lệ 3:4 chuẩn thời trang */}
                 <div className="relative aspect-[3/4] overflow-hidden rounded-2xl sm:rounded-[30px] bg-white mb-3 sm:mb-6">
-                  <LazyImage
-                    src={product.images[0]}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
+                    <LazyImage
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+
+                    {/* Out of stock badge */}
+                    {product.stock_quantity === 0 && (
+                      <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full z-20 shadow-lg">
+                        HẾT HÀNG
+                      </div>
+                    )}
 
                   {/* Wishlist button — đủ lớn để tap trên mobile (44px min) */}
                   <button
@@ -427,7 +456,13 @@ export default function ProductGrid({
                         {['S', 'M', 'L', 'XL'].map(size => (
                           <button
                             key={size}
-                            onClick={() => setSelectedSize(size)}
+                            onClick={() => {
+                              setSelectedSize(size);
+                              const maxStock = selectedProduct.stock_by_size?.[size] || 0;
+                              if (quantity > maxStock) {
+                                setQuantity(Math.max(1, maxStock));
+                              }
+                            }}
                             className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 ${
                               selectedSize === size
                                 ? 'border-nie8-primary bg-nie8-primary text-white'
@@ -452,12 +487,16 @@ export default function ProductGrid({
                         </button>
                         <span className="w-12 text-center text-sm font-bold">{quantity}</span>
                         <button
-                          onClick={() => setQuantity(q => q + 1)}
-                          className="w-11 h-11 flex items-center justify-center text-nie8-text hover:bg-nie8-primary/5 transition-colors active:bg-nie8-primary/10"
+                          onClick={() => setQuantity(q => Math.min(q + 1, selectedProduct.stock_by_size?.[selectedSize] || 0))}
+                          disabled={quantity >= (selectedProduct.stock_by_size?.[selectedSize] || 0)}
+                          className="w-11 h-11 flex items-center justify-center text-nie8-text hover:bg-nie8-primary/5 transition-colors active:bg-nie8-primary/10 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Plus size={16} />
                         </button>
                       </div>
+                      {(selectedProduct.stock_by_size?.[selectedSize] || 0) > 0 && quantity >= (selectedProduct.stock_by_size?.[selectedSize] || 0) && (
+                        <p className="text-[10px] text-red-500 mt-1">Đã đạt số lượng tối đa trong kho</p>
+                      )}
                     </div>
 
                     {/* Description */}
@@ -510,50 +549,87 @@ export default function ProductGrid({
                   </div>
                 </div>
 
-                  {/* ===== STICKY CTA — quan trọng nhất trên mobile ===== */}
+                  {/* === STICKY CTA — quan trọng nhất trên mobile ===== */}
                   <div className="flex-shrink-0 px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-nie8-primary/10 safe-area-pb z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                    <div className="flex gap-3">
-                      {/* Wishlist button */}
-                      <button
-                        onClick={(e) => toggleWishlist(selectedProduct.id, e)}
-                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-nie8-text/15 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
-                      >
-                        <Heart
-                          size={20}
-                          className={wishlist.has(selectedProduct.id) ? 'fill-red-500 text-red-500' : 'text-nie8-text/60'}
-                        />
-                      </button>
+                    {selectedProduct.stock_quantity > 0 ? (
+                      <div className="flex gap-3">
+                        {/* Wishlist button */}
+                        <button
+                          onClick={(e) => toggleWishlist(selectedProduct.id, e)}
+                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-nie8-text/15 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
+                        >
+                          <Heart
+                            size={20}
+                            className={wishlist.has(selectedProduct.id) ? 'fill-red-500 text-red-500' : 'text-nie8-text/60'}
+                          />
+                        </button>
 
-                      {/* Add to cart button */}
-                      <button
-                        onClick={handleAddToCart}
-                        className={`flex-1 h-12 sm:h-14 rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg ${
-                          addedToCart
-                            ? 'bg-green-500 text-white shadow-green-500/30'
-                            : 'bg-white border-2 border-nie8-primary text-nie8-primary hover:bg-nie8-primary/5'
-                        }`}
-                      >
-                        <ShoppingBag size={16} />
-                        {addedToCart ? 'Đã thêm ✓' : 'Thêm vào giỏ'}
-                      </button>
+                        {/* Add to cart button */}
+                        <button
+                          onClick={handleAddToCart}
+                          disabled={selectedProduct.stock_by_size?.[selectedSize] === 0}
+                          className={`flex-1 h-12 sm:h-14 rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                            addedToCart
+                              ? 'bg-green-500 text-white shadow-green-500/30'
+                              : 'bg-white border-2 border-nie8-primary text-nie8-primary hover:bg-nie8-primary/5'
+                          }`}
+                        >
+                          <ShoppingBag size={16} />
+                          {selectedProduct.stock_by_size?.[selectedSize] === 0 ? 'Hết size này' : (addedToCart ? 'Đã thêm ✓' : 'Thêm vào giỏ')}
+                        </button>
 
-                      {/* Buy Now button */}
-                      <button
-                        onClick={() => onBuyNow?.(selectedProduct, selectedSize, quantity)}
-                        className="flex-1 h-12 sm:h-14 rounded-2xl bg-nie8-primary text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 hover:bg-nie8-secondary"
-                      >
-                        Thanh toán ngay
-                      </button>
+                        {/* Buy Now button */}
+                        <button
+                          onClick={() => onBuyNow?.(selectedProduct, selectedSize, quantity)}
+                          disabled={selectedProduct.stock_by_size?.[selectedSize] === 0}
+                          className="flex-1 h-12 sm:h-14 rounded-2xl bg-nie8-primary text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 hover:bg-nie8-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Thanh toán ngay
+                        </button>
 
-                      {/* AI Chat button */}
-                      <button
-                        onClick={() => onChatWithAI?.(selectedProduct)}
-                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-nie8-bg border-2 border-nie8-primary/10 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform hover:border-nie8-primary/30 text-nie8-primary"
-                        title="Hỏi AI Stylist về sản phẩm này"
-                      >
-                        <Sparkles size={20} />
-                      </button>
-                    </div>
+                        {/* AI Chat button */}
+                        <button
+                          onClick={() => onChatWithAI?.(selectedProduct)}
+                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-nie8-bg border-2 border-nie8-primary/10 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform hover:border-nie8-primary/30 text-nie8-primary"
+                          title="Hỏi AI Stylist về sản phẩm này"
+                        >
+                          <Sparkles size={20} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-widest mb-2">
+                          <X size={14} /> Sản phẩm hiện đang hết hàng
+                        </div>
+                        {notificationSuccess ? (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-green-50 text-green-700 p-4 rounded-2xl text-xs font-medium text-center border border-green-100"
+                          >
+                            Cảm ơn bạn! Chúng tôi sẽ gửi email ngay khi sản phẩm có hàng.
+                          </motion.div>
+                        ) : (
+                          <form onSubmit={handleNotifyMe} className="flex flex-col sm:flex-row gap-2">
+                            <input 
+                              type="email" 
+                              required
+                              placeholder="Nhập email của bạn..."
+                              value={notificationEmail}
+                              onChange={(e) => setNotificationEmail(e.target.value)}
+                              className="flex-grow h-12 sm:h-14 bg-nie8-bg border-2 border-nie8-primary/10 rounded-2xl px-4 text-sm focus:outline-none focus:border-nie8-primary transition-all"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isRegisteringNotification}
+                              className="h-12 sm:h-14 px-8 bg-nie8-primary text-white rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 disabled:opacity-50"
+                            >
+                              {isRegisteringNotification ? 'Đang gửi...' : 'Nhận thông báo'}
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    )}
 
                     {/* Trust signals */}
                     <p className="text-center text-[10px] text-nie8-text/30 uppercase tracking-widest mt-3">
