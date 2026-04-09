@@ -2,19 +2,30 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 
-export function createClient() {
+// Dùng globalThis để đảm bảo chỉ tạo 1 instance duy nhất
+// Tránh lỗi "Multiple GoTrueClient instances detected"
+const SUPABASE_GLOBAL_KEY = '__niee8_supabase_client__';
+
+type SupabaseClient = ReturnType<typeof createBrowserClient>;
+
+function createClient(): SupabaseClient {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }
 
-// Singleton instance cho các Client Components
-let client: ReturnType<typeof createClient> | null = null;
-
-export function getSupabaseClient() {
-  if (!client) {
-    client = createClient();
+export function getSupabaseClient(): SupabaseClient {
+  if (typeof window === 'undefined') {
+    // Server-side: tạo mới mỗi request (không cache)
+    return createClient();
   }
-  return client;
+
+  // Client-side: dùng chung 1 instance lưu trên window
+  const win = window as typeof window & { [SUPABASE_GLOBAL_KEY]?: SupabaseClient };
+  if (!win[SUPABASE_GLOBAL_KEY]) {
+    win[SUPABASE_GLOBAL_KEY] = createClient();
+  }
+  return win[SUPABASE_GLOBAL_KEY]!;
 }
+

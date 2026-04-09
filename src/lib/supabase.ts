@@ -1,14 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+// Re-export singleton từ lib/supabase/client để tránh Multiple GoTrueClient warning
+// Tất cả components trong src/ sẽ dùng chung 1 instance duy nhất này
+export { getSupabaseClient as createSupabaseClient } from '@/lib/supabase/client';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { getSupabaseClient } from '@/lib/supabase/client';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Thiếu cấu hình Supabase. Vui lòng thêm NEXT_PUBLIC_SUPABASE_URL và NEXT_PUBLIC_SUPABASE_ANON_KEY vào .env.local');
-}
+// Singleton export — dùng cho toàn bộ src/components cũ
+export const supabase = getSupabaseClient();
 
-// Khởi tạo Supabase client (dùng cho legacy src/components)
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder'
-);
