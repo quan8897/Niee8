@@ -281,9 +281,15 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   }
 
   if (currentView === 'checkout') {
+    const cartTotal = cartItems.reduce((sum, item) => {
+      const price = Number(String(item.price).replace(/[^0-9]/g, '')) || 0;
+      return sum + (price * item.quantity);
+    }, 0);
+
     return (
       <Checkout
         items={cartItems}
+        total={cartTotal}
         onBack={() => setCurrentView('home')}
         onComplete={(orderId, phone) => {
           setSavedCartItems([]);
