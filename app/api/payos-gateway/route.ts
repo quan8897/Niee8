@@ -79,9 +79,15 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+    console.log('[PayOS Response Raw Data]:', data);
 
     if (!response.ok || data.code !== '00') {
-      return NextResponse.json({ error: data.desc || data.message || 'PayOS Gateway Error' }, { status: 400 });
+      const errorMsg = data.desc || data.message || `PayOS HTTP ${response.status}`;
+      console.error('[PayOS API Rejection]:', errorMsg);
+      return NextResponse.json({ 
+        error: `PayOS rejected: ${errorMsg}`,
+        details: data
+      }, { status: 400 });
     }
 
     return NextResponse.json({

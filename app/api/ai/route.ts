@@ -92,11 +92,21 @@ export async function POST(request: NextRequest) {
     }
 
     const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) {
+      console.warn('[AI] Google API returned empty result:', JSON.stringify(result));
+    }
     return NextResponse.json({ text });
 
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Lỗi server';
-    console.error('[AI API Error]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error: any) {
+    const message = error.message || 'Lỗi server';
+    console.error('[AI API Error Details]:', {
+      message,
+      stack: error.stack,
+      cause: error.cause
+    });
+    return NextResponse.json({ 
+      error: `AI Error: ${message}`,
+      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    }, { status: 500 });
   }
 }
