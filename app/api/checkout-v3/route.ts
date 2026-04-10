@@ -57,54 +57,66 @@ export async function POST(request: NextRequest) {
       p_payment_method: paymentMethod
     });
 
-    if (rpcError || (rpcResult && !rpcResult.success)) {
-      return NextResponse.json({ error: rpcResult?.error || rpcError?.message || 'Lỗi đặt hàng' }, { status: 400 });
+    if (rpcError) {
+      console.error('[Supabase RPC Critical Error]:', rpcError);
+      return NextResponse.json({ error: `Lỗi Database: ${rpcError.message}` }, { status: 400 });
+    }
+    
+    if (rpcResult && !rpcResult.success) {
+      return NextResponse.json({ error: rpcResult.error || 'Lỗi đặt hàng không xác định' }, { status: 400 });
     }
 
     // 3. Nếu là PayOS -> Gọi PayOS ngay tại đây
     if (paymentMethod === 'payos') {
-      const orderCode = Number(String(Date.now()).slice(-7));
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+      try {
+        const orderCode = Number(String(Date.now()).slice(-7));
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
-      const payosPayload: any = {
-        orderCode,
-        amount: finalTotal,
-        description: `NIE8 ${orderCode}`,
-        cancelUrl: `${appUrl}?payment=cancel&orderId=${orderId}`,
-        returnUrl: `${appUrl}?payment=pending&orderId=${orderId}`,
-        items: finalItems.map((i: any) => ({
-          name: String(i.name).slice(0, 50),
-          quantity: i.quantity,
-          price: i.price
-        }))
-      };
+        const payosPayload: any = {
+          orderCode,
+          amount: Math.max(2000, finalTotal), // PayOS tối thiểu 2000đ
+          description: `NIE8 ${orderCode}`,
+          cancelUrl: `${appUrl}?payment=cancel&orderId=${orderId}`,
+          returnUrl: `${appUrl}?payment=pending&orderId=${orderId}`,
+          items: finalItems.map((i: any) => ({
+            name: String(i.name).slice(0, 50),
+            quantity: i.quantity,
+            price: i.price
+          }))
+        };
 
-      if (shippingFee > 0) {
-        payosPayload.items.push({ name: 'Phí vận chuyển', quantity: 1, price: shippingFee });
-      }
+        if (shippingFee > 0) {
+          payosPayload.items.push({ name: 'Phí vận chuyển', quantity: 1, price: shippingFee });
+        }
 
-      const signatureString = `amount=${payosPayload.amount}&cancelUrl=${payosPayload.cancelUrl}&description=${payosPayload.description}&orderCode=${payosPayload.orderCode}&returnUrl=${payosPayload.returnUrl}`;
-      const signature = crypto.createHmac('sha256', payosChecksum).update(signatureString).digest('hex');
+        const signatureString = `amount=${payosPayload.amount}&cancelUrl=${payosPayload.cancelUrl}&description=${payosPayload.description}&orderCode=${payosPayload.orderCode}&returnUrl=${payosPayload.returnUrl}`;
+        const signature = crypto.createHmac('sha256', payosChecksum).update(signatureString).digest('hex');
 
-      const payosRes = await fetch('https://api-merchant.payos.vn/v2/payment-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-client-id': payosClientId,
-          'x-api-key': payosApiKey
-        },
-        body: JSON.stringify({ ...payosPayload, signature })
-      });
+        const payosRes = await fetch('https://api-merchant.payos.vn/v2/payment-requests', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': payosClientId,
+            'x-api-key': payosApiKey
+          },
+          body: JSON.stringify({ ...payosPayload, signature })
+        });
 
-      const payosData = await payosRes.json();
-      
-      if (!payosRes.ok || payosData.code !== '00') {
-        // Rollback đơn hàng nếu PayOS lỗi
+        const payosData = await payosRes.json();
+        
+        if (!payosRes.ok || payosData.code !== '00') {
+          console.error('[PayOS API Rejection Details]:', payosData);
+          // Rollback đơn hàng nếu PayOS lỗi
+          await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+          return NextResponse.json({ error: `PayOS Error: ${payosData.desc || 'Lỗi cổng thanh toán'}` }, { status: 400 });
+        }
+
+        return NextResponse.json({ success: true, orderId, checkoutUrl: payosData.data.checkoutUrl });
+      } catch (payosErr: any) {
+        console.error('[PayOS Logic Error]:', payosErr.message);
         await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
-        return NextResponse.json({ error: `PayOS Error: ${payosData.desc || 'Lỗi cổng thanh toán'}` }, { status: 400 });
+        return NextResponse.json({ error: `Lỗi kết nối PayOS: ${payosErr.message}` }, { status: 400 });
       }
-
-      return NextResponse.json({ success: true, orderId, checkoutUrl: payosData.data.checkoutUrl });
     }
 
     // 4. Các phương thức khác (COD...)

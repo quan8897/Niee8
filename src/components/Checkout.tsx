@@ -124,7 +124,6 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
           setIsProcessing(false);
           setCurrentOrderId(data.orderId);
           setStep(3);
-          if (onPurchaseSuccess) onPurchaseSuccess();
         }
 
       } catch (error: any) {
