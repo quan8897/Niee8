@@ -65,7 +65,10 @@ export async function POST(request: NextRequest) {
       const prompt = `Viết caption Instagram thu hút cho sản phẩm "${productName}". Phong cách: Tối giản, lãng mạn, sang trọng. Bao gồm hashtag phù hợp. Không dùng quá nhiều emoji.`;
       requestBody = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
     } else {
-      return NextResponse.json({ error: 'DEBUG: AI Route - Invalid action' }, { status: 400 });
+      console.log('[DEBUG] AI Route received invalid request:', { action, bodyKeys: Object.keys(body) });
+      return NextResponse.json({ 
+        error: `DEBUG: AI Route received unexpected action "${action}". Source might be a leaked checkout request.` 
+      }, { status: 400 });
     }
 
     // Thử lần lượt các model khi quota hết
