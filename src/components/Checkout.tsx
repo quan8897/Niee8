@@ -35,7 +35,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
     console.log('[Checkout] Execution Triggered by User');
     
     try {
-      const response = await fetch('/api/pay', {
+      const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
