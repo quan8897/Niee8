@@ -84,7 +84,19 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
     if (typeof window === 'undefined') return [];
     try {
       const saved = localStorage.getItem('niee8_cart');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const rawItems = JSON.parse(saved) as SavedCartItem[];
+      // Hợp nhất các mục trùng ID và Size (đề phòng dữ liệu rác từ bản cũ)
+      const merged: Record<string, SavedCartItem> = {};
+      rawItems.forEach(item => {
+        const key = `${item.id}-${item.size}`;
+        if (merged[key]) {
+          merged[key].quantity += item.quantity;
+        } else {
+          merged[key] = { ...item };
+        }
+      });
+      return Object.values(merged);
     } catch { return []; }
   });
 
