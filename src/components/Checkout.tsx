@@ -7,7 +7,7 @@ interface CheckoutProps {
   items: any[];
   total: number;
   onBack: () => void;
-  onComplete: () => void;
+  onComplete: (orderId: string, phone: string) => void;
   user?: any;
 }
 
@@ -60,7 +60,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
         setIsProcessing(false);
         setCurrentOrderId(data.orderId);
         setStep(3);
-        if (onComplete) onComplete();
+        if (onComplete) onComplete(data.orderId, formData.phone);
       }
 
     } catch (error: any) {
