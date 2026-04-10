@@ -21,50 +21,38 @@ export async function POST(request: NextRequest) {
     const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
 
     if (!clientId || !apiKey || !checksumKey) {
-      return NextResponse.json(
-        { error: 'PayOS Keys missing in Vercel. Please check env variables.' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'PayOS Keys missing' }, { status: 500 });
     }
 
-    const orderCode = Number(String(Date.now()).slice(-7)); // Rút ngắn lại cho an toàn
+    // Luôn chọn orderCode là số nguyên duy nhất
+    const orderCode = Number(String(Date.now()).slice(-6)); 
 
     const mappedItems = (items as any[]).map(item => ({
-      name: String(item.name).slice(0, 50),
-      quantity: Number(item.quantity) || 1,
-      price: Math.round(Number(item.price))
+      name: String(item.name || 'Sản phẩm').slice(0, 50),
+      quantity: Math.max(1, Number(item.quantity) || 1),
+      price: Math.max(0, Math.round(Number(item.price)) || 0)
     }));
 
-    // Tính tổng tiền từ danh sách items
     const itemsTotal = mappedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    // Nếu có phí ship (amount > itemsTotal)
-    if (Number(amount) > itemsTotal) {
-      mappedItems.push({
-        name: 'Phí vận chuyển',
-        quantity: 1,
-        price: Number(amount) - itemsTotal
-      });
-    } 
-    // Nếu có giảm giá (amount < itemsTotal)
-    else if (Number(amount) < itemsTotal) {
-      mappedItems.push({
-        name: 'Giảm giá / Voucher',
-        quantity: 1,
-        price: Number(amount) - itemsTotal // Giá trị âm
-      });
+    const finalAmount = Number(amount);
+
+    // Bù trừ phí ship/giảm giá vào items để PayOS chấp nhận (Phải khớp 100%)
+    if (finalAmount > itemsTotal) {
+      mappedItems.push({ name: 'Phí vận chuyển', quantity: 1, price: finalAmount - itemsTotal });
+    } else if (finalAmount < itemsTotal) {
+      mappedItems.push({ name: 'Giảm giá', quantity: 1, price: finalAmount - itemsTotal });
     }
 
-    const payosPayload = {
-      orderCode: orderCode,
-      amount: Number(amount),
+    const payosPayload: any = {
+      orderCode,
+      amount: finalAmount,
       description: String(description || `NIE8 ${orderCode}`).slice(0, 25),
       items: mappedItems,
-      returnUrl: String(returnUrl),
-      cancelUrl: String(cancelUrl)
+      returnUrl,
+      cancelUrl
     };
 
-    // Signature theo Alphabet: amount, cancelUrl, description, orderCode, returnUrl
+    // Alphabetical sort for signature
     const signatureString = `amount=${payosPayload.amount}&cancelUrl=${payosPayload.cancelUrl}&description=${payosPayload.description}&orderCode=${payosPayload.orderCode}&returnUrl=${payosPayload.returnUrl}`;
     const signature = createHmacSignature(signatureString, checksumKey);
 
@@ -79,14 +67,11 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
-    console.log('[PayOS Response Raw Data]:', data);
 
     if (!response.ok || data.code !== '00') {
-      const errorMsg = data.desc || data.message || `PayOS HTTP ${response.status}`;
-      console.error('[PayOS API Rejection]:', errorMsg);
       return NextResponse.json({ 
-        error: `PayOS rejected: ${errorMsg}`,
-        details: data
+        error: `PayOS Error: ${data.desc || data.message || 'Unknown'}`,
+        debug: data
       }, { status: 400 });
     }
 
@@ -97,6 +82,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
