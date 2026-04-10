@@ -35,7 +35,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
     console.log('[Checkout] Execution Triggered by User');
     
     try {
-      const response = await fetch('/api/final-check', {
+      const response = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -43,7 +43,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
           customerPhone: formData.phone,
           customerAddress: formData.address,
           customerCity: formData.city,
-          totalAmount: finalTotal, // Gửi thêm tổng tiền để API xử lý nhanh hơn
+          totalAmount: finalTotal,
           items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity })),
           paymentMethod: formData.paymentMethod,
           userId: user?.id
@@ -52,10 +52,10 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        // Nếu Server sập, trả về lỗi chi tiết hơn
         const textError = await response.text();
-        console.error('[Checkout] Server non-JSON response:', textError.slice(0, 200));
-        throw new Error('Máy chủ phản hồi sai định dạng (Vui lòng kiểm tra lại build Vercel hoặc Log API)');
+        console.error('SERVER CRASH LOG:', textError);
+        alert(`Vercel trả về trang lỗi 500. Vui lòng chụp ảnh màn hình Console để tôi xem lỗi hệ thống.`);
+        throw new Error('Server returned HTML 500 page');
       }
 
       const data = await response.json();
