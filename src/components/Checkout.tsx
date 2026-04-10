@@ -112,19 +112,19 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
         if (formData.paymentMethod === 'payos') {
           localStorage.setItem('niee8_temp_phone', formData.phone);
 
+          console.log('Sending request to /api/create-payment-link with data:', { orderId, finalTotal });
           const response = await fetch('/api/create-payment-link', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               orderId: orderId,
-              amount: finalTotal, // Giá thật
-              description: `NIEE8-${orderId.slice(-6)}`,
+              amount: finalTotal,
+              description: `NIEE8 ${orderId.slice(-6)}`,
               items: items.map(item => ({
                 name: item.name,
                 quantity: item.quantity,
-                price: Math.round(parseFloat(item.price.replace(/[^0-9]/g, '')) || 0)
+                price: Math.round(parseFloat(item.price.toString().replace(/[^0-9]/g, '')) || 0)
               })),
-              // Trả về ?payment=pending — KHÔNG auto trust, phải verify qua DB
               returnUrl: `${window.location.origin}?payment=pending&orderId=${orderId}`,
               cancelUrl: `${window.location.origin}?payment=cancel&orderId=${orderId}`
             })

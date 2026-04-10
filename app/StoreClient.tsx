@@ -231,11 +231,28 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   // Stock notification
   const handleRegisterStockNotification = async (productId: string, email: string, size: string = 'M') => {
     try {
-      const { error } = await supabase.from('stock_notifications').insert([{ product_id: productId, size, email, status: 'pending' }]);
-      if (error) throw error;
-      showToast('Đã đăng ký nhận thông báo!');
+      console.log('Registering stock notification:', { productId, email, size });
+      const { data, error } = await supabase
+        .from('stock_notifications')
+        .insert([{ 
+          product_id: productId, 
+          size: size, 
+          email: email, 
+          status: 'pending' 
+        }]);
+      
+      if (error) {
+        console.error('Supabase Notification Error:', error);
+        throw error;
+      }
+      
+      showToast('Đã đăng ký nhận thông báo! Chúng tôi sẽ email cho bạn.');
       return true;
-    } catch { showToast('Lỗi khi đăng ký thông báo', 'error'); return false; }
+    } catch (err: any) { 
+      console.error('Failed to register notification:', err);
+      showToast(err.message || 'Lỗi khi đăng ký thông báo', 'error'); 
+      return false; 
+    }
   };
 
   // Loading state
