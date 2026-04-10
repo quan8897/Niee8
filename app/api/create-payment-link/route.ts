@@ -50,9 +50,12 @@ export async function POST(request: NextRequest) {
       expiredAt: Math.floor(Date.now() / 1000) + 15 * 60, // Hết hạn 15 phút
     };
 
-    // Tạo chữ ký HMAC-SHA256
-    const signatureString = `amount=${payosPayload.amount}&cancelUrl=${cancelUrl}&description=${payosPayload.description}&orderCode=${orderCode}&returnUrl=${returnUrl}`;
+    // Tạo chữ ký HMAC-SHA256 theo đúng quy định của PayOS: Sắp xếp theo alphabet
+    // amount, cancelUrl, description, orderCode, returnUrl
+    const signatureString = `amount=${payosPayload.amount}&cancelUrl=${payosPayload.cancelUrl}&description=${payosPayload.description}&orderCode=${payosPayload.orderCode}&returnUrl=${payosPayload.returnUrl}`;
     const signature = createHmacSignature(signatureString, checksumKey);
+
+    console.log('[PayOS] Sending payload with signature:', { ...payosPayload, signature });
 
     const response = await fetch('https://api-merchant.payos.vn/v2/payment-requests', {
       method: 'POST',
