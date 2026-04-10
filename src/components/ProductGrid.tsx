@@ -29,29 +29,17 @@ function SkeletonCard() {
 
 // Component ảnh với lazy loading và fallback chuyên nghiệp
 function LazyImage({ src, alt, className }: { src: string; alt: string; className: string }) {
-  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
-  
-  // URL ảnh thay thế khi ảnh chính bị lỗi
   const fallbackUrl = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop';
 
   return (
-    <div className="relative w-full h-full bg-nie8-primary/5">
-      {!loaded && !error && (
-        <div className="absolute inset-0 bg-nie8-primary/10 animate-pulse flex items-center justify-center">
-          <Sparkles className="text-nie8-primary/20 animate-bounce" size={24} />
-        </div>
-      )}
+    <div className="relative w-full h-full bg-nie8-primary/5 overflow-hidden">
       <ProtectedImage
         src={error ? fallbackUrl : src}
         alt={alt}
         loading="lazy"
-        onLoad={() => setLoaded(true)}
-        onError={() => {
-          console.warn(`[ImageLoad] Failed to load original image for ${alt}, using fallback.`);
-          setError(true);
-        }}
-        className={`${className} transition-all duration-700 ${loaded ? 'opacity-100' : 'opacity-0'} ${error ? 'grayscale-[0.5]' : ''}`}
+        onError={() => setError(true)}
+        className={`${className} transition-transform duration-700 hover:scale-110 object-cover w-full h-full`}
         containerClassName="w-full h-full"
         referrerPolicy="no-referrer"
       />
