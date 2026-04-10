@@ -1,70 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { PayOS } from '@payos/node';
+import crypto from 'crypto';
 
 export const runtime = 'nodejs';
 
+// Hàm xác minh chữ ký Webhook thủ công
+function verifyWebhookSignature(webhookBody: any, checksumKey: string) {
+  const { data, signature } = webhookBody;
+  
+  const sortedData = Object.keys(data)
+    .sort()
+    .reduce((obj: any, key: string) => {
+      obj[key] = data[key];
+      return obj;
+    }, {});
+
+  const queryString = Object.keys(sortedData)
+    .map(key => `${key}=${sortedData[key]}`)
+    .join('&');
+
+  const computedSignature = crypto
+    .createHmac('sha256', checksumKey)
+    .update(queryString)
+    .digest('hex');
+
+  return computedSignature === signature;
+}
+
 export async function POST(request: NextRequest) {
+  console.log('[PayOS Webhook] Received request');
+  
   try {
     const body = await request.json();
+    const checksumKey = process.env.PAYOS_CHECKSUM_KEY!;
     
-    const clientId = process.env.PAYOS_CLIENT_ID;
-    const apiKey = process.env.PAYOS_API_KEY;
-    const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
-
-    if (!clientId || !apiKey || !checksumKey) {
-      console.error('[PayOS Webhook] Missing configuration');
-      return NextResponse.json({ error: 'Missing PayOS config' }, { status: 500 });
-    }
-
-    // Khởi tạo PayOS SDK
-    const payos = new PayOS({
-      clientId,
-      apiKey,
-      checksumKey,
-    });
-
-    // 1. Xác minh chữ ký bằng SDK chính thức
-    let webhookData;
-    try {
-      webhookData = await payos.webhooks.verify(body);
-      console.log('[PayOS Webhook] Verified Data:', webhookData);
-    } catch (e: any) {
-      console.warn('[PayOS Webhook] Xác minh chữ ký thất bại:', e.message);
+    // 1. Xác minh chữ ký thủ công (không dùng SDK)
+    if (!verifyWebhookSignature(body, checksumKey)) {
+      console.warn('[PayOS Webhook] Chữ ký không hợp lệ');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    // 2. Xử lý cập nhật DB
-    // Chúng ta sử dụng Service Role Key để ghi đè RLS (vì Webhook không có user session)
+    const { data: webhookData } = body;
+    console.log('[PayOS Webhook] Data verified:', webhookData);
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     
     if (!supabaseServiceKey) {
-      console.error('[PayOS Webhook] Missing SUPABASE_SERVICE_ROLE_KEY');
-      return NextResponse.json({ error: 'Server config error' }, { status: 500 });
+      throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { description, code } = webhookData;
 
-    const { description } = webhookData;
-
-    // Tìm order ID từ description (format: NIE8-XXXXXX)
+    // Tìm order ID
     const orderIdMatch = description?.match(/NIE8-[A-Z0-9]+/);
     if (!orderIdMatch) {
-      console.warn('[PayOS Webhook] Không tìm thấy Order ID trong description:', description);
-      return NextResponse.json({ message: 'Order ID not found in description' });
+      return NextResponse.json({ message: 'Order ID not found' });
     }
 
     const orderId = orderIdMatch[0];
-
-    // Kiểm tra trạng thái giao dịch từ PayOS (code "00" là thành công)
-    const isSuccess = webhookData.code === '00';
+    const isSuccess = code === '00';
     const newStatus = isSuccess ? 'processing' : 'cancelled';
 
-    console.log(`[PayOS Webhook] Processing Order ${orderId}. Status from PayOS: ${webhookData.code} -> Target Status: ${newStatus}`);
+    console.log(`[PayOS Webhook] Updating ${orderId} to ${newStatus}`);
 
-    // Cập nhật trạng thái đơn hàng
-    // Chỉ cập nhật nếu đơn hiện tại đang ở trạng thái 'pending'
     const { data: updatedOrder, error } = await supabase
       .from('orders')
       .update({
@@ -75,21 +75,12 @@ export async function POST(request: NextRequest) {
       .eq('status', 'pending')
       .select();
 
-    if (error) {
-      console.error('[PayOS Webhook] Lỗi cập nhật đơn hàng:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    if (!updatedOrder || updatedOrder.length === 0) {
-      console.log(`[PayOS Webhook] Đơn hàng ${orderId} đã được xử lý trước đó hoặc không ở trạng thái pending.`);
-    } else {
-      console.log(`[PayOS Webhook] Đơn hàng ${orderId} đã được cập nhật thành ${newStatus.toUpperCase()} thành công.`);
-    }
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('[PayOS Webhook Error] Fatal:', error.message);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('[PayOS Webhook Fatal Error]:', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
