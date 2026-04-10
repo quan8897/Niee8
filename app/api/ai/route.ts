@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       const prompt = `Viết caption Instagram thu hút cho sản phẩm "${productName}". Phong cách: Tối giản, lãng mạn, sang trọng. Bao gồm hashtag phù hợp. Không dùng quá nhiều emoji.`;
       requestBody = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
     } else {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+      return NextResponse.json({ error: 'DEBUG: AI Route - Invalid action' }, { status: 400 });
     }
 
     // Thử lần lượt các model khi quota hết
