@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'node:crypto';
+import * as crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
+// Cố định dùng Node.js runtime truyền thống
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  console.log('[Checkout-V3] Request received at', new Date().toISOString());
+  
   try {
     const body = await request.json();
     const { customerName, customerPhone, customerAddress, customerCity, items, paymentMethod, userId } = body;
@@ -15,18 +19,24 @@ export async function POST(request: NextRequest) {
     const payosApiKey = process.env.PAYOS_API_KEY;
     const payosChecksum = process.env.PAYOS_CHECKSUM_KEY;
 
-    if (!supabaseUrl || !supabaseKey || !payosClientId || !payosApiKey || !payosChecksum) {
-      return NextResponse.json({ error: 'Thiếu API Keys cấu hình trên Vercel.' }, { status: 500 });
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('[Checkout-V3] Missing Supabase Config');
+      return NextResponse.json({ error: 'Thiếu cấu hình Database.' }, { status: 500 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Tạo Order ID & Tính tổng (Server-side)
+    // 1. Tạo Order ID & Tính tiền
     const orderId = `NIE8-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
     
     // Lấy giá thực từ DB
-    const { data: dbProducts } = await supabase.from('products').select('id, price, name').in('id', items.map((i: any) => i.id));
+    const { data: dbProducts, error: dbError } = await supabase.from('products').select('id, price, name').in('id', items.map((i: any) => i.id));
     
+    if (dbError) {
+      console.error('[Checkout-V3] DB Product Fetch Error:', dbError);
+      return NextResponse.json({ error: 'Không thể lấy thông tin sản phẩm từ Database.' }, { status: 500 });
+    }
+
     let totalAmount = 0;
     const finalItems = items.map((item: any) => {
       const p = dbProducts?.find(dbP => dbP.id === item.id);
@@ -45,6 +55,7 @@ export async function POST(request: NextRequest) {
     const finalTotal = totalAmount + shippingFee;
 
     // 2. Gọi RPC trừ kho và lưu đơn (Atomic)
+    console.log('[Checkout-V3] Calling RPC secure_checkout for', orderId);
     const { data: rpcResult, error: rpcError } = await supabase.rpc('secure_checkout', {
       p_order_id: orderId,
       p_user_id: userId || null,
@@ -58,23 +69,28 @@ export async function POST(request: NextRequest) {
     });
 
     if (rpcError) {
-      console.error('[Supabase RPC Critical Error]:', rpcError);
-      return NextResponse.json({ error: `Lỗi Database: ${rpcError.message}` }, { status: 400 });
-    }
-    
-    if (rpcResult && !rpcResult.success) {
-      return NextResponse.json({ error: rpcResult.error || 'Lỗi đặt hàng không xác định' }, { status: 400 });
+      console.error('[Checkout-V3] RPC Error:', rpcError);
+      return NextResponse.json({ error: `Lỗi đặt hàng: ${rpcError.message}` }, { status: 400 });
     }
 
-    // 3. Nếu là PayOS -> Gọi PayOS ngay tại đây
+    if (rpcResult && rpcResult.success === false) {
+      return NextResponse.json({ error: rpcResult.error || 'Hết hàng hoặc lỗi tồn kho.' }, { status: 400 });
+    }
+
+    // 3. Nếu là PayOS -> Gọi PayOS
     if (paymentMethod === 'payos') {
+      if (!payosClientId || !payosApiKey || !payosChecksum) {
+        console.error('[Checkout-V3] Missing PayOS Keys');
+        return NextResponse.json({ error: 'Thiếu cấu hình API PayOS.' }, { status: 500 });
+      }
+
       try {
         const orderCode = Number(String(Date.now()).slice(-7));
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://niee8.vercel.app';
 
         const payosPayload: any = {
           orderCode,
-          amount: Math.max(2000, finalTotal), // PayOS tối thiểu 2000đ
+          amount: Math.max(2000, finalTotal),
           description: `NIE8 ${orderCode}`,
           cancelUrl: `${appUrl}?payment=cancel&orderId=${orderId}`,
           returnUrl: `${appUrl}?payment=pending&orderId=${orderId}`,
@@ -105,25 +121,24 @@ export async function POST(request: NextRequest) {
         const payosData = await payosRes.json();
         
         if (!payosRes.ok || payosData.code !== '00') {
-          console.error('[PayOS API Rejection Details]:', payosData);
-          // Rollback đơn hàng nếu PayOS lỗi
+          console.error('[Checkout-V3] PayOS Rejection:', payosData);
           await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
           return NextResponse.json({ error: `PayOS Error: ${payosData.desc || 'Lỗi cổng thanh toán'}` }, { status: 400 });
         }
 
         return NextResponse.json({ success: true, orderId, checkoutUrl: payosData.data.checkoutUrl });
+
       } catch (payosErr: any) {
-        console.error('[PayOS Logic Error]:', payosErr.message);
-        await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
-        return NextResponse.json({ error: `Lỗi kết nối PayOS: ${payosErr.message}` }, { status: 400 });
+        console.error('[Checkout-V3] PayOS Network Error:', payosErr.message);
+        await supabase.from('orders').update({ status: 'cancelled' }).eq({ id: orderId });
+        return NextResponse.json({ error: 'Lỗi kết nối tới hệ thống PayOS.' }, { status: 400 });
       }
     }
 
-    // 4. Các phương thức khác (COD...)
     return NextResponse.json({ success: true, orderId });
 
   } catch (err: any) {
-    console.error('SERVER ERROR:', err.message);
-    return NextResponse.json({ error: `Lỗi Server Checkout: ${err.message}` }, { status: 500 });
+    console.error('[Checkout-V3] FATAL ERROR:', err.message);
+    return NextResponse.json({ error: 'Lỗi hệ thống nghiêm trọng.' }, { status: 500 });
   }
 }
