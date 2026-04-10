@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'node:crypto';
+import * as crypto from 'crypto';
 
 export const runtime = 'nodejs';
 
@@ -10,26 +10,25 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    // Bóc tách dữ liệu cực kỳ cẩn thận
-    const orderId = String(body.orderId || 'ORD' + Date.now());
+    
+    // Bóc tách dữ liệu
+    const orderId = body.orderId || 'ORD' + Date.now();
     const amount = Math.round(Number(body.amount) || 2000);
-    const description = String(body.description || 'Thanh toán NIE8').slice(0, 25);
+    const description = String(body.description || 'Niee8 Payment').slice(0, 25);
     const items = Array.isArray(body.items) ? body.items : [];
-    const returnUrl = String(body.returnUrl || '');
-    const cancelUrl = String(body.cancelUrl || '');
+    const returnUrl = body.returnUrl || '';
+    const cancelUrl = body.cancelUrl || '';
 
     const clientId = process.env.PAYOS_CLIENT_ID;
     const apiKey = process.env.PAYOS_API_KEY;
     const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
 
     if (!clientId || !apiKey || !checksumKey) {
-      throw new Error('Config PAYOS_CLIENT_ID, PAYOS_API_KEY hoặc PAYOS_CHECKSUM_KEY bị thiếu trên Vercel.');
+      return NextResponse.json({ error: 'PayOS Keys missing in Environment Variables' }, { status: 500 });
     }
 
-    // Tạo mã đơn hàng ngắn ngẫu nhiên
-    const orderCode = Math.floor(Math.random() * 8999999) + 1000000;
+    const orderCode = Number(String(Date.now()).slice(-7));
 
-    // Chuẩn hóa danh sách items để khớp với tổng tiền
     const mappedItems = items.map((item: any) => ({
       name: String(item.name || 'Sản phẩm').slice(0, 50),
       quantity: Math.max(1, Number(item.quantity) || 1),
@@ -41,7 +40,7 @@ export async function POST(request: NextRequest) {
     if (amount > itemsTotal) {
       mappedItems.push({ name: 'Phí vận chuyển', quantity: 1, price: amount - itemsTotal });
     } else if (amount < itemsTotal) {
-      mappedItems.push({ name: 'Giảm giá/Voucher', quantity: 1, price: amount - itemsTotal });
+      mappedItems.push({ name: 'Chiết khấu', quantity: 1, price: amount - itemsTotal });
     }
 
     const payosPayload = {
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
       cancelUrl
     };
 
-    // Signature Alphabetical Order: amount, cancelUrl, description, orderCode, returnUrl
+    // Signature Alphabetical Order
     const signatureString = `amount=${payosPayload.amount}&cancelUrl=${payosPayload.cancelUrl}&description=${payosPayload.description}&orderCode=${payosPayload.orderCode}&returnUrl=${payosPayload.returnUrl}`;
     const signature = crypto.createHmac('sha256', checksumKey).update(signatureString).digest('hex');
 
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok || resData.code !== '00') {
       return NextResponse.json({ 
-        error: `PayOS Từ chối: ${resData.desc || resData.message || 'Lỗi không xác định'}`
+        error: `PayOS Error: ${resData.desc || resData.message || 'Unknown'}`
       }, { status: 400 });
     }
 
@@ -81,9 +80,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error('CRITICAL GATEWAY ERROR:', err.message);
-    return NextResponse.json({ 
-      error: `Lỗi hệ thống cổng thanh toán: ${err.message}` 
-    }, { status: 500 });
+    return NextResponse.json({ error: `Critical Error: ${err.message}` }, { status: 500 });
   }
 }
