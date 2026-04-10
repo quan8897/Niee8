@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const MAX_HISTORY = 6;
 
-// Fallback theo thứ tự ưu tiên khi quota hết
 const MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash',
@@ -34,11 +33,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'API Key chưa được cấu hình trên Server' }, { status: 500 });
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     let requestBody: Record<string, unknown> = {};
 
     if (action === 'chat') {
-      // Sliding window: chỉ giữ 6 tin nhắn gần nhất để tiết kiệm token
       const trimmedHistory = Array.isArray(history) && history.length > MAX_HISTORY
         ? history.slice(-MAX_HISTORY)
         : (history || []);
@@ -71,23 +68,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API Key chưa được cấu hình trên Server' }, { status: 500 });
-    }
-
     let data: Record<string, unknown> | null = null;
-    let lastError: Error | null = null;
 
-    // Thử từng model theo độ ưu tiên
     for (const model of MODELS) {
       try {
         data = await callGemini(model, apiKey, requestBody);
-        break; // Thành công thì dừng
+        break;
       } catch (err: unknown) {
-        lastError = err instanceof Error ? err : new Error('Unknown error');
-        const isQuota = (err as any)?.isQuota;
-        if (!isQuota) throw lastError; // Lỗi khác thì dừng ngay
+        const isQuota = (err as { isQuota?: boolean })?.isQuota;
+        if (!isQuota) throw err;
         console.warn(`[AI] Model ${model} hết quota, thử model tiếp theo...`);
       }
     }
@@ -99,7 +88,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const text = (data as any).candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })
+      ?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return NextResponse.json({ text });
 
   } catch (error: unknown) {
