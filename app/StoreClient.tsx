@@ -80,25 +80,27 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   }, []);
 
   // Cart state — persisted to localStorage
-  const [savedCartItems, setSavedCartItems] = useState<SavedCartItem[]>(() => {
-    if (typeof window === 'undefined') return [];
+  // Cart state — Khởi tạo trống để tránh lỗi Hydration (#418)
+  const [savedCartItems, setSavedCartItems] = useState<SavedCartItem[]>([]);
+
+  // Đọc giỏ hàng sau khi component đã mount (chỉ ở client)
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('niee8_cart');
-      if (!saved) return [];
-      const rawItems = JSON.parse(saved) as SavedCartItem[];
-      // Hợp nhất các mục trùng ID và Size (đề phòng dữ liệu rác từ bản cũ)
-      const merged: Record<string, SavedCartItem> = {};
-      rawItems.forEach(item => {
-        const key = `${item.id}-${item.size}`;
-        if (merged[key]) {
-          merged[key].quantity += item.quantity;
-        } else {
-          merged[key] = { ...item };
-        }
-      });
-      return Object.values(merged);
-    } catch { return []; }
-  });
+      if (saved) {
+        const rawItems = JSON.parse(saved) as SavedCartItem[];
+        const merged: Record<string, SavedCartItem> = {};
+        rawItems.forEach(item => {
+          const key = `${item.id}-${item.size}`;
+          if (merged[key]) merged[key].quantity += item.quantity;
+          else merged[key] = { ...item };
+        });
+        setSavedCartItems(Object.values(merged));
+      }
+    } catch (e) {
+      console.error('Failed to load cart:', e);
+    }
+  }, []);
 
   // PayOS redirect handling — KHÔNG trust URL param, verify qua DB
   useEffect(() => {
