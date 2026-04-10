@@ -177,7 +177,14 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
               <div className="space-y-4 mb-6">
                 {items.map((item, idx) => (
                   <div key={idx} className="flex gap-4">
-                    <img src={item.image} alt={item.name} className="w-16 h-20 object-cover rounded-xl" />
+                    <img 
+                      src={item.images?.[0] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop'} 
+                      alt={item.name} 
+                      className="w-16 h-20 object-cover rounded-xl" 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop';
+                      }}
+                    />
                     <div>
                       <h4 className="text-[10px] font-bold uppercase mb-1">{item.name}</h4>
                       <p className="text-[9px] text-nie8-text/40 font-bold">Size: {item.size} • sl: {item.quantity}</p>

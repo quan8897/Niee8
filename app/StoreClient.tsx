@@ -267,8 +267,8 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
     }
   };
 
-  // Loading state
-  if (!isAuthReady) {
+  // Loading state - Chỉ hiện loading nếu đang ở các trang cần quyền (Admin) hoặc thực sự chưa có dữ liệu gì
+  if (!isAuthReady && (currentView === 'admin' || !products.length)) {
     return (
       <div className="min-h-screen bg-nie8-bg flex flex-col items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
