@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Truck, CreditCard, ChevronRight, MapPin, Phone, User, CheckCircle2, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface CheckoutProps {
@@ -24,14 +24,17 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
   const shippingFee = total >= 2000000 ? 0 : 30000;
   const finalTotal = total + shippingFee;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isProcessing) return;
+  // Sử dụng useCallback để đảm bảo hàm không bị tạo lại gây vòng lặp
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    // NGĂN CHẶN CHẠY TỰ ĐỘNG: Chỉ chạy nếu đang ở bước 2 và chưa trong quá trình xử lý
+    if (isProcessing || step !== 2) return;
+    
     setIsProcessing(true);
+    console.log('[Checkout] Execution Triggered by User');
     
     try {
-      console.log('NIEE8 Checkout 2026 - Processing Standard Execution...');
-      
       const response = await fetch('/api/checkout-v3', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,7 +51,10 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Máy chủ phản hồi sai định dạng (Vui lòng kiểm tra lại build Vercel)');
+        // Nếu Server sập, trả về lỗi chi tiết hơn
+        const textError = await response.text();
+        console.error('[Checkout] Server non-JSON response:', textError.slice(0, 200));
+        throw new Error('Máy chủ phản hồi sai định dạng (Vui lòng kiểm tra lại build Vercel hoặc Log API)');
       }
 
       const data = await response.json();
@@ -61,7 +67,6 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
         localStorage.setItem('niee8_temp_phone', formData.phone);
         window.location.href = data.checkoutUrl;
       } else {
-        setIsProcessing(false);
         setCurrentOrderId(data.orderId);
         setStep(3);
         if (onComplete) onComplete(data.orderId, formData.phone);
@@ -70,9 +75,11 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
     } catch (error: any) {
       console.error('Checkout V3 Error:', error);
       alert(`Lỗi đặt hàng: ${error.message}`);
+    } finally {
+      // LUÔN LUÔN dừng loading dù thành công hay thất bại
       setIsProcessing(false);
     }
-  };
+  }, [formData, items, user, step, isProcessing, onComplete]);
 
   if (step === 3) {
     return (
@@ -106,69 +113,89 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
 
         <div className="grid lg:grid-cols-12 gap-10 items-start">
           <div className="lg:col-span-7">
-            <form id="checkout-form" onSubmit={handleSubmit} className="space-y-8">
-              {step === 1 ? (
-                <section className="bg-white p-8 rounded-3xl shadow-sm border border-nie8-primary/5">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="w-10 h-10 bg-nie8-bg rounded-xl flex items-center justify-center text-nie8-primary"><Truck size={20} /></div>
-                    <h2 className="text-xl font-serif italic">Thông tin giao hàng</h2>
+            {/* Vận chuyển Step */}
+            {step === 1 && (
+              <section className="bg-white p-8 rounded-3xl shadow-sm border border-nie8-primary/5">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 bg-nie8-bg rounded-xl flex items-center justify-center text-nie8-primary"><Truck size={20} /></div>
+                  <h2 className="text-xl font-serif italic">Thông tin giao hàng</h2>
+                </div>
+                
+                <div className="space-y-5">
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-nie8-text/20" size={18} />
+                    <input type="text" placeholder="Họ và tên" required className="w-full bg-nie8-bg/50 border-none rounded-2xl py-4 pl-12 pr-4 font-medium" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
                   </div>
-                  
-                  <div className="space-y-5">
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-nie8-text/20" size={18} />
-                      <input type="text" placeholder="Họ và tên" required className="w-full bg-nie8-bg/50 border-none rounded-2xl py-4 pl-12 pr-4 font-medium" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                    </div>
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-nie8-text/20" size={18} />
-                      <input type="tel" placeholder="Số điện thoại" required className="w-full bg-nie8-bg/50 border-none rounded-2xl py-4 pl-12 pr-4 font-medium" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-                    </div>
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-4 text-nie8-text/20" size={18} />
-                      <textarea placeholder="Địa chỉ chi tiết" required rows={3} className="w-full bg-nie8-bg/50 border-none rounded-2xl py-4 pl-12 pr-4 font-medium" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
-                    </div>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-nie8-text/20" size={18} />
+                    <input type="tel" placeholder="Số điện thoại" required className="w-full bg-nie8-bg/50 border-none rounded-2xl py-4 pl-12 pr-4 font-medium" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
                   </div>
-                  
-                  <button type="button" onClick={() => setStep(2)} disabled={!formData.name || !formData.phone || !formData.address} className="w-full mt-8 bg-nie8-text text-white py-4 rounded-2xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-nie8-primary disabled:opacity-50 transition-all"> Tiếp theo <ChevronRight size={18} /> </button>
-                </section>
-              ) : (
-                <section className="bg-white p-8 rounded-3xl shadow-sm border border-nie8-primary/5">
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-nie8-bg rounded-xl flex items-center justify-center text-nie8-primary"><CreditCard size={20} /></div>
-                      <h2 className="text-xl font-serif italic">Phương thức thanh toán</h2>
-                    </div>
-                    <button type="button" onClick={() => setStep(1)} className="text-xs font-bold text-nie8-primary uppercase tracking-widest hover:underline">Sửa thông tin</button>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-4 text-nie8-text/20" size={18} />
+                    <textarea placeholder="Địa chỉ chi tiết" required rows={3} className="w-full bg-nie8-bg/50 border-none rounded-2xl py-4 pl-12 pr-4 font-medium" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
                   </div>
+                </div>
+                
+                <button 
+                  type="button" 
+                  onClick={() => setStep(2)} 
+                  disabled={!formData.name || !formData.phone || !formData.address} 
+                  className="w-full mt-8 bg-nie8-text text-white py-4 rounded-2xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-nie8-primary disabled:opacity-50 transition-all active:scale-95"
+                > 
+                  Tiếp theo <ChevronRight size={18} /> 
+                </button>
+              </section>
+            )}
 
-                  <div className="space-y-4">
-                    <label className={`flex items-center justify-between p-5 rounded-2xl border-2 cursor-pointer ${formData.paymentMethod === 'cod' ? 'border-nie8-primary bg-nie8-primary/5' : 'border-nie8-bg'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${formData.paymentMethod === 'cod' ? 'border-nie8-primary' : 'border-nie8-text/20'}`}>
-                          {formData.paymentMethod === 'cod' && <div className="w-2.5 h-2.5 bg-nie8-primary rounded-full" />}
-                        </div>
-                        <p className="font-bold text-sm">Thanh toán khi nhận hàng (COD)</p>
+            {/* Thanh toán Step */}
+            {step === 2 && (
+              <section className="bg-white p-8 rounded-3xl shadow-sm border border-nie8-primary/5">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-nie8-bg rounded-xl flex items-center justify-center text-nie8-primary"><CreditCard size={20} /></div>
+                    <h2 className="text-xl font-serif italic">Phương thức thanh toán</h2>
+                  </div>
+                  <button type="button" onClick={() => setStep(1)} className="text-xs font-bold text-nie8-primary uppercase tracking-widest hover:underline">Sửa thông tin</button>
+                </div>
+
+                <div className="space-y-4">
+                  <button 
+                    type="button"
+                    onClick={() => setFormData({...formData, paymentMethod: 'cod'})}
+                    className={`w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${formData.paymentMethod === 'cod' ? 'border-nie8-primary bg-nie8-primary/5' : 'border-nie8-bg hover:border-nie8-primary/20'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${formData.paymentMethod === 'cod' ? 'border-nie8-primary' : 'border-nie8-text/20'}`}>
+                        {formData.paymentMethod === 'cod' && <div className="w-2.5 h-2.5 bg-nie8-primary rounded-full" />}
                       </div>
-                      <input type="radio" className="hidden" name="payment" value="cod" checked={formData.paymentMethod === 'cod'} onChange={() => setFormData({...formData, paymentMethod: 'cod'})} />
-                    </label>
-
-                    <label className={`flex items-center justify-between p-5 rounded-2xl border-2 cursor-pointer ${formData.paymentMethod === 'payos' ? 'border-nie8-primary bg-nie8-primary/5' : 'border-nie8-bg'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${formData.paymentMethod === 'payos' ? 'border-nie8-primary' : 'border-nie8-text/20'}`}>
-                          {formData.paymentMethod === 'payos' && <div className="w-2.5 h-2.5 bg-nie8-primary rounded-full" />}
-                        </div>
-                        <p className="font-bold text-sm">ATM / QR Code (PayOS)</p>
-                      </div>
-                      <input type="radio" className="hidden" name="payment" value="payos" checked={formData.paymentMethod === 'payos'} onChange={() => setFormData({...formData, paymentMethod: 'payos'})} />
-                    </label>
-                  </div>
-
-                  <button type="submit" disabled={isProcessing} className="w-full mt-8 bg-nie8-text text-white py-5 rounded-2xl font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-nie8-primary transition-all active:scale-95 shadow-xl">
-                    {isProcessing ? <Loader2 className="animate-spin" /> : 'Xác nhận đặt hàng'}
+                      <p className="font-bold text-sm">Thanh toán khi nhận hàng (COD)</p>
+                    </div>
                   </button>
-                </section>
-              )}
-            </form>
+
+                  <button 
+                    type="button"
+                    onClick={() => setFormData({...formData, paymentMethod: 'payos'})}
+                    className={`w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${formData.paymentMethod === 'payos' ? 'border-nie8-primary bg-nie8-primary/5' : 'border-nie8-bg hover:border-nie8-primary/20'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${formData.paymentMethod === 'payos' ? 'border-nie8-primary' : 'border-nie8-text/20'}`}>
+                        {formData.paymentMethod === 'payos' && <div className="w-2.5 h-2.5 bg-nie8-primary rounded-full" />}
+                      </div>
+                      <p className="font-bold text-sm">ATM / QR Code (PayOS)</p>
+                    </div>
+                  </button>
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => handleSubmit()}
+                  disabled={isProcessing} 
+                  className="w-full mt-8 bg-nie8-text text-white py-5 rounded-2xl font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-nie8-primary transition-all active:scale-95 shadow-xl disabled:opacity-70 disabled:grayscale"
+                >
+                  {isProcessing ? <Loader2 className="animate-spin" /> : 'Xác nhận đặt hàng'}
+                </button>
+              </section>
+            )}
           </div>
 
           <aside className="lg:col-span-5">
