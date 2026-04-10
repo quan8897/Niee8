@@ -113,7 +113,7 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
           localStorage.setItem('niee8_temp_phone', formData.phone);
 
           console.log('Sending request to /api/create-payment-link with data:', { orderId, finalTotal });
-          const response = await fetch('/api/create-payment-link', {
+          const response = await fetch('/api/payos-gateway', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -121,9 +121,9 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
               amount: finalTotal,
               description: `NIEE8 ${orderId.slice(-6)}`,
               items: items.map(item => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: Math.round(parseFloat(item.price.toString().replace(/[^0-9]/g, '')) || 0)
+                name: String(item.name).slice(0, 50),
+                quantity: Number(item.quantity) || 1,
+                price: Math.round(Number(String(item.price).replace(/[^0-9]/g, '')) || 0)
               })),
               returnUrl: `${window.location.origin}?payment=pending&orderId=${orderId}`,
               cancelUrl: `${window.location.origin}?payment=cancel&orderId=${orderId}`
