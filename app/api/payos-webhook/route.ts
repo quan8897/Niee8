@@ -57,12 +57,18 @@ export async function POST(request: NextRequest) {
 
     const orderId = orderIdMatch[0];
 
-    // Cập nhật trạng thái đơn hàng -> processing
+    // Kiểm tra trạng thái giao dịch từ PayOS (code "00" là thành công)
+    const isSuccess = webhookData.code === '00';
+    const newStatus = isSuccess ? 'processing' : 'cancelled';
+
+    console.log(`[PayOS Webhook] Processing Order ${orderId}. Status from PayOS: ${webhookData.code} -> Target Status: ${newStatus}`);
+
+    // Cập nhật trạng thái đơn hàng
     // Chỉ cập nhật nếu đơn hiện tại đang ở trạng thái 'pending'
     const { data: updatedOrder, error } = await supabase
       .from('orders')
       .update({
-        status: 'processing',
+        status: newStatus,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
@@ -75,9 +81,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!updatedOrder || updatedOrder.length === 0) {
-      console.log(`[PayOS Webhook] Đơn hàng ${orderId} đã được xử lý trước đó hoặc không tồn tại.`);
+      console.log(`[PayOS Webhook] Đơn hàng ${orderId} đã được xử lý trước đó hoặc không ở trạng thái pending.`);
     } else {
-      console.log(`[PayOS Webhook] Đơn hàng ${orderId} đã thanh toán và chuyển sang trạng thái PROCESSING thành công.`);
+      console.log(`[PayOS Webhook] Đơn hàng ${orderId} đã được cập nhật thành ${newStatus.toUpperCase()} thành công.`);
     }
 
     return NextResponse.json({ success: true });
