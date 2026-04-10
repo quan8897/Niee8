@@ -80,10 +80,9 @@ export async function POST(request: NextRequest) {
 
     // 3. Nếu là PayOS -> Sử dụng PayOS SDK để tạo link thanh toán
     if (paymentMethod === 'payos') {
-      // MOCK CHO VIỆC KIỂM THỬ (Bỏ qua nếu không có key)
       if (!payosClientId || !payosApiKey || !payosChecksum) {
-        console.warn('[Checkout-V3] Bypassing PayOS for Testing...');
-        return NextResponse.json({ success: true, orderId, checkoutUrl: 'https://test.payos.vn/fake-link' });
+        console.error('[Checkout-V3] Missing PayOS Keys');
+        return NextResponse.json({ error: 'Thiếu cấu hình API PayOS.' }, { status: 500 });
       }
 
       try {
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
           paymentBody.items.push({ name: 'Phí vận chuyển', quantity: 1, price: shippingFee });
         }
 
-        const paymentLink = await payos.createPaymentLink(paymentBody);
+        const paymentLink = await payos.paymentRequests.create(paymentBody);
         
         return NextResponse.json({ 
           success: true, 

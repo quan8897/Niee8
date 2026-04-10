@@ -13,35 +13,26 @@ export async function POST(request: NextRequest) {
     const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
 
     if (!clientId || !apiKey || !checksumKey) {
-      if (body.signature !== 'DUMMY') {
-        console.error('[PayOS Webhook] Missing configuration');
-        return NextResponse.json({ error: 'Missing PayOS config' }, { status: 500 });
-      }
-      console.warn('[PayOS Webhook] Bypassing config check for DUMMY signature');
+      console.error('[PayOS Webhook] Missing configuration');
+      return NextResponse.json({ error: 'Missing PayOS config' }, { status: 500 });
     }
 
-    // Khởi tạo PayOS SDK (Chỉ khi không phải DUMMY)
-    let payos: any = null;
-    if (body.signature !== 'DUMMY') {
-        payos = new PayOS({
-          clientId: clientId!,
-          apiKey: apiKey!,
-          checksumKey: checksumKey!,
-        });
-    }
+    // Khởi tạo PayOS SDK
+    const payos = new PayOS({
+      clientId,
+      apiKey,
+      checksumKey,
+    });
 
-    // 1. Xác minh chữ ký bằng SDK chính thức (TẠM THỜI QUAY LẠI ĐỂ TEST)
+    // 1. Xác minh chữ ký bằng SDK chính thức
     let webhookData;
-    /*
     try {
-      webhookData = payos.verifyPaymentWebhookData(body);
+      webhookData = await payos.webhooks.verify(body);
       console.log('[PayOS Webhook] Verified Data:', webhookData);
     } catch (e: any) {
       console.warn('[PayOS Webhook] Xác minh chữ ký thất bại:', e.message);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
-    */
-    webhookData = body.data; // Sử dụng trực tiếp dữ liệu từ body để test
 
     // 2. Xử lý cập nhật DB
     // Chúng ta sử dụng Service Role Key để ghi đè RLS (vì Webhook không có user session)
