@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       p_customer_phone: customerPhone,
       p_customer_address: customerAddress,
       p_customer_city: customerCity,
-      p_items: finalItems.map(i => ({ id: i.id, size: i.size, quantity: i.quantity })),
+      p_items: finalItems.map((i: any) => ({ id: i.id, size: i.size, quantity: i.quantity })),
       p_total_amount: finalTotal,
       p_payment_method: paymentMethod
     });
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         description: `NIE8 ${orderCode}`,
         cancelUrl: `${appUrl}?payment=cancel&orderId=${orderId}`,
         returnUrl: `${appUrl}?payment=pending&orderId=${orderId}`,
-        items: finalItems.map(i => ({
+        items: finalItems.map((i: any) => ({
           name: String(i.name).slice(0, 50),
           quantity: i.quantity,
           price: i.price
