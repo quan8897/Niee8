@@ -58,6 +58,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
       }
 
       if (data.checkoutUrl) {
+        localStorage.setItem('niee8_temp_phone', formData.phone);
         window.location.href = data.checkoutUrl;
       } else {
         setIsProcessing(false);
