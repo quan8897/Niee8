@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       price: Math.max(0, Math.round(Number(item.price)) || 0)
     }));
 
-    const itemsTotal = mappedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const itemsTotal = mappedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
     
     if (amount > itemsTotal) {
       mappedItems.push({ name: 'Phí vận chuyển', quantity: 1, price: amount - itemsTotal });
