@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
+export const runtime = 'nodejs'; // Bắt buộc dùng Node.js để chạy được crypto sạch sẽ
+
 interface PayOSItem {
   name: string;
   quantity: number;
@@ -82,6 +84,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[GATEWAY CRITICAL ERROR]:', error);
+    return NextResponse.json({ 
+      error: `Cổng thanh toán bị lỗi: ${error.message || 'Lỗi không xác định'}` 
+    }, { status: 500 });
   }
 }
