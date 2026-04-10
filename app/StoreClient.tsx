@@ -274,7 +274,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
     return (
       <AdminDashboard
         products={products}
-        siteSettings={siteSettings}
+        siteSettings={siteSettings as any}
         onAddProduct={async (p) => { setProducts(prev => [p, ...prev]); showToast('Đã thêm sản phẩm!'); }}
         onUpdateProduct={async (p) => { setProducts(prev => prev.map(x => x.id === p.id ? p : x)); showToast('Đã cập nhật!'); }}
         onDeleteProduct={async (id) => { setProducts(prev => prev.filter(p => p.id !== id)); showToast('Đã xóa', 'info'); }}
