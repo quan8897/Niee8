@@ -8,14 +8,14 @@ const MODELS = [
   'gemini-1.5-flash-8b',
 ];
 
-async function callGemini(model: string, apiKey: string, requestBody: Record<string, unknown>) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
+async function callGemini(model: string, key: string, body: Record<string, unknown>) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify(body),
   });
-  const data = await response.json();
+  const data = await res.json();
   if (data.error) {
     const isQuota = data.error.status === 'RESOURCE_EXHAUSTED' || data.error.code === 429;
     throw Object.assign(new Error(data.error.message), { isQuota });
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, message, history, productName, productCategory, otherProducts } = body;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
       return NextResponse.json({ error: 'API Key chưa được cấu hình trên Server' }, { status: 500 });
     }
 
@@ -68,28 +68,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
-    let data: Record<string, unknown> | null = null;
-
+    // Thử lần lượt các model khi quota hết
+    let result = null;
     for (const model of MODELS) {
       try {
-        data = await callGemini(model, apiKey, requestBody);
+        result = await callGemini(model, geminiKey, requestBody);
         break;
       } catch (err: unknown) {
         const isQuota = (err as { isQuota?: boolean })?.isQuota;
         if (!isQuota) throw err;
-        console.warn(`[AI] Model ${model} hết quota, thử model tiếp theo...`);
+        console.warn(`[AI] ${model} hết quota, thử model tiếp...`);
       }
     }
 
-    if (!data) {
+    if (!result) {
       return NextResponse.json(
-        { error: 'AI Stylist tạm thời bận (hết quota). Vui lòng thử lại sau ít phút nhé!' },
+        { error: 'AI Stylist tạm thời bận. Vui lòng thử lại sau ít phút!' },
         { status: 429 }
       );
     }
 
-    const text = (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })
-      ?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return NextResponse.json({ text });
 
   } catch (error: unknown) {
