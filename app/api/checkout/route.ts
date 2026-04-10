@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { CartItem } from '@/types';
-import crypto from 'crypto';
+import { randomBytes } from 'crypto';
 
-// Tạo Order ID bảo mật — không thể brute-force
+// Tạo Order ID bảo mật — dùng Node.js crypto.randomBytes
 function generateSecureOrderId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const randomPart = Array.from(
-    crypto.getRandomValues(new Uint8Array(8)),
+    randomBytes(8),
     (b: number) => chars[b % chars.length]
   ).join('');
   return `NIE8-${randomPart}`;
