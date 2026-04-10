@@ -35,7 +35,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
     console.log('[Checkout] Execution Triggered by User');
     
     try {
-      const response = await fetch('/api/payment-gateway', {
+      const response = await fetch('/api/final-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -43,6 +43,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
           customerPhone: formData.phone,
           customerAddress: formData.address,
           customerCity: formData.city,
+          totalAmount: finalTotal, // Gửi thêm tổng tiền để API xử lý nhanh hơn
           items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity })),
           paymentMethod: formData.paymentMethod,
           userId: user?.id
