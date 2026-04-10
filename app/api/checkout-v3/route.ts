@@ -5,7 +5,11 @@ import crypto from 'crypto';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Hàm tạo chữ ký (Signature) thủ công theo chuẩn PayOS
+// Khởi tạo Supabase client bên ngoài handler để tăng tốc
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Hàm tạo chữ ký SHA256 (Manual)
 function createSignature(data: any, checksumKey: string) {
   const sortedData = Object.keys(data)
     .sort()
@@ -25,22 +29,32 @@ function createSignature(data: any, checksumKey: string) {
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'Online - Fetch Mode' });
+  return NextResponse.json({ 
+    status: 'Ready', 
+    env_check: {
+      supabase: !!supabaseUrl && !!supabaseKey,
+      payos: !!process.env.PAYOS_CLIENT_ID
+    }
+  });
 }
 
 export async function POST(request: NextRequest) {
   const orderId = `NIE8-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-  console.log(`[Checkout-V3] [${orderId}] Starting (Manual Fetch Mode)`);
-
+  
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const payosClientId = process.env.PAYOS_CLIENT_ID!;
-    const payosApiKey = process.env.PAYOS_API_KEY!;
-    const payosChecksum = process.env.PAYOS_CHECKSUM_KEY!;
+    const payosClientId = process.env.PAYOS_CLIENT_ID;
+    const payosApiKey = process.env.PAYOS_API_KEY;
+    const payosChecksum = process.env.PAYOS_CHECKSUM_KEY;
 
-    if (!payosClientId || !payosApiKey || !payosChecksum) {
-      return NextResponse.json({ error: 'Config Error: Missing PayOS keys on Vercel' }, { status: 500 });
+    if (!payosClientId || !supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ 
+        error: 'Chưa cấu hình đầy đủ biến môi trường trên Vercel.',
+        missing: {
+          payos: !payosClientId,
+          supabaseUrl: !supabaseUrl,
+          supabaseKey: !supabaseKey
+        }
+      }, { status: 500 });
     }
 
     const body = await request.json();
@@ -48,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1. Lấy giá sản phẩm thực tế từ DB
+    // 1. Tính toán giá
     const { data: dbProducts } = await supabase.from('products').select('id, price, name').in('id', items.map((i: any) => i.id));
     
     let totalAmount = 0;
@@ -59,10 +73,9 @@ export async function POST(request: NextRequest) {
       return { name: p?.name || 'Sản phẩm', quantity: Number(item.quantity), price };
     });
 
-    const shippingFee = totalAmount >= 2000000 ? 0 : 30000;
-    const finalTotal = totalAmount + shippingFee;
+    const finalTotal = totalAmount + (totalAmount >= 2000000 ? 0 : 30000);
 
-    // 2. Lưu đơn hàng vào Database (RPC)
+    // 2. Lưu Database
     const { data: rpcResult, error: rpcError } = await supabase.rpc('secure_checkout', {
       p_order_id: orderId,
       p_user_id: userId || null,
@@ -75,10 +88,10 @@ export async function POST(request: NextRequest) {
       p_payment_method: paymentMethod
     });
 
-    if (rpcError) throw new Error(`Database Error: ${rpcError.message}`);
+    if (rpcError) throw new Error(`DB RPC Error: ${rpcError.message}`);
     if (rpcResult?.success === false) return NextResponse.json({ error: rpcResult.error }, { status: 400 });
 
-    // 3. Xử lý thanh toán PayOS bằng Fetch thuần
+    // 3. Gọi PayOS (Manual Fetch)
     if (paymentMethod === 'payos') {
       const orderCode = Number(String(Date.now()).slice(-7));
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://niee8.vercel.app').replace(/\/$/, '');
@@ -91,16 +104,14 @@ export async function POST(request: NextRequest) {
         returnUrl: `${appUrl}/?payment=pending&orderId=${orderId}`
       };
 
-      // Tạo chữ ký SHA256
-      const signature = createSignature(paymentData, payosChecksum);
+      const signature = createSignature(paymentData, payosChecksum!);
 
-      // Gọi API PayOS trực tiếp
       const payosResponse = await fetch('https://api-merchant.payos.vn/v2/payment-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-client-id': payosClientId,
-          'x-api-key': payosApiKey
+          'x-client-id': payosClientId!,
+          'x-api-key': payosApiKey!
         },
         body: JSON.stringify({ ...paymentData, signature })
       });
@@ -108,7 +119,7 @@ export async function POST(request: NextRequest) {
       const payosResult = await payosResponse.json();
 
       if (payosResult.code !== '00') {
-        throw new Error(payosResult.desc || 'PayOS API Error');
+        throw new Error(`PayOS API Error: ${payosResult.desc}`);
       }
 
       return NextResponse.json({ 
@@ -121,10 +132,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, orderId });
 
   } catch (err: any) {
-    console.error('[Checkout-V3] Fatal Error:', err.message);
+    console.error(`[Checkout-V3][${orderId}] FATAL:`, err.message);
     return NextResponse.json({ 
       error: 'Lỗi hệ thống nghiêm trọng', 
-      details: err.message 
+      details: err.message,
+      orderId 
     }, { status: 500 });
   }
 }
