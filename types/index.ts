@@ -50,10 +50,10 @@ export interface SiteSettings {
   hero_subtitle?: string;
   hero_description?: string;
   // Legacy camelCase support
-  heroImage?: string;
-  heroTitle?: string;
-  heroSubtitle?: string;
-  heroDescription?: string;
+  heroImage: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  heroDescription: string;
 }
 
 export interface Order {
