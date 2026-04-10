@@ -1,62 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
-export const runtime = 'nodejs'; // Bắt buộc dùng Node.js để chạy được crypto sạch sẽ
-
-interface PayOSItem {
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-function createHmacSignature(data: string, key: string): string {
-  return crypto.createHmac('sha256', key).update(data).digest('hex');
-}
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, amount, description, items, returnUrl, cancelUrl } = body;
+    // Bóc tách dữ liệu cực kỳ cẩn thận
+    const orderId = String(body.orderId || 'ORD' + Date.now());
+    const amount = Math.round(Number(body.amount) || 2000);
+    const description = String(body.description || 'Thanh toán NIE8').slice(0, 25);
+    const items = Array.isArray(body.items) ? body.items : [];
+    const returnUrl = String(body.returnUrl || '');
+    const cancelUrl = String(body.cancelUrl || '');
 
     const clientId = process.env.PAYOS_CLIENT_ID;
     const apiKey = process.env.PAYOS_API_KEY;
     const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
 
     if (!clientId || !apiKey || !checksumKey) {
-      return NextResponse.json({ error: 'PayOS Keys missing' }, { status: 500 });
+      throw new Error('Config PAYOS_CLIENT_ID, PAYOS_API_KEY hoặc PAYOS_CHECKSUM_KEY bị thiếu trên Vercel.');
     }
 
-    // Luôn chọn orderCode là số nguyên duy nhất
-    const orderCode = Number(String(Date.now()).slice(-6)); 
+    // Tạo mã đơn hàng ngắn ngẫu nhiên
+    const orderCode = Math.floor(Math.random() * 8999999) + 1000000;
 
-    const mappedItems = (items as any[]).map(item => ({
+    // Chuẩn hóa danh sách items để khớp với tổng tiền
+    const mappedItems = items.map((item: any) => ({
       name: String(item.name || 'Sản phẩm').slice(0, 50),
       quantity: Math.max(1, Number(item.quantity) || 1),
       price: Math.max(0, Math.round(Number(item.price)) || 0)
     }));
 
     const itemsTotal = mappedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const finalAmount = Number(amount);
-
-    // Bù trừ phí ship/giảm giá vào items để PayOS chấp nhận (Phải khớp 100%)
-    if (finalAmount > itemsTotal) {
-      mappedItems.push({ name: 'Phí vận chuyển', quantity: 1, price: finalAmount - itemsTotal });
-    } else if (finalAmount < itemsTotal) {
-      mappedItems.push({ name: 'Giảm giá', quantity: 1, price: finalAmount - itemsTotal });
+    
+    if (amount > itemsTotal) {
+      mappedItems.push({ name: 'Phí vận chuyển', quantity: 1, price: amount - itemsTotal });
+    } else if (amount < itemsTotal) {
+      mappedItems.push({ name: 'Giảm giá/Voucher', quantity: 1, price: amount - itemsTotal });
     }
 
-    const payosPayload: any = {
+    const payosPayload = {
       orderCode,
-      amount: finalAmount,
-      description: String(description || `NIE8 ${orderCode}`).slice(0, 25),
+      amount,
+      description,
       items: mappedItems,
       returnUrl,
       cancelUrl
     };
 
-    // Alphabetical sort for signature
+    // Signature Alphabetical Order: amount, cancelUrl, description, orderCode, returnUrl
     const signatureString = `amount=${payosPayload.amount}&cancelUrl=${payosPayload.cancelUrl}&description=${payosPayload.description}&orderCode=${payosPayload.orderCode}&returnUrl=${payosPayload.returnUrl}`;
-    const signature = createHmacSignature(signatureString, checksumKey);
+    const signature = crypto.createHmac('sha256', checksumKey).update(signatureString).digest('hex');
 
     const response = await fetch('https://api-merchant.payos.vn/v2/payment-requests', {
       method: 'POST',
@@ -68,25 +63,23 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ ...payosPayload, signature }),
     });
 
-    const data = await response.json();
+    const resData = await response.json();
 
-    if (!response.ok || data.code !== '00') {
+    if (!response.ok || resData.code !== '00') {
       return NextResponse.json({ 
-        error: `PayOS Error: ${data.desc || data.message || 'Unknown'}`,
-        debug: data
+        error: `PayOS Từ chối: ${resData.desc || resData.message || 'Lỗi không xác định'}`
       }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      checkoutUrl: data.data.checkoutUrl,
-      orderCode
+      checkoutUrl: resData.data.checkoutUrl
     });
 
-  } catch (error: any) {
-    console.error('[GATEWAY CRITICAL ERROR]:', error);
+  } catch (err: any) {
+    console.error('CRITICAL GATEWAY ERROR:', err.message);
     return NextResponse.json({ 
-      error: `Cổng thanh toán bị lỗi: ${error.message || 'Lỗi không xác định'}` 
+      error: `Lỗi hệ thống cổng thanh toán: ${err.message}` 
     }, { status: 500 });
   }
 }

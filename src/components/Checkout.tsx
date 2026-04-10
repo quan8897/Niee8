@@ -132,11 +132,22 @@ export default function Checkout({ items, onBack, onComplete, user }: CheckoutPr
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            // ROLLBACK: Trả lại hàng vào kho nếu lỗi API PayOS bằng cách hủy đơn
+            try {
+              await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+              console.log('Rollback successful: Order cancelled because PayOS link creation failed.');
+            } catch (rollbackErr) {
+              console.error('Rollback failed:', rollbackErr);
+            }
             throw new Error(errorData.error || `Server error: ${response.status}`);
           }
           const data = await response.json();
           if (data.checkoutUrl) window.location.href = data.checkoutUrl;
-          else throw new Error('Không nhận được link thanh toán từ PayOS');
+          else {
+            // Rollback nếu không có URL
+            await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+            throw new Error('Không nhận được link thanh toán từ PayOS');
+          }
 
         } else {
           setIsProcessing(false);
