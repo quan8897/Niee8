@@ -27,18 +27,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Tạo orderCode là số nguyên (giới hạn 32-bit để an toàn)
-    const orderCode = Number(String(Date.now()).slice(-9)); 
+    const orderCode = Number(String(Date.now()).slice(-7)); // Rút ngắn lại cho an toàn
+
+    const mappedItems = (items as any[]).map(item => ({
+      name: String(item.name).slice(0, 50),
+      quantity: Number(item.quantity) || 1,
+      price: Math.round(Number(item.price))
+    }));
+
+    // Tính tổng tiền từ danh sách items
+    const itemsTotal = mappedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Nếu có phí ship (amount > itemsTotal)
+    if (Number(amount) > itemsTotal) {
+      mappedItems.push({
+        name: 'Phí vận chuyển',
+        quantity: 1,
+        price: Number(amount) - itemsTotal
+      });
+    } 
+    // Nếu có giảm giá (amount < itemsTotal)
+    else if (Number(amount) < itemsTotal) {
+      mappedItems.push({
+        name: 'Giảm giá / Voucher',
+        quantity: 1,
+        price: Number(amount) - itemsTotal // Giá trị âm
+      });
+    }
 
     const payosPayload = {
       orderCode: orderCode,
       amount: Number(amount),
       description: String(description || `NIE8 ${orderCode}`).slice(0, 25),
-      items: (items as any[]).map(item => ({
-        name: String(item.name).slice(0, 50),
-        quantity: Number(item.quantity) || 1,
-        price: Math.round(Number(item.price))
-      })),
+      items: mappedItems,
       returnUrl: String(returnUrl),
       cancelUrl: String(cancelUrl)
     };
