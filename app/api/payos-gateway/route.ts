@@ -3,6 +3,10 @@ import crypto from 'node:crypto';
 
 export const runtime = 'nodejs';
 
+export async function GET() {
+  return NextResponse.json({ status: "ok", message: "API Gateway is alive" });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
