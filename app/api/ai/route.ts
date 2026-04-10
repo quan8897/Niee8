@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const MAX_HISTORY = 6;
 
+// Fallback theo thứ tự ưu tiên khi quota hết
+const MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+];
+
+async function callGemini(model: string, apiKey: string, requestBody: Record<string, unknown>) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+  const data = await response.json();
+  if (data.error) {
+    const isQuota = data.error.status === 'RESOURCE_EXHAUSTED' || data.error.code === 429;
+    throw Object.assign(new Error(data.error.message), { isQuota });
+  }
+  return data;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -49,16 +71,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'API Key chưa được cấu hình trên Server' }, { status: 500 });
+    }
 
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    let data: Record<string, unknown> | null = null;
+    let lastError: Error | null = null;
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Thử từng model theo độ ưu tiên
+    for (const model of MODELS) {
+      try {
+        data = await callGemini(model, apiKey, requestBody);
+        break; // Thành công thì dừng
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err : new Error('Unknown error');
+        const isQuota = (err as any)?.isQuota;
+        if (!isQuota) throw lastError; // Lỗi khác thì dừng ngay
+        console.warn(`[AI] Model ${model} hết quota, thử model tiếp theo...`);
+      }
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { error: 'AI Stylist tạm thời bận (hết quota). Vui lòng thử lại sau ít phút nhé!' },
+        { status: 429 }
+      );
+    }
+
+    const text = (data as any).candidates?.[0]?.content?.parts?.[0]?.text || '';
     return NextResponse.json({ text });
 
   } catch (error: unknown) {
