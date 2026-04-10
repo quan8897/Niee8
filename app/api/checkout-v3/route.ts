@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
       } catch (payosErr: any) {
         console.error('[Checkout-V3] PayOS Network Error:', payosErr.message);
-        await supabase.from('orders').update({ status: 'cancelled' }).eq({ id: orderId });
+        await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
         return NextResponse.json({ error: 'Lỗi kết nối tới hệ thống PayOS.' }, { status: 400 });
       }
     }
