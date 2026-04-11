@@ -4,7 +4,7 @@ import {
   X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, 
   Settings, Package, Loader2, LogOut, LayoutDashboard, 
   Instagram, Calendar, TrendingUp, Users, MessageSquare, 
-  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus, ShoppingCart, RotateCcw
+  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus, ShoppingCart, RotateCcw, PackageCheck, Ban, Activity, History
 } from 'lucide-react';
 import { Product, SiteSettings, Order, StockMovement } from '../types';
 import { supabase } from '../lib/supabase';
@@ -30,7 +30,7 @@ interface AdminDashboardProps {
   onLogout?: () => void;
 }
 
-type AdminTab = 'overview' | 'products' | 'orders' | 'stock-ledger' | 'create-post' | 'schedule' | 'settings' | 'technical' | 'uat';
+type AdminTab = 'overview' | 'products' | 'orders' | 'stock-ledger' | 'activity-logs' | 'create-post' | 'schedule' | 'settings' | 'technical' | 'uat';
 
 export default function AdminDashboard({ 
   products, 
@@ -102,6 +102,18 @@ export default function AdminDashboard({
     scheduledDate: '',
     isGeneratingCaption: false
   });
+
+  // State mới cho việc xác nhận trả hàng
+  const [returnConfirm, setReturnConfirm] = useState<{
+    show: boolean;
+    orderId: string;
+    items: any[];
+  }>({ show: false, orderId: '', items: [] });
+  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
+
+  // Activity Logs state
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
 
   const openRestockModal = (product: Product) => {
@@ -366,36 +378,77 @@ export default function AdminDashboard({
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
-      // Nếu trạng thái mới là cancelled và trạng thái cũ không phải cancelled
       const orderToUpdate = orders.find(o => o.id === orderId);
+      
+      // Nếu trạng thái mới là cancelled và trạng thái cũ không phải cancelled
+      // Thay vì tự động hoàn kho, giờ chúng ta sẽ mở modal hỏi xác nhận
       if (status === 'cancelled' && orderToUpdate && orderToUpdate.status !== 'cancelled') {
-        // Hoàn kho cho từng sản phẩm trong đơn hàng
-        for (const item of orderToUpdate.items) {
-          const { error: restoreError } = await supabase.rpc('restore_stock', {
+        setReturnConfirm({
+          show: true,
+          orderId: orderId,
+          items: orderToUpdate.items
+        });
+        return; // Dừng lại để chờ người dùng chọn trong modal
+      }
+
+      await finalizeStatusUpdate(orderId, status);
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+  };
+
+  const finalizeStatusUpdate = async (orderId: string, status: Order['status']) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', orderId);
+    
+    if (error) throw error;
+    
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, status } : null);
+    }
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
+  };
+
+  const handleReturnAction = async (shouldRestock: boolean) => {
+    setIsProcessingReturn(true);
+    try {
+      const { orderId, items } = returnConfirm;
+      
+      if (shouldRestock) {
+        // Kịch bản A: Hàng còn tốt -> Hoàn kho
+        for (const item of items) {
+          await supabase.rpc('restore_stock', {
             p_product_id: item.id,
             p_size: item.size || 'M',
             p_quantity: item.quantity,
             p_order_id: orderId
           });
-          if (restoreError) {
-            console.error('Error restoring stock:', restoreError);
-          }
+        }
+      } else {
+        // Kịch bản B: Hàng hỏng -> Không hoàn kho, ghi sổ cái 'damage'
+        for (const item of items) {
+          await supabase.from('stock_movements').insert({
+            product_id: item.id,
+            size: item.size || 'M',
+            quantity: -item.quantity, // Trừ đi nhưng ko restore
+            type: 'damage',
+            note: `Hàng trả về từ đơn #${orderId.slice(-6)} bị hư hỏng/không thể dùng lại`,
+            reference_id: orderId
+          });
         }
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId);
-      if (error) throw error;
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(prev => prev ? { ...prev, status } : null);
-      }
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      // Cuối cùng cập nhật trạng thái đơn hàng sang cancelled
+      await finalizeStatusUpdate(orderId, 'cancelled');
+      setReturnConfirm({ show: false, orderId: '', items: [] });
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error('Error processing return action:', error);
+    } finally {
+      setIsProcessingReturn(false);
     }
   };
 
@@ -421,7 +474,25 @@ export default function AdminDashboard({
   React.useEffect(() => {
     if (activeTab === 'orders') fetchOrders();
     if (activeTab === 'stock-ledger') fetchStockMovements();
+    if (activeTab === 'activity-logs') fetchActivityLogs();
   }, [activeTab]);
+
+  const fetchActivityLogs = async () => {
+    setIsLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setActivityLogs(data || []);
+    } catch (error) {
+      console.error('Error fetching activity logs:', error);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
 
   const filteredMovements = useMemo(() => {
     return stockMovements.filter(m => {
@@ -467,13 +538,13 @@ export default function AdminDashboard({
     }
   };
 
-  const sidebarItems = [
+  const sidebarItems: { id: AdminTab; label: string; icon: any }[] = [
     { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'products', label: 'Quản lý sản phẩm', icon: Package },
-    { id: 'stock-ledger', label: 'Lịch sử kho', icon: Package },
     { id: 'orders', label: 'Đơn hàng', icon: ShoppingBag },
+    { id: 'stock-ledger', label: 'Lịch sử kho', icon: History },
+    { id: 'activity-logs', label: 'Nhật ký hệ thống', icon: Activity },
     { id: 'create-post', label: 'Tạo bài đăng', icon: Instagram },
-    { id: 'schedule', label: 'Lịch đăng', icon: Calendar },
     { id: 'settings', label: 'Cài đặt', icon: Settings },
   ];
 
@@ -816,22 +887,31 @@ export default function AdminDashboard({
                               />
                             </div>
                           </div>
-                          <div className="col-span-1 md:col-span-2 grid grid-cols-4 gap-4 bg-nie8-primary/5 p-4 rounded-2xl border border-nie8-primary/10">
-                            <div className="col-span-4 text-[10px] font-bold uppercase tracking-widest text-nie8-text/40 mb-2">Tồn kho theo Size</div>
+                          <div className="col-span-1 md:col-span-2 grid grid-cols-4 gap-4 bg-nie8-primary/5 p-4 rounded-2xl border border-nie8-primary/10 relative">
+                            <div className="col-span-4 flex justify-between items-center mb-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Tồn kho theo Size</label>
+                              {!!editingId && (
+                                <span className="text-[10px] text-nie8-primary font-bold italic">Bấm "Nhập kho" ngoài danh sách để sửa số lượng</span>
+                              )}
+                            </div>
                             {['S', 'M', 'L', 'XL'].map(size => (
                               <div key={size} className="space-y-1">
                                 <label className="text-xs font-medium text-nie8-text/60">Size {size}</label>
                                 <input 
                                   type="number" 
                                   min="0"
+                                  disabled={!!editingId}
                                   value={formData.stock_by_size?.[size] ?? 0} 
                                   onChange={e => {
+                                    if (!!editingId) return;
                                     const val = parseInt(e.target.value) || 0;
                                     const newStockBySize = { ...(formData.stock_by_size || {S:0,M:0,L:0,XL:0}), [size]: val };
                                     const total = Object.values(newStockBySize).reduce((a, b) => a + b, 0);
                                     setFormData({...formData, stock_by_size: newStockBySize, stock_quantity: total});
                                   }} 
-                                  className="w-full bg-white border border-nie8-primary/10 rounded-xl px-4 py-2 focus:outline-none focus:border-nie8-primary" 
+                                  className={`w-full border border-nie8-primary/10 rounded-xl px-4 py-2 focus:outline-none focus:border-nie8-primary transition-all ${
+                                    !!editingId ? 'bg-nie8-bg/50 text-nie8-text/30 cursor-not-allowed border-transparent' : 'bg-white'
+                                  }`} 
                                 />
                               </div>
                             ))}
@@ -1237,6 +1317,57 @@ export default function AdminDashboard({
               </motion.div>
             )}
 
+            {activeTab === 'activity-logs' && (
+              <motion.div 
+                key="activity-logs"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="max-w-4xl space-y-12"
+              >
+                <div>
+                  <h1 className="text-4xl font-serif italic text-nie8-text mb-2">Nhật ký hệ thống</h1>
+                  <p className="text-nie8-text/40">Theo dõi các thay đổi quan trọng về thông tin sản phẩm và cấu hình.</p>
+                </div>
+
+                <div className="bg-nie8-bg/20 rounded-[40px] p-2 sm:p-8 border border-nie8-primary/5 min-h-[400px]">
+                   {isLoadingLogs ? (
+                      <div className="h-40 flex items-center justify-center text-nie8-text/20">
+                         <Loader2 className="animate-spin" />
+                      </div>
+                   ) : activityLogs.length === 0 ? (
+                      <div className="h-40 flex items-center justify-center text-sm italic text-nie8-text/30">Chưa có nhật ký hoạt động nào.</div>
+                   ) : (
+                      <div className="space-y-4">
+                        {activityLogs.map((log) => (
+                          <div key={log.id} className="bg-white/80 backdrop-blur-sm p-6 rounded-3xl border border-nie8-primary/5 flex gap-6 items-start hover:shadow-lg transition-all">
+                             <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-nie8-primary/5 flex items-center justify-center text-nie8-primary">
+                                <Activity size={20} />
+                             </div>
+                             <div className="flex-grow space-y-2">
+                                <div className="flex justify-between items-start">
+                                   <div>
+                                      <h4 className="font-bold text-sm text-nie8-text">{log.action}</h4>
+                                      <p className="text-[10px] text-nie8-text/30 font-mono mt-0.5">{new Date(log.created_at).toLocaleString('vi-VN')}</p>
+                                   </div>
+                                   {log.product_id && (
+                                      <span className="text-[10px] bg-nie8-primary/10 text-nie8-primary px-2 py-1 rounded-lg font-bold font-mono">
+                                         {log.product_id}
+                                      </span>
+                                   )}
+                                </div>
+                                <div className="text-xs text-nie8-text/60 leading-relaxed whitespace-pre-line bg-nie8-bg/30 p-4 rounded-xl font-medium">
+                                   {log.details}
+                                </div>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                   )}
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'settings' && (
               <motion.div 
                 key="settings"
@@ -1397,34 +1528,49 @@ export default function AdminDashboard({
                   </div>
                 </div>
 
-                <form id="restock-form" onSubmit={handleRestockSubmit} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Size</label>
-                      <select 
-                        value={restockSize} 
-                        onChange={e => setRestockSize(e.target.value)}
-                        className="w-full bg-nie8-bg border border-nie8-primary/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-nie8-primary text-sm font-medium"
-                      >
+                <form id="restock-form" onSubmit={handleRestockSubmit} className="space-y-8">
+                  <div className="flex flex-col gap-6">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40 ml-1">Kích thước (Size)</label>
+                      <div className="grid grid-cols-4 gap-2">
                         {['S', 'M', 'L', 'XL'].map(s => (
-                          <option key={s} value={s}>Size {s} (Hiện còn: {restockProduct.stock_by_size?.[s] || 0})</option>
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setRestockSize(s)}
+                            className={`py-4 rounded-2xl border-2 text-sm font-bold transition-all ${
+                              restockSize === s 
+                                ? 'border-nie8-primary bg-nie8-primary text-white shadow-lg' 
+                                : 'border-nie8-primary/10 bg-white text-nie8-text/60 hover:border-nie8-primary/30'
+                            }`}
+                          >
+                            {s}
+                            <div className={`text-[8px] mt-1 ${restockSize === s ? 'text-white/60' : 'text-nie8-text/30'}`}>
+                               Còn: {restockProduct.stock_by_size?.[s] || 0}
+                            </div>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Số lượng nhập</label>
+
+                    <div className="bg-nie8-bg/50 p-6 rounded-[32px] border border-nie8-primary/5 space-y-4">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Số lượng nhập thêm</label>
+                        <span className="text-[10px] bg-nie8-primary/10 text-nie8-primary px-2 py-1 rounded-lg font-bold">Size {restockSize}</span>
+                      </div>
                       <input 
                         type="number" 
                         min="1"
                         required
                         value={restockQuantity || ''} 
                         onChange={e => setRestockQuantity(parseInt(e.target.value) || 0)}
-                        className="w-full bg-nie8-bg border border-nie8-primary/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-nie8-primary text-sm font-medium"
+                        className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-nie8-primary text-2xl font-bold placeholder:text-nie8-text/10"
                         placeholder="VD: 50"
+                        autoFocus
                       />
+                      <p className="text-[10px] text-nie8-text/40 italic text-center">Tồn kho sau khi nhập: <span className="text-nie8-primary font-bold">{(restockProduct.stock_by_size?.[restockSize] || 0) + restockQuantity}</span></p>
                     </div>
                   </div>
-
                 </form>
               </div>
               
@@ -1438,6 +1584,63 @@ export default function AdminDashboard({
                 >
                   {isRestocking ? <Loader2 size={16} className="animate-spin" /> : <PackagePlus size={16} />}
                   Xác nhận
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Xác nhận Tình trạng Trả hàng */}
+      <AnimatePresence>
+        {returnConfirm.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6"
+          >
+            <div className="absolute inset-0 bg-nie8-text/40 backdrop-blur-md" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center space-y-8"
+            >
+              <div className="w-20 h-20 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto">
+                <RotateCcw size={32} />
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-2xl font-serif italic text-nie8-text">Xác nhận tình trạng hàng</h3>
+                <p className="text-sm text-nie8-text/60 leading-relaxed">
+                  Đơn hàng <strong>#{returnConfirm.orderId.slice(-6)}</strong> đang được hủy. 
+                  Bạn có muốn hoàn lại số sản phẩm này vào kho để bán tiếp không?
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 pt-4">
+                <button
+                  onClick={() => handleReturnAction(true)}
+                  disabled={isProcessingReturn}
+                  className="w-full py-4 bg-green-500 text-white rounded-full font-bold uppercase tracking-widest shadow-lg shadow-green-500/20 flex items-center justify-center gap-2 hover:bg-green-600 transition-all"
+                >
+                  {isProcessingReturn ? <Loader2 size={18} className="animate-spin" /> : <PackageCheck size={18} />}
+                  Hàng vẫn tốt (Hoàn kho)
+                </button>
+                <button
+                  onClick={() => handleReturnAction(false)}
+                  disabled={isProcessingReturn}
+                  className="w-full py-4 bg-white text-red-500 border-2 border-red-500/10 rounded-full font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-all"
+                >
+                  <Ban size={18} />
+                  Hàng hư hỏng (Hủy bỏ)
+                </button>
+                <button
+                  onClick={() => setReturnConfirm({ show: false, orderId: '', items: [] })}
+                  className="w-full py-3 text-[10px] font-bold uppercase tracking-widest text-nie8-text/30 hover:text-nie8-text transition-all"
+                >
+                  Quay lại
                 </button>
               </div>
             </motion.div>

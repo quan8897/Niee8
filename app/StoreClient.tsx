@@ -364,26 +364,80 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           const payload = { ...p, price: Number(cleanPrice) };
           const { error } = await supabase.from('products').insert([payload]);
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          
+          // Ghi sổ cái cho số lượng ban đầu
+          if (p.stock_by_size) {
+            const movements = Object.entries(p.stock_by_size)
+              .filter(([_, qty]) => (qty as number) > 0)
+              .map(([size, qty]) => ({
+                product_id: p.id,
+                size,
+                quantity: qty,
+                type: 'import',
+                note: 'Khởi tạo tồn kho ban đầu'
+              }));
+            
+            if (movements.length > 0) {
+              await supabase.from('stock_movements').insert(movements);
+            }
+          }
+
           setProducts(prev => [p, ...prev]);
           showToast('Đã thêm sản phẩm!');
         }}
         onUpdateProduct={async (p) => {
+          const current = products.find(prod => prod.id === p.id);
           const cleanPrice = p.price?.toString().replace(/[^0-9]/g, '') || '0';
-          const payload = { ...p, price: Number(cleanPrice) };
+          const newPrice = Number(cleanPrice);
+          const payload = { ...p, price: newPrice };
+          
           const { error } = await supabase.from('products').update(payload).eq('id', p.id);
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+
+          // Ghi nhật ký nếu có thay đổi quan trọng
+          if (current) {
+            const changes = [];
+            if (current.name !== p.name) changes.push(`Tên: "${current.name}" -> "${p.name}"`);
+            if (Number(current.price) !== newPrice) {
+              const formatter = new Intl.NumberFormat('vi-VN');
+              changes.push(`Giá: ${formatter.format(Number(current.price))}đ -> ${formatter.format(newPrice)}đ`);
+            }
+
+            if (changes.length > 0) {
+              await supabase.from('activity_logs').insert({
+                product_id: p.id,
+                action: 'Cập nhật sản phẩm',
+                details: changes.join('\n')
+              });
+            }
+          }
+
           setProducts(prev => prev.map(x => x.id === p.id ? p : x));
           showToast('Đã cập nhật!');
         }}
         onDeleteProduct={async (id) => {
+          const product = products.find(p => p.id === id);
           const { error } = await supabase.from('products').delete().eq('id', id);
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          
+          await supabase.from('activity_logs').insert({
+            product_id: id,
+            action: 'Xóa sản phẩm',
+            details: `Đã xóa sản phẩm: ${product?.name || id}`
+          });
+
           setProducts(prev => prev.filter(p => p.id !== id));
           showToast('Đã xóa', 'info');
         }}
         onUpdateSettings={async (s) => {
           const { error } = await supabase.from('site_settings').upsert({ id: 'default', ...s });
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          
+          await supabase.from('activity_logs').insert({
+            action: 'Cập nhật cài đặt',
+            details: 'Thay đổi cấu hình giao diện hoặc tính năng hệ thống'
+          });
+
           setSiteSettings(s);
           setPreviewTheme(null); // Clear preview on save
           showToast('Đã cập nhật cài đặt!');
