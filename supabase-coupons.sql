@@ -24,10 +24,12 @@ ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 
 -- Policy (Quyền xem bảng)
 -- Bất kỳ ai cũng có thể đọc (kiểm tra) mã nếu biết chính xác code
+DROP POLICY IF EXISTS "Cho phép mọi người kiểm tra mã" ON public.coupons;
 CREATE POLICY "Cho phép mọi người kiểm tra mã" ON public.coupons
     FOR SELECT USING (true);
 
 -- Chỉ admin mới có quyền sửa đổi mã
+DROP POLICY IF EXISTS "Chỉ Admin sửa mã" ON public.coupons;
 CREATE POLICY "Chỉ Admin sửa mã" ON public.coupons
     FOR ALL USING (auth.role() = 'service_role');
 
@@ -44,11 +46,33 @@ BEGIN
 END;
 $$;
 
--- 3. Tạo một số mã mặc định để bạn test thử luôn
+-- 3. Tạo một bộ mã mặc định đầy đủ kịch bản để bạn test (UAT)
+-- Kịch bản 1: Mã hợp lệ - Giảm số tiền cố định (50k cho đơn > 200k)
 INSERT INTO public.coupons (code, discount_amount, min_order_amount, is_active)
 VALUES ('SALE50K', 50000, 200000, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
+-- Kịch bản 2: Mã hợp lệ - Giảm phần trăm (10% cho mọi đơn)
 INSERT INTO public.coupons (code, discount_percent, min_order_amount, is_active)
 VALUES ('GIAM10', 10, 0, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Kịch bản 3: Mã đã hết hạn (Expired)
+INSERT INTO public.coupons (code, discount_percent, expires_at, is_active)
+VALUES ('HETHAN', 20, NOW() - INTERVAL '1 day', TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Kịch bản 4: Mã đã hết số lượt sử dụng (Usage Limit Reached)
+INSERT INTO public.coupons (code, discount_amount, usage_limit, usage_count, is_active)
+VALUES ('HETLUOT', 30000, 5, 5, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Kịch bản 5: Mã đang bị tạm dừng (Inactive)
+INSERT INTO public.coupons (code, discount_percent, is_active)
+VALUES ('TAMNGUNG', 15, FALSE)
+ON CONFLICT (code) DO NOTHING;
+
+-- Kịch bản 6: Mã VIP cho đơn hàng lớn (Giảm 100k cho đơn > 500k)
+INSERT INTO public.coupons (code, discount_amount, min_order_amount, is_active)
+VALUES ('VIP500', 100000, 500000, TRUE)
 ON CONFLICT (code) DO NOTHING;
