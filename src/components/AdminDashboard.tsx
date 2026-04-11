@@ -4,12 +4,19 @@ import {
   X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, 
   Settings, Package, Loader2, LogOut, LayoutDashboard, 
   Instagram, Calendar, TrendingUp, Users, MessageSquare, 
-  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus
+  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus, ShoppingCart, RotateCcw
 } from 'lucide-react';
-import { Product, SiteSettings, Order } from '../types';
+import { Product, SiteSettings, Order, StockMovement } from '../types';
 import { supabase } from '../lib/supabase';
 import { generateInstagramCaption } from '../services/geminiService';
 
+interface StockMovementWithProduct extends StockMovement {
+  products?: {
+    name: string;
+    category: string;
+    images: string[];
+  };
+}
 
 interface AdminDashboardProps {
   products: Product[];
@@ -57,6 +64,12 @@ export default function AdminDashboard({
   const [restockSize, setRestockSize] = useState<string>('M');
   const [restockQuantity, setRestockQuantity] = useState<number>(0);
   const [isRestocking, setIsRestocking] = useState(false);
+
+  // Stock Ledger State
+  const [stockMovements, setStockMovements] = useState<StockMovementWithProduct[]>([]);
+  const [isLoadingStock, setIsLoadingStock] = useState(false);
+  const [stockFilterCategory, setStockFilterCategory] = useState<string>('Tất cả');
+  const [stockSearchQuery, setStockSearchQuery] = useState<string>('');
 
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -386,11 +399,51 @@ export default function AdminDashboard({
     }
   };
 
-  React.useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchOrders();
+  const fetchStockMovements = async () => {
+    setIsLoadingStock(true);
+    try {
+      const { data, error } = await supabase
+        .from('stock_movements')
+        .select(`
+          *,
+          products(name, category, images)
+        `)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setStockMovements(data as any[]);
+    } catch (error) {
+      console.error('Error fetching stock movements:', error);
+    } finally {
+      setIsLoadingStock(false);
     }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'orders') fetchOrders();
+    if (activeTab === 'stock-ledger') fetchStockMovements();
   }, [activeTab]);
+
+  const filteredMovements = useMemo(() => {
+    return stockMovements.filter(m => {
+      const product = m.products;
+      if (!product) return false;
+      const matchCategory = stockFilterCategory === 'Tất cả' || product.category === stockFilterCategory;
+      const matchSearch = m.product_id.toLowerCase().includes(stockSearchQuery.toLowerCase()) || 
+                          product.name.toLowerCase().includes(stockSearchQuery.toLowerCase());
+      return matchCategory && matchSearch;
+    });
+  }, [stockMovements, stockFilterCategory, stockSearchQuery]);
+
+  const stockKPIs = useMemo(() => {
+    let sales = 0;
+    let returns = 0;
+    filteredMovements.forEach(m => {
+      if (m.type === 'sale') sales += Math.abs(m.quantity);
+      if (m.type === 'return') returns += Math.abs(m.quantity);
+    });
+    const returnRate = sales > 0 ? ((returns / sales) * 100).toFixed(1) : 0;
+    return { sales, returns, returnRate };
+  }, [filteredMovements]);
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
@@ -555,7 +608,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <item.icon size={18} />
-                {item.label}
+                <span className="whitespace-nowrap">{item.label}</span>
               </button>
             ))}
           </nav>
@@ -876,12 +929,124 @@ export default function AdminDashboard({
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-8"
               >
-                <div>
-                  <h1 className="text-4xl font-serif italic text-nie8-text mb-2">Lịch sử kho</h1>
-                  <p className="text-nie8-text/40">Theo dõi chi tiết các giao dịch xuất, nhập, hoàn kho.</p>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h1 className="text-4xl font-serif italic text-nie8-text mb-2">Lịch sử kho</h1>
+                    <p className="text-nie8-text/40">Tra cứu hành trình và đánh giá hiệu năng sản phẩm.</p>
+                  </div>
+                  {/* KPI Summary */}
+                  <div className="flex gap-4">
+                    <div className="bg-green-50 px-6 py-3 rounded-2xl border border-green-100 flex flex-col justify-center">
+                      <p className="text-[10px] uppercase font-bold text-green-600 mb-1">Đã bán</p>
+                      <p className="text-2xl font-bold text-green-700 leading-none">{stockKPIs.sales}</p>
+                    </div>
+                    <div className="bg-red-50 px-6 py-3 rounded-2xl border border-red-100 flex flex-col justify-center">
+                      <p className="text-[10px] uppercase font-bold text-red-600 mb-1">Hoàn trả</p>
+                      <p className="text-2xl font-bold text-red-700 leading-none">{stockKPIs.returns}</p>
+                    </div>
+                    <div className="bg-nie8-bg px-6 py-3 rounded-2xl border border-nie8-primary/10 flex flex-col justify-center">
+                      <p className="text-[10px] uppercase font-bold text-nie8-text/40 mb-1">Tỷ lệ hoàn</p>
+                      <p className="text-2xl font-bold text-nie8-text leading-none">{stockKPIs.returnRate}%</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-nie8-primary/5">
-                  <p className="text-nie8-text/60 italic text-sm">Tính năng đang được cập nhật giao diện hiển thị. Dữ liệu đã được lưu trữ an toàn trên hệ thống.</p>
+
+                {/* Filters */}
+                <div className="flex flex-col md:flex-row gap-4 border-b border-nie8-primary/5 pb-4">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo Mã (Ví dụ: N8-...) Hoặc tên..."
+                    value={stockSearchQuery}
+                    onChange={(e) => setStockSearchQuery(e.target.value)}
+                    className="flex-grow bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary text-sm font-medium"
+                  />
+                  <div className="flex bg-white border border-nie8-primary/10 rounded-2xl p-1 overflow-x-auto scroll-hide shrink-0">
+                    {['Tất cả', 'Áo', 'Quần', 'Váy', 'Nguyên set (bộ)'].map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setStockFilterCategory(cat)}
+                        className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-all ${
+                          stockFilterCategory === cat ? 'bg-nie8-primary text-white shadow-md' : 'text-nie8-text/40 hover:text-nie8-text'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Timeline Bảng */}
+                <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-nie8-primary/5">
+                   {isLoadingStock ? (
+                      <div className="py-24 text-center">
+                        <Loader2 size={32} className="animate-spin mx-auto text-nie8-primary mb-4" />
+                        <p className="text-xs text-nie8-text/40 font-bold uppercase tracking-widest">Đang tính toán dữ liệu kho...</p>
+                      </div>
+                   ) : filteredMovements.length === 0 ? (
+                      <div className="py-24 text-center">
+                        <Package size={48} className="mx-auto text-nie8-primary/20 mb-4" />
+                        <p className="text-sm text-nie8-text/40 italic">Chưa có lịch sử hoặc không tìm thấy kết quả phù hợp.</p>
+                      </div>
+                   ) : (
+                      <div className="divide-y divide-nie8-primary/5">
+                        {filteredMovements.map(m => (
+                          <div key={m.id} className="flex gap-4 sm:gap-6 items-center p-4 sm:p-6 hover:bg-nie8-bg/30 transition-colors">
+                            {/* Thời gian */}
+                            <div className="w-16 sm:w-24 flex-shrink-0 text-left sm:text-right">
+                               <p className="text-[10px] sm:text-xs font-bold text-nie8-text/40">
+                                  {new Date(m.created_at).toLocaleDateString('vi-VN')}
+                               </p>
+                               <p className="text-[10px] sm:text-xs font-bold text-nie8-text mt-0.5">
+                                  {new Date(m.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                               </p>
+                            </div>
+                            
+                            {/* Icon Loại biến động */}
+                            <div className="flex-shrink-0 relative hidden sm:block">
+                              <div className="w-px h-24 bg-nie8-primary/10 absolute top-[-50%] left-1/2 -translate-x-1/2 -z-10" />
+                              <div className="w-px h-24 bg-nie8-primary/10 absolute bottom-[-50%] left-1/2 -translate-x-1/2 -z-10" />
+                              {m.type === 'import' ? (
+                                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-500 shadow-sm border-4 border-white"><PackagePlus size={20} /></div>
+                              ) : m.type === 'sale' ? (
+                                <div className="w-12 h-12 rounded-full bg-nie8-primary/10 flex items-center justify-center text-nie8-primary shadow-sm border-4 border-white"><ShoppingCart size={20} /></div>
+                              ) : m.type === 'return' ? (
+                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-500 shadow-sm border-4 border-white"><RotateCcw size={20} /></div>
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shadow-sm border-4 border-white"><Settings size={20} /></div>
+                              )}
+                            </div>
+                            
+                            {/* Product Info */}
+                            <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-nie8-bg border border-nie8-primary/10 relative">
+                               {m.products?.images?.[0] ? <img src={m.products.images[0]} alt="" className="w-full h-full object-cover" /> : null}
+                               <div className="absolute top-0 right-0 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-bl-lg text-[8px] font-bold text-nie8-primary">
+                                  Size {m.size}
+                               </div>
+                            </div>
+
+                            {/* Details */}
+                            <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 items-center">
+                              <div>
+                                <h4 className="text-sm font-bold text-nie8-text truncate max-w-[150px] sm:max-w-[200px]" title={m.products?.name}>{m.products?.name || 'Sản phẩm không rõ'}</h4>
+                                <p className="text-[10px] text-nie8-text/40 font-mono mt-1 uppercase tracking-widest">{m.product_id}</p>
+                              </div>
+                              <div className="text-left sm:text-right flex items-center sm:block gap-2">
+                                <p className={`text-lg sm:text-xl font-bold leading-none ${
+                                  m.type === 'import' || m.type === 'return' ? 'text-green-500' : 
+                                  m.type === 'sale' ? 'text-red-500' : 'text-gray-500'
+                                }`}>
+                                  {m.type === 'import' || m.type === 'return' ? '+' : '-'}{Math.abs(m.quantity)}
+                                </p>
+                                <p className="text-[10px] text-nie8-text/60 sm:mt-1 uppercase font-bold tracking-widest">
+                                   {m.type === 'sale' ? 'Bán hàng' : m.type === 'return' ? 'Hoàn kho' : m.type === 'import' ? 'Nhập kho' : 'Điều chỉnh'}
+                                   {m.reference_id && <span className="font-mono ml-1 text-nie8-text/40">#{m.reference_id.slice(-6)}</span>}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                   )}
                 </div>
               </motion.div>
             )}
