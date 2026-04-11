@@ -81,7 +81,11 @@ CREATE OR REPLACE FUNCTION secure_checkout(
     p_customer_city TEXT,
     p_items JSONB,
     p_total_amount NUMERIC,
-    p_payment_method TEXT
+    p_payment_method TEXT,
+    p_note TEXT DEFAULT NULL,
+    p_discount_amount NUMERIC DEFAULT 0,
+    p_shipping_fee NUMERIC DEFAULT 0,
+    p_coupon_codes JSONB DEFAULT '[]'::jsonb
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -89,11 +93,13 @@ SECURITY DEFINER
 AS $$
 DECLARE
     item JSONB;
+    v_coupon_code TEXT;
     v_product_id TEXT;
     v_size TEXT;
     v_quantity INTEGER;
     v_current_stock INTEGER;
 BEGIN
+    -- 1. DUYỆT QUA TỪNG MẶT HÀNG ĐỂ KIỂM TRA VÀ KHÓA KHO
     FOR item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
         v_product_id := item->>'id';
@@ -127,18 +133,32 @@ BEGIN
         VALUES (v_product_id, v_size, -v_quantity, 'sale', p_order_id, 'Bán hàng tự động.');
     END LOOP;
 
-    -- Lưu đơn hàng sau khi trừ kho thành công
+    -- 2. TĂNG LƯỢT SỬ DỤNG CHO CÁC MÃ GIẢM GIÁ (NẾU CÓ)
+    FOR v_coupon_code IN SELECT * FROM jsonb_array_elements_text(p_coupon_codes)
+    LOOP
+        UPDATE public.coupons
+        SET usage_count = usage_count + 1
+        WHERE code = v_coupon_code AND is_active = true;
+    END LOOP;
+
+    -- 3. LƯU ĐƠN HÀNG SAU KHI TRỪ KHO THÀNH CÔNG
     INSERT INTO public.orders (
         id, user_id, customer_name, customer_phone,
         customer_address, customer_city, items,
-        total_amount, payment_method, status
+        total_amount, payment_method, status,
+        note, discount_amount, shipping_fee, coupon_codes
     ) VALUES (
         p_order_id, p_user_id, p_customer_name, p_customer_phone,
         p_customer_address, p_customer_city, p_items,
-        p_total_amount, p_payment_method, 'pending'
+        p_total_amount, p_payment_method, 'pending',
+        p_note, p_discount_amount, p_shipping_fee, p_coupon_codes
     );
 
-    RETURN jsonb_build_object('success', true, 'order_id', p_order_id);
+    RETURN jsonb_build_object(
+        'success', true, 
+        'order_id', p_order_id,
+        'calculated_total', p_total_amount -- Trả về giá trị total để API xử lý tiếp
+    );
 EXCEPTION
     WHEN OTHERS THEN
         -- Bất kỳ lỗi nào → ROLLBACK toàn bộ
