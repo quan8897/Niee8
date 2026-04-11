@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const orderId = `NIE8-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const orderId = `NIE8-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
   
   try {
     const body = await request.json();
@@ -35,11 +35,10 @@ export async function POST(request: NextRequest) {
       p_customer_address: customerAddress,
       p_customer_city: customerCity,
       p_items: items,
-      p_total_amount: totalAmount,
+      p_client_total: totalAmount, // Chỉ gửi để DB đối soát chênh lệch
       p_payment_method: paymentMethod,
       p_note: note || null,
-      p_discount_amount: discountAmount || 0,
-      p_shipping_fee: shippingFee || 0,
+      p_client_shipping_fee: shippingFee || 0,
       p_coupon_codes: couponCodes || []
     });
 

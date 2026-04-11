@@ -71,6 +71,6 @@ export async function POST(request: NextRequest) {
     console.error('[PayOS Webhook Fatal Error]:', error.message);
     // Vẫn trả về 200 nếu đây là lỗi logic nội bộ sau khi đã verify xong, 
     // để tránh PayOS retry vô hạn (tùy chiến lược của bạn)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 200 });
   }
 }
