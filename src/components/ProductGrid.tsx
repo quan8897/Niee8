@@ -12,6 +12,7 @@ interface ProductGridProps {
   onBuyNow?: (product: Product, size: string, quantity: number) => void;
   onChatWithAI?: (product: Product) => void;
   onRegisterStockNotification?: (productId: string, email: string, size: string) => Promise<boolean>;
+  settings: import('../types').SiteSettings | null;
   isLoading?: boolean;
 }
 
@@ -53,6 +54,7 @@ export default function ProductGrid({
   onBuyNow,
   onChatWithAI,
   onRegisterStockNotification,
+  settings,
   isLoading = false 
 }: ProductGridProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -243,76 +245,102 @@ export default function ProductGrid({
           </div>
         </div>
 
-        {/* Product Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-x-8 sm:gap-y-16">
-          {isLoading
-            ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-            : currentProducts.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.06 }}
-                viewport={{ once: true }}
-                className="group cursor-pointer"
-                onClick={() => openProduct(product)}
-              >
-                {/* Image container — tỷ lệ 3:4 chuẩn thời trang */}
-                <div className="relative aspect-[3/4] overflow-hidden rounded-2xl sm:rounded-[30px] bg-white mb-3 sm:mb-6">
-                    <LazyImage
-                      src={product.images[0]}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
+        {/* GRID CONTAINER: THE MAGAZINE LOOKBOOK */}
+        <div className={`grid gap-4 sm:gap-10 ${
+          settings?.grid_mode === 'full-lookbook' 
+            ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 grid-flow-dense' 
+            : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+        }`}>
+          {isLoading ? (
+            Array(8).fill(0).map((_, i) => <SkeletonCard key={i} />)
+          ) : filteredProducts.length === 0 ? (
+            <div className="col-span-full text-center py-24 text-nie8-text/30">
+               <ShoppingBag size={48} className="mx-auto mb-4" strokeWidth={1} />
+               <p className="font-serif italic text-xl">Không tìm thấy sản phẩm phù hợp...</p>
+            </div>
+          ) : (
+            currentProducts.map((product, index) => {
+              // Logic Magazine Layout: To (span 2) - Nhỏ - Vừa - To
+              let spanClass = "col-span-1";
+              let aspectClass = "aspect-[4/5]";
+              
+              if (settings?.grid_mode === 'full-lookbook') {
+                const patternIndex = index % 8;
+                if (patternIndex === 0) {
+                  spanClass = "col-span-2 row-span-2 md:col-span-2 md:row-span-2";
+                  aspectClass = "aspect-[4/5] md:aspect-[4/5]";
+                } else if (patternIndex === 4) {
+                  spanClass = "col-span-1 md:col-span-2";
+                  aspectClass = "aspect-[16/9] md:aspect-[21/9]";
+                }
+              }
 
-                    {/* Out of stock badge */}
-                    {product.stock_quantity === 0 && (
-                      <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full z-20 shadow-lg">
-                        HẾT HÀNG
-                      </div>
-                    )}
-
-                  {/* Wishlist button — đủ lớn để tap trên mobile (44px min) */}
-                  <button
-                    onClick={(e) => toggleWishlist(product.id, e)}
-                    className="absolute top-3 right-3 w-9 h-9 sm:w-11 sm:h-11 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-transform active:scale-90 z-20"
-                    aria-label="Yêu thích"
-                  >
-                    <Heart
-                      size={16}
-                      className={wishlist.has(product.id) ? 'fill-red-500 text-red-500' : 'text-nie8-text/60'}
-                    />
-                  </button>
-
-                  {/* Quick add button — visible trên mobile khi tap */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openProduct(product);
-                    }}
-                    className="absolute bottom-0 left-0 right-0 py-3 bg-nie8-primary/90 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-widest translate-y-full group-hover:translate-y-0 transition-transform duration-300 hidden sm:flex items-center justify-center gap-2 z-20"
-                  >
-                    <ShoppingBag size={14} />
-                    Xem chi tiết
-                  </button>
-
-                  {/* Image count indicator */}
-                  {product.images.length > 1 && (
-                    <div className="absolute bottom-3 left-3 bg-black/40 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full z-20">
-                      1/{product.images.length}
-                    </div>
+              return (
+                <React.Fragment key={product.id}>
+                  {/* Story Block - Xuất hiện tinh tế giữa các sản phẩm */}
+                  {settings?.show_story && product.story_content && (index % 5 === 2) && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      whileInView={{ opacity: 1 }}
+                      className="hidden lg:flex flex-col justify-center p-10 bg-nie8-bg/20 rounded-[40px] border border-nie8-primary/5 italic text-sm text-nie8-text/50 leading-relaxed font-serif text-center"
+                    >
+                      "{product.story_content}"
+                    </motion.div>
                   )}
-                </div>
 
-                {/* Product info */}
-                <div className="px-0.5">
-                  <p className="text-[9px] sm:text-[10px] text-nie8-secondary font-bold uppercase tracking-widest mb-1">{product.category}</p>
-                  <h3 className="text-sm sm:text-lg font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-2 leading-snug mb-1">{product.name}</h3>
-                  <p className="text-sm sm:text-base font-semibold text-nie8-text">{formatVND(product.price)}</p>
-                </div>
-              </motion.div>
-            ))
-          }
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className={`${spanClass} relative group cursor-pointer h-full`}
+                    onClick={() => openProduct(product)}
+                  >
+                    <div className="h-full flex flex-col">
+                      <div className={`${aspectClass} rounded-[32px] sm:rounded-[48px] overflow-hidden relative shadow-sm border border-nie8-primary/5 group-hover:shadow-2xl group-hover:shadow-nie8-primary/10 transition-all duration-700`}>
+                        <LazyImage
+                          src={product.images[0]}
+                          alt={product.name}
+                          className="group-hover:scale-105"
+                        />
+                        
+                        {/* Status Badges */}
+                        {product.stock_quantity === 0 && (
+                          <div className="absolute top-4 left-4 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full z-10 shadow-lg">
+                            HẾT HÀNG
+                          </div>
+                        )}
+
+                        <button 
+                          onClick={(e) => toggleWishlist(product.id, e)}
+                          className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-nie8-text/40 hover:text-red-500 transition-all shadow-sm z-10 border border-white/50"
+                        >
+                          <Heart size={18} className={wishlist.has(product.id) ? 'fill-red-500 text-red-500' : ''} />
+                        </button>
+
+                        {/* Price Tag (Modern Typography) */}
+                        <div className="absolute bottom-6 left-6 z-10 hidden sm:block">
+                          <span className="bg-nie8-primary text-white px-4 py-2 rounded-full text-[10px] font-bold tracking-widest shadow-xl">
+                            {formatVND(product.price)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Text Info */}
+                      <div className="mt-4 sm:mt-6 px-2 text-center">
+                        <h3 className="text-xs sm:text-base font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-1">
+                          {product.name}
+                        </h3>
+                        <div className="sm:hidden mt-1 font-bold text-[10px] text-nie8-primary">
+                          {formatVND(product.price)}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </React.Fragment>
+              );
+            })
+          )}
         </div>
 
         {/* Empty state */}
@@ -492,12 +520,7 @@ export default function ProductGrid({
                             className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-nie8-primary' : 'border-transparent opacity-60'}`}
                           >
                             <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Size selector */}
+{/* Size selector */}
                     <div className="mb-5">
                       <div className="flex items-center justify-between mb-2.5">
                         <span className="text-xs font-bold uppercase tracking-wider text-nie8-text">Kích thước</span>
@@ -527,7 +550,7 @@ export default function ProductGrid({
                                     : 'border-nie8-text/15 text-nie8-text/70 hover:border-nie8-primary/50'
                               }`}
                             >
-                              {size}
+                              {selectedProduct.is_set ? `Set ${size}` : size}
                               {isOutOfStock && (
                                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
                               )}
@@ -561,9 +584,14 @@ export default function ProductGrid({
                       )}
                     </div>
 
-                    {/* Description */}
+                    {/* Description & Story */}
                     <div className="mb-4">
-                      <span className="text-xs font-bold uppercase tracking-wider text-nie8-text block mb-2">Mô tả</span>
+                      {selectedProduct.story_content && (
+                        <div className="mb-4 p-4 bg-nie8-bg rounded-2xl border-l-4 border-nie8-primary italic text-nie8-text/80 text-sm leading-relaxed">
+                          "{selectedProduct.story_content}"
+                        </div>
+                      )}
+                      <span className="text-xs font-bold uppercase tracking-wider text-nie8-text block mb-2">Chi tiết bộ đồ</span>
                       <p className="text-sm text-nie8-text/70 leading-relaxed">{selectedProduct.description}</p>
                     </div>
 
@@ -576,7 +604,7 @@ export default function ProductGrid({
                       return (
                         <div className="mb-4 mt-6">
                           <span className="text-xs font-bold uppercase tracking-wider text-nie8-primary flex items-center gap-1 mb-3">
-                            <Sparkles size={14} /> Gợi ý phối đồ
+                            <Sparkles size={14} /> Gợi ý thêm từ Niee8
                           </span>
                           <div className="flex gap-3 overflow-x-auto scroll-hide pb-2">
                             {validSuggestions.map(suggestedProduct => (

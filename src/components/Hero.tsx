@@ -14,43 +14,26 @@ export default function Hero({ settings }: HeroProps) {
   const heroDescription = settings?.heroDescription || "Những thiết kế tinh tuyển dành cho người phụ nữ hiện đại, trân trọng chất lượng hơn số lượng. Kiểu dáng vượt thời gian trong bảng màu trung tính.";
 
   return (
-    <section className="relative h-screen flex items-center overflow-hidden bg-nie8-bg">
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-nie8-bg via-nie8-bg/40 to-transparent z-10"></div>
-        <motion.div
-          key={heroImage}
-          initial={{ scale: 1.1 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 2, ease: "easeOut" }}
-          className="absolute inset-0 w-full h-full"
-        >
-          <ProtectedImage 
-            src={heroImage} 
-            alt="Hero Fashion" 
-            className="w-full h-full object-cover"
-            containerClassName="w-full h-full"
-            referrerPolicy="no-referrer"
-          />
-        </motion.div>
-      </div>
-
-      <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="max-w-2xl">
+    <section className="relative min-h-screen pt-20 flex items-center overflow-hidden bg-nie8-bg">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-24 py-12">
+        
+        {/* Text Editorial - Cột trái */}
+        <div className="w-full lg:w-1/2 z-20 order-2 lg:order-1">
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="flex items-center gap-4 mb-8"
+            className="flex items-center gap-6 mb-10"
           >
-            <div className="h-[1px] w-12 bg-nie8-primary"></div>
-            <span className="text-nie8-secondary text-xs font-medium tracking-[0.3em] uppercase">{heroSubtitle}</span>
+            <div className="h-[1px] w-16 bg-nie8-primary"></div>
+            <span className="text-nie8-secondary text-[10px] sm:text-xs font-bold tracking-[0.4em] uppercase">{heroSubtitle}</span>
           </motion.div>
           
           <motion.h1 
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.2 }}
-            className="text-5xl sm:text-6xl md:text-8xl font-serif italic text-nie8-text leading-[0.9] mb-8 md:mb-10 lowercase"
+            transition={{ duration: 1.2, delay: 0.2 }}
+            className="text-6xl sm:text-8xl md:text-[10rem] font-serif italic text-nie8-text leading-[0.85] mb-10 lowercase tracking-tighter"
           >
             {heroTitle.endsWith('.') ? (
               <>
@@ -61,32 +44,58 @@ export default function Hero({ settings }: HeroProps) {
             )}
           </motion.h1>
 
-          <motion.p 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-lg text-nie8-text/60 mb-12 leading-relaxed max-w-md"
+            className="mb-14"
           >
-            {heroDescription}
-          </motion.p>
+            <p className="text-base sm:text-lg text-nie8-text/50 leading-relaxed max-w-sm font-light">
+              {heroDescription}
+            </p>
+          </motion.div>
 
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8"
+            className="flex flex-col sm:flex-row items-start sm:items-center gap-8"
           >
-            <button className="w-full sm:w-auto px-10 py-4 sm:px-12 sm:py-5 bg-nie8-primary text-nie8-white text-base sm:text-lg rounded-full font-bold hover:bg-nie8-text hover:scale-105 hover:shadow-2xl hover:shadow-nie8-text/30 transition-all duration-300 flex items-center justify-center gap-3 group">
-              Mua ngay
-              <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform duration-300" />
+            <button className="group relative px-12 py-5 bg-nie8-primary text-white text-sm font-bold uppercase tracking-widest overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-nie8-primary/30 active:scale-95 rounded-full">
+              <span className="relative z-10 flex items-center gap-3">
+                Khám phá ngay
+                <ArrowRight size={18} className="transition-transform duration-500 group-hover:translate-x-2" />
+              </span>
             </button>
-            <button className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-4 text-nie8-text text-base sm:text-lg font-bold group hover:text-nie8-primary transition-colors duration-300">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-nie8-text/20 flex items-center justify-center group-hover:bg-nie8-primary group-hover:border-nie8-primary group-hover:text-nie8-white group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
-                <Play size={18} fill="currentColor" className="ml-1" />
-              </div>
-              Xem phim ngắn
+            <div className="h-[1px] w-12 bg-nie8-primary/20 hidden sm:block"></div>
+            <button className="text-[10px] font-bold uppercase tracking-[0.3em] text-nie8-text/40 hover:text-nie8-primary transition-colors duration-300">
+               Issue No. 01 / 2026
             </button>
           </motion.div>
+        </div>
+
+        {/* Hero Image Block - Cột phải */}
+        <div className="w-full lg:w-1/2 relative order-1 lg:order-2">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, x: 50 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            className="relative aspect-[3/4] sm:aspect-[4/5] rounded-[40px] sm:rounded-[80px] overflow-hidden shadow-2xl border-4 border-white/20"
+          >
+            <ProtectedImage 
+              src={heroImage} 
+              alt="Niee8 Editorial" 
+              className="w-full h-full object-cover transition-transform duration-[3s] hover:scale-110"
+              containerClassName="w-full h-full"
+              referrerPolicy="no-referrer"
+            />
+            {/* Overlay Gradient nhẹ */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-nie8-primary/10 to-transparent pointer-events-none" />
+          </motion.div>
+          
+          {/* Decorative Elements */}
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-nie8-primary/5 rounded-full blur-3xl -z-10" />
+          <div className="absolute -top-10 -right-10 w-60 h-60 bg-white/40 rounded-full blur-3xl -z-10" />
         </div>
       </div>
 

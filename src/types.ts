@@ -8,6 +8,8 @@ export interface Product {
   outfit_suggestions?: string[];
   stock_quantity: number;
   stock_by_size?: Record<string, number>;
+  is_set?: boolean;
+  story_content?: string;
   created_at?: string;
 }
 
@@ -51,6 +53,9 @@ export interface SiteSettings {
   heroTitle: string;
   heroSubtitle: string;
   heroDescription: string;
+  theme_mode?: 'warm' | 'slate';
+  grid_mode?: 'full-lookbook' | 'mixed';
+  show_story?: boolean;
 }
 
 export interface Order {

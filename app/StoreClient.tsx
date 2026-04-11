@@ -58,6 +58,16 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   const [currentView, setCurrentView] = useState<View>('home');
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(initialSettings);
+  
+  // Apply Theme based on settings
+  useEffect(() => {
+    if (siteSettings?.theme_mode === 'slate') {
+      document.body.classList.add('theme-slate');
+    } else {
+      document.body.classList.remove('theme-slate');
+    }
+  }, [siteSettings?.theme_mode]);
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAIStylistOpen, setIsAIStylistOpen] = useState(false);
@@ -386,6 +396,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
             onBuyNow={(product, size, quantity) => { addToCart(product, size, quantity); setCurrentView('checkout'); }}
             onChatWithAI={(product) => { setAiContextProduct(product); setIsAIStylistOpen(true); }}
             onRegisterStockNotification={handleRegisterStockNotification}
+            settings={siteSettings}
             isLoading={false}
           />
 

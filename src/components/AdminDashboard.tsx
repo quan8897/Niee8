@@ -68,14 +68,18 @@ export default function AdminDashboard({
     description: '',
     category: 'Áo',
     stock_quantity: 0,
-    stock_by_size: { S: 0, M: 0, L: 0, XL: 0 }
+    stock_by_size: { S: 0, M: 0, L: 0, XL: 0 },
+    is_set: true,
+    story_content: ''
   });
 
-  const [settingsForm, setSettingsForm] = useState<SiteSettings>(siteSettings || {
     heroImage: '',
     heroTitle: '',
     heroSubtitle: '',
-    heroDescription: ''
+    heroDescription: '',
+    theme_mode: 'warm',
+    grid_mode: 'full-lookbook',
+    show_story: true
   });
 
   // Instagram Post State
@@ -579,6 +583,27 @@ export default function AdminDashboard({
                         {getStatusLabel(status)}
                       </button>
                     ))}
+                  <div className="space-y-4 pt-4 border-t border-nie8-primary/5">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Lifestyle & Editorial</h4>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="checkbox" 
+                        id="is_set"
+                        checked={formData.is_set}
+                        onChange={(e) => setFormData({...formData, is_set: e.target.checked})}
+                        className="w-4 h-4 rounded border-nie8-primary/20 text-nie8-primary focus:ring-nie8-primary"
+                      />
+                      <label htmlFor="is_set" className="text-sm font-medium text-nie8-text">Đây là một Set đồ phối sẵn</label>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Câu chuyện bộ đồ (Story Content)</label>
+                       <textarea 
+                         placeholder="Cảm hứng của Stylist về bộ đồ này (Vibe, bối cảnh mặc đẹp...)"
+                         className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl p-4 text-sm focus:border-nie8-primary/30 outline-none transition-all min-h-[100px] italic"
+                         value={formData.story_content}
+                         onChange={(e) => setFormData({...formData, story_content: e.target.value})}
+                       />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -848,6 +873,30 @@ export default function AdminDashboard({
                           </div>
                         </div>
                         <textarea required rows={4} value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Mô tả sản phẩm" className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary resize-none" />
+                        
+                        {/* Lifestyle & Editorial Fields */}
+                        <div className="space-y-4 pt-4 border-t border-nie8-primary/5">
+                          <div className="flex items-center gap-3">
+                            <input 
+                              type="checkbox" 
+                              id="is_set"
+                              checked={formData.is_set}
+                              onChange={(e) => setFormData({...formData, is_set: e.target.checked})}
+                              className="w-4 h-4 rounded border-nie8-primary/20 text-nie8-primary focus:ring-nie8-primary"
+                            />
+                            <label htmlFor="is_set" className="text-sm font-medium text-nie8-text">Đây là một Set đồ phối sẵn</label>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Câu chuyện bộ đồ (Story Content)</label>
+                            <textarea 
+                              placeholder="Cảm hứng của Stylist về bộ đồ này (Vibe, bối cảnh mặc đẹp...)"
+                              className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl p-4 text-sm focus:border-nie8-primary/30 outline-none transition-all min-h-[100px] italic"
+                              value={formData.story_content}
+                              onChange={(e) => setFormData({...formData, story_content: e.target.value})}
+                            />
+                          </div>
+                        </div>
+
                         <div className="flex gap-4">
                           <button type="submit" className="flex-grow py-4 bg-nie8-primary text-white rounded-full font-bold uppercase tracking-widest">{editingId ? 'Cập nhật' : 'Đăng bài'}</button>
                           <button type="button" onClick={() => {setIsAdding(false); setEditingId(null);}} className="px-8 py-4 bg-white text-nie8-text rounded-full font-bold uppercase tracking-widest border border-nie8-primary/10">Hủy</button>
@@ -1181,6 +1230,76 @@ export default function AdminDashboard({
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-widest text-nie8-text/40">Mô tả giới thiệu</label>
                       <textarea rows={4} value={settingsForm.heroDescription || ''} onChange={e => setSettingsForm({...settingsForm, heroDescription: e.target.value})} className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary resize-none" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Tông màu chủ đạo (Theme)</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button 
+                            type="button"
+                            onClick={() => setSettingsForm({...settingsForm, theme_mode: 'warm'})}
+                            className={`p-4 rounded-2xl border-2 flex flex-col gap-2 transition-all ${settingsForm.theme_mode === 'warm' ? 'border-nie8-primary bg-white' : 'border-nie8-primary/10 hover:border-nie8-primary/30'}`}
+                          >
+                            <div className="w-full h-8 bg-[#F5EEE5] rounded-lg border border-black/5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Warm Coffee</span>
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setSettingsForm({...settingsForm, theme_mode: 'slate'})}
+                            className={`p-4 rounded-2xl border-2 flex flex-col gap-2 transition-all ${settingsForm.theme_mode === 'slate' ? 'border-[#3D4E61] bg-white' : 'border-nie8-primary/10 hover:border-nie8-primary/30'}`}
+                          >
+                            <div className="w-full h-8 bg-[#FAF3EB] rounded-lg border border-[#3D4E61]/20 flex gap-1 p-1">
+                               <div className="w-full h-full bg-[#3D4E61] rounded" />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Slate Editorial</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Bố cục trang chủ (Layout)</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button 
+                            type="button"
+                            onClick={() => setSettingsForm({...settingsForm, grid_mode: 'full-lookbook'})}
+                            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${settingsForm.grid_mode === 'full-lookbook' ? 'border-nie8-primary bg-white' : 'border-nie8-primary/10 hover:border-nie8-primary/30'}`}
+                          >
+                             <div className="w-12 h-10 border border-nie8-primary/20 rounded flex gap-1 p-1">
+                                <div className="w-1/2 h-full bg-nie8-primary/20 rounded" />
+                                <div className="flex flex-col gap-1 w-1/2">
+                                   <div className="h-1/2 bg-nie8-primary/10 rounded" />
+                                   <div className="h-1/2 bg-nie8-primary/10 rounded" />
+                                </div>
+                             </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-center">Full Lookbook</span>
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setSettingsForm({...settingsForm, grid_mode: 'mixed'})}
+                            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${settingsForm.grid_mode === 'mixed' ? 'border-nie8-primary bg-white' : 'border-nie8-primary/10 hover:border-nie8-primary/30'}`}
+                          >
+                             <div className="w-12 h-10 border border-nie8-primary/20 rounded grid grid-cols-2 gap-1 p-1">
+                                <div className="bg-nie8-primary/20 rounded" />
+                                <div className="bg-nie8-primary/20 rounded" />
+                                <div className="bg-nie8-primary/10 rounded" />
+                                <div className="bg-nie8-primary/10 rounded" />
+                             </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-center">Mixed Grid</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                       <input 
+                         type="checkbox" 
+                         id="show_story"
+                         checked={settingsForm.show_story}
+                         onChange={(e) => setSettingsForm({...settingsForm, show_story: e.target.checked})}
+                         className="w-4 h-4 rounded border-nie8-primary/20 text-nie8-primary focus:ring-nie8-primary"
+                       />
+                       <label htmlFor="show_story" className="text-sm font-medium text-nie8-text/70">Hiển thị trích dẫn Story trên lưới sản phẩm</label>
                     </div>
                   </div>
                   <button type="submit" className="px-12 py-4 bg-nie8-primary text-white rounded-full font-bold uppercase tracking-widest shadow-xl shadow-nie8-primary/20">Lưu thay đổi</button>
