@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
       // XỬ LÝ ĐƠN HÀNG 0Đ (Giảm giá 100%) - Ép kiểu và kiểm tra an toàn
       const amount = Number(rpcResult.calculated_total) || 0;
       if (amount <= 0) {
-        // Sử dụng Service Role để bypass RLS khi cập nhật trạng thái
-        const supabaseAdmin = await createClient(true); 
+        // Sử dụng Service Role (đã khởi tạo ở trên) để bypass RLS khi cập nhật trạng thái
+        const supabaseAdmin = supabase; 
         const { error: updateError } = await supabaseAdmin.from('orders').update({ status: 'processing' }).eq('id', orderId);
         
         if (updateError) {
