@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import PayOS from '@payos/node';
+import { PayOS } from '@payos/node';
 
 export const runtime = 'nodejs';
 
@@ -15,12 +15,12 @@ export async function POST(request: NextRequest) {
       throw new Error('Thiếu cấu hình PayOS trên môi trường Vercel.');
     }
 
-    const payos = new PayOS(payosCid, payosKey, payosCs);
+    const payos = new PayOS({ clientId: payosCid, apiKey: payosKey, checksumKey: payosCs });
 
     // 1. Xác minh chữ ký Webhook bằng SDK chính thức
     let webhookData;
     try {
-      webhookData = payos.verifyPaymentWebhookData(body);
+      webhookData = await payos.webhooks.verify(body);
     } catch (verifyError) {
       console.warn('[PayOS Webhook] Chữ ký không hợp lệ:', verifyError);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });

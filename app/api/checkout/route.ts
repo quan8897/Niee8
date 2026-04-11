@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import PayOS from '@payos/node';
+import { PayOS } from '@payos/node';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Thiếu cấu hình PayOS hoặc Supabase trên môi trường Vercel.' }, { status: 500 });
     }
 
-    const payos = new PayOS(payosCid, payosKey, payosCs);
+    const payos = new PayOS({ clientId: payosCid, apiKey: payosKey, checksumKey: payosCs });
     const supabase = createClient(sbUrl, sbSvcKey);
 
     // 1. Ghi đơn hàng và trừ kho an toàn qua RPC
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        const pyData = await payos.createPaymentLink(paymentData);
+        const pyData = await payos.paymentRequests.create(paymentData);
         return NextResponse.json({ 
           success: true, 
           orderId, 
