@@ -177,15 +177,27 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       verifyPayment();
       window.history.replaceState({}, '', window.location.pathname);
     } else if (paymentStatus === 'cancel' && orderId) {
-      showToast('Thanh toán đã bị hủy. Sản phẩm đã được trả lại kho!', 'error');
+      const token = params.get('token');
+      showToast('Đang xử lý hủy đơn hàng...', 'info');
       
-      // Khôi phục kho và trạng thái giỏ hàng
-      supabase.rpc('cancel_order_safe', { p_order_id: orderId }).then(() => {
-        refreshProducts(); // Cập nhật lại kho sau khi hoàn
-        showToast('Đã khôi phục sản phẩm vào kho', 'info');
-      });
+      // Sử dụng API Route bảo mật thay vì gọi RPC trực tiếp từ Client
+      fetch('/api/cancel-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, token })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showToast('Đã hủy đơn và hoàn trả sản phẩm vào kho ✓', 'error');
+          refreshProducts(); 
+        } else {
+          showToast(data.error || 'Cảnh báo: Không thể xác thực việc hủy đơn.', 'error');
+        }
+      })
+      .catch(() => showToast('Lỗi kết nối khi hủy đơn.', 'error'));
+
       window.history.replaceState({}, '', window.location.pathname);
-      
     }
   }, [showToast, supabase]);
 
@@ -437,7 +449,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           showToast('Đã xóa', 'info');
         }}
         onUpdateSettings={async (s) => {
-          const { error } = await supabase.from('site_settings').upsert({ id: 'default', ...s });
+          const { error } = await supabase.from('site_settings').upsert({ id: 'global', ...s });
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
           
           await supabase.from('activity_logs').insert({

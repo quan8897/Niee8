@@ -1,5 +1,5 @@
 import { Instagram, Facebook, Music } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface FloatingActionsProps {
 }

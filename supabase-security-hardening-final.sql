@@ -8,7 +8,8 @@
 CREATE SEQUENCE IF NOT EXISTS payos_order_code_seq START 100000;
 
 ALTER TABLE public.orders 
-ADD COLUMN IF NOT EXISTS payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq');
+ADD COLUMN IF NOT EXISTS payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq'),
+ADD COLUMN IF NOT EXISTS cancellation_token UUID DEFAULT gen_random_uuid();
 
 -- Mở rộng bảng Nhật ký để biết AI hay Admin đã thực hiện
 ALTER TABLE public.activity_logs 
@@ -106,6 +107,18 @@ BEGIN
     -- 3. ĐỐI SOÁT GIÁ (Tính lại tổng tiền thực tế sau khi trừ giảm giá)
     v_calculated_total := v_calculated_total - p_discount_amount;
 
+    -- Cảnh báo nếu giá Client gửi lên chênh lệch > 1% so với giá DB tính (Dấu hiệu thao túng)
+    IF ABS(v_calculated_total - p_total_amount) > (v_calculated_total * 0.01) THEN
+        INSERT INTO public.error_logs (origin, error_message, details)
+        VALUES ('secure_checkout_warn', 'Phát hiện chênh lệch giá đáng kể!', 
+                jsonb_build_object(
+                    'order_id', p_order_id, 
+                    'client_total', p_total_amount, 
+                    'db_calculated_total', v_calculated_total,
+                    'diff_percentage', ROUND((ABS(v_calculated_total - p_total_amount) / v_calculated_total * 100)::numeric, 2)
+                ));
+    END IF;
+
     -- 4. LƯU ĐƠN HÀNG VỚI GIÁ ĐÃ TÍNH LẠI
     INSERT INTO public.orders (
         id, user_id, customer_name, customer_phone,
@@ -123,16 +136,22 @@ BEGIN
     INSERT INTO public.activity_logs (action, details, performed_by)
     VALUES ('checkout', 'Đơn hàng mới tạo: ' || p_order_id || '. Tổng tiền: ' || v_calculated_total, p_user_id);
 
-    -- Lấy payos_order_code vừa sinh ra để trả về cho API
+    -- Lấy payos_order_code và cancellation_token vừa sinh ra để trả về cho API
     DECLARE
         v_payos_order_code BIGINT;
+        v_cancellation_token UUID;
     BEGIN
-        SELECT payos_order_code INTO v_payos_order_code FROM public.orders WHERE id = p_order_id;
+        SELECT payos_order_code, cancellation_token 
+        INTO v_payos_order_code, v_cancellation_token 
+        FROM public.orders 
+        WHERE id = p_order_id;
+
         RETURN jsonb_build_object(
             'success', true, 
             'order_id', p_order_id, 
             'calculated_total', v_calculated_total,
-            'payos_order_code', v_payos_order_code
+            'payos_order_code', v_payos_order_code,
+            'cancellation_token', v_cancellation_token
         );
     END;
 

@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
 
       const paymentData = {
         orderCode: Number(orderCode),
-        amount: Math.round(rpcResult.calculated_total), // Dùng giá đã được tính lại từ Database
+        amount: Math.round(rpcResult.calculated_total), 
         description: orderId.slice(0, 25),
-        cancelUrl: `${appUrl}/?payment=cancel&orderId=${orderId}`,
+        cancelUrl: `${appUrl}/?payment=cancel&orderId=${orderId}&token=${rpcResult.cancellation_token}`,
         returnUrl: `${appUrl}/?payment=pending&orderId=${orderId}`,
         expiredAt: expiredAt 
       };

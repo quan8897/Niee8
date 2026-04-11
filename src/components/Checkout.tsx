@@ -135,7 +135,9 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           'SYSTEM_ERROR': 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.'
         };
         
-        const message = data.error_code ? errorMessages[data.error_code] : (data.error || 'Yêu cầu bị từ chối');
+        const message = (data.error_code && data.error_code !== 'SYSTEM_ERROR') 
+          ? errorMessages[data.error_code] 
+          : (data.error || 'Yêu cầu bị từ chối');
         throw new Error(message);
       }
 
