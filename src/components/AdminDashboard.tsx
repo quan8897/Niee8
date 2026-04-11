@@ -73,7 +73,7 @@ export default function AdminDashboard({
     story_content: ''
   });
 
-  const [settingsForm, setSettingsForm] = useState<import('../types').SiteSettings>(siteSettings || {
+  const [settingsForm, setSettingsForm] = useState<SiteSettings>(siteSettings || {
     heroImage: '',
     heroTitle: '',
     heroSubtitle: '',
@@ -584,27 +584,6 @@ export default function AdminDashboard({
                         {getStatusLabel(status)}
                       </button>
                     ))}
-                  <div className="space-y-4 pt-4 border-t border-nie8-primary/5">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Lifestyle & Editorial</h4>
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="checkbox" 
-                        id="is_set"
-                        checked={formData.is_set}
-                        onChange={(e) => setFormData({...formData, is_set: e.target.checked})}
-                        className="w-4 h-4 rounded border-nie8-primary/20 text-nie8-primary focus:ring-nie8-primary"
-                      />
-                      <label htmlFor="is_set" className="text-sm font-medium text-nie8-text">Đây là một Set đồ phối sẵn</label>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Câu chuyện bộ đồ (Story Content)</label>
-                       <textarea 
-                         placeholder="Cảm hứng của Stylist về bộ đồ này (Vibe, bối cảnh mặc đẹp...)"
-                         className="w-full bg-nie8-bg/50 border border-nie8-primary/10 rounded-2xl p-4 text-sm focus:border-nie8-primary/30 outline-none transition-all min-h-[100px] italic"
-                         value={formData.story_content}
-                         onChange={(e) => setFormData({...formData, story_content: e.target.value})}
-                       />
-                    </div>
                   </div>
                 </div>
               </div>

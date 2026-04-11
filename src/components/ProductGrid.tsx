@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus, Sparkles } from 'lucide-react';
-import { Product } from '../types';
+import { Product, SiteSettings } from '../types';
 import ProtectedImage from './ProtectedImage';
 
 const PRODUCTS_PER_PAGE = 12;
@@ -12,7 +12,7 @@ interface ProductGridProps {
   onBuyNow?: (product: Product, size: string, quantity: number) => void;
   onChatWithAI?: (product: Product) => void;
   onRegisterStockNotification?: (productId: string, email: string, size: string) => Promise<boolean>;
-  settings: import('../types').SiteSettings | null;
+  settings: SiteSettings | null;
   isLoading?: boolean;
 }
 
@@ -498,6 +498,8 @@ export default function ProductGrid({
                             key={i}
                             onClick={() => setActiveImageIndex(i)}
                             className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-nie8-primary' : 'border-transparent opacity-60'}`}
+                          >
+                            <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </button>
                         ))}
                       </div>
