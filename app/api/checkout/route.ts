@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, discountAmount, couponCode } = body;
+    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, discountAmount, shippingFee, couponCode } = body;
 
     const payosCid = process.env.PAYOS_CLIENT_ID;
     const payosKey = process.env.PAYOS_API_KEY;
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       p_payment_method: paymentMethod,
       p_note: note || null,
       p_discount_amount: discountAmount || 0,
+      p_shipping_fee: shippingFee || 0,
       p_coupon_code: couponCode || null
     });
 
@@ -56,11 +57,18 @@ export async function POST(request: NextRequest) {
       // Đồng bộ thời gian hết hạn: 15 phút (khớp với Cronjob tự hủy đơn)
       const expiredAt = Math.floor(Date.now() / 1000) + (15 * 60);
 
-      // XỬ LÝ ĐƠN HÀNG 0Đ (Giảm giá 100%)
-      const amount = Math.round(rpcResult.calculated_total);
+      // XỬ LÝ ĐƠN HÀNG 0Đ (Giảm giá 100%) - Ép kiểu và kiểm tra an toàn
+      const amount = Number(rpcResult.calculated_total) || 0;
       if (amount <= 0) {
-        // Đơn hàng miễn phí -> Chuyển sang xử lý luôn
-        await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
+        // Sử dụng Service Role để bypass RLS khi cập nhật trạng thái
+        const supabaseAdmin = await createClient(true); 
+        const { error: updateError } = await supabaseAdmin.from('orders').update({ status: 'processing' }).eq('id', orderId);
+        
+        if (updateError) {
+          console.error('[Free Order Update Error]:', updateError);
+          throw new Error('Không thể cập nhật trạng thái đơn hàng miễn phí.');
+        }
+
         return NextResponse.json({ success: true, orderId });
       }
 

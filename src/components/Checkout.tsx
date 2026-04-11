@@ -114,6 +114,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           userId: user?.id,
           note: formData.note,
           discountAmount: discountAmount,
+          shippingFee: shippingFee,
           couponCode: appliedCoupon?.code || null
         })
       });

@@ -9,7 +9,9 @@ CREATE SEQUENCE IF NOT EXISTS payos_order_code_seq START 100000;
 
 ALTER TABLE public.orders 
 ADD COLUMN IF NOT EXISTS payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq'),
-ADD COLUMN IF NOT EXISTS cancellation_token UUID DEFAULT gen_random_uuid();
+ADD COLUMN IF NOT EXISTS cancellation_token UUID DEFAULT gen_random_uuid(),
+ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Đảm bảo bảng Coupons có đủ các cột cần thiết cho logic bảo mật
 ALTER TABLE public.coupons 
@@ -42,6 +44,7 @@ CREATE OR REPLACE FUNCTION secure_checkout(
     p_payment_method TEXT,
     p_note TEXT DEFAULT NULL,
     p_discount_amount NUMERIC DEFAULT 0,
+    p_shipping_fee NUMERIC DEFAULT 0,
     p_coupon_code TEXT DEFAULT NULL
 )
 RETURNS JSONB
@@ -109,8 +112,8 @@ BEGIN
         END IF;
     END IF;
 
-    -- 3. ĐỐI SOÁT GIÁ (Tính lại tổng tiền thực tế sau khi trừ giảm giá)
-    v_calculated_total := v_calculated_total - p_discount_amount;
+    -- 3. ĐỐI SOÁT GIÁ (Tính lại tổng tiền thực tế: hàng + ship - giảm giá)
+    v_calculated_total := v_calculated_total + p_shipping_fee - p_discount_amount;
 
     -- Cảnh báo nếu giá Client gửi lên chênh lệch > 1% so với giá DB tính (Dấu hiệu thao túng)
     IF ABS(v_calculated_total - p_total_amount) > (v_calculated_total * 0.01) THEN
@@ -128,12 +131,12 @@ BEGIN
     INSERT INTO public.orders (
         id, user_id, customer_name, customer_phone,
         customer_address, customer_city, items,
-        total_amount, payment_method, status,
+        total_amount, shipping_fee, payment_method, status,
         note, discount_amount, coupon_code
     ) VALUES (
         p_order_id, p_user_id, p_customer_name, p_customer_phone,
         p_customer_address, p_customer_city, p_items,
-        v_calculated_total, p_payment_method, 'pending',
+        v_calculated_total, p_shipping_fee, p_payment_method, 'pending',
         p_note, p_discount_amount, p_coupon_code
     );
 
