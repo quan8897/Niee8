@@ -24,16 +24,6 @@ export interface StockMovement {
   created_at: string;
 }
 
-export interface StockNotification {
-  id: string;
-  product_id: string;
-  user_id?: string;
-  email: string;
-  size?: string;
-  status: 'pending' | 'notified';
-  created_at: string;
-  product_name?: string;
-}
 
 export interface CartItem extends Product {
   quantity: number;

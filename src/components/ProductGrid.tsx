@@ -64,9 +64,6 @@ export default function ProductGrid({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [addedToCart, setAddedToCart] = useState(false);
-  const [notificationEmail, setNotificationEmail] = useState('');
-  const [isRegisteringNotification, setIsRegisteringNotification] = useState(false);
-  const [notificationSuccess, setNotificationSuccess] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
   const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc'>('default');
   const touchStartX = useRef<number>(0);
@@ -172,23 +169,6 @@ export default function ProductGrid({
     setCurrentPage(page);
     // Scroll lên đầu section khi đổi trang — quan trọng trên mobile
     sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const handleNotifyMe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProduct || !notificationEmail) return;
-    
-    setIsRegisteringNotification(true);
-    const success = await onRegisterStockNotification?.(selectedProduct.id, notificationEmail, selectedSize);
-    setIsRegisteringNotification(false);
-    
-    if (success) {
-      setNotificationSuccess(true);
-      setTimeout(() => {
-        setNotificationSuccess(false);
-        setNotificationEmail('');
-      }, 3000);
-    }
   };
 
   return (
@@ -661,46 +641,15 @@ export default function ProductGrid({
                           Thanh toán ngay
                         </button>
 
-                        {/* Phase 1: AI Chat button đã ẩn. Thay bằng nút Yêu thích */}
-                        <button
-                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-nie8-bg border-2 border-nie8-primary/10 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform hover:border-nie8-primary/30 text-nie8-primary"
-                          title="Thêm vào yêu thích"
-                        >
-                          <Heart size={20} />
-                        </button>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-widest mb-2">
-                          <X size={14} /> Size {selectedSize} hiện đang hết hàng
+                      <div className="py-4">
+                        <div className="flex items-center gap-2 text-nie8-text/30 font-bold text-xs uppercase tracking-widest mb-2">
+                           Size {selectedSize} hiện đang hết hàng
                         </div>
-                        {notificationSuccess ? (
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-green-50 text-green-700 p-4 rounded-2xl text-xs font-medium text-center border border-green-100"
-                          >
-                            Cảm ơn bạn! Chúng tôi sẽ gửi email ngay khi size {selectedSize} có hàng.
-                          </motion.div>
-                        ) : (
-                          <form onSubmit={handleNotifyMe} className="flex flex-col sm:flex-row gap-2">
-                            <input 
-                              type="email" 
-                              required
-                              placeholder="Nhập email nhận thông báo..."
-                              value={notificationEmail}
-                              onChange={(e) => setNotificationEmail(e.target.value)}
-                              className="flex-grow h-12 sm:h-14 bg-nie8-bg border-2 border-nie8-primary/10 rounded-2xl px-4 text-sm focus:outline-none focus:border-nie8-primary transition-all"
-                            />
-                            <button
-                              type="submit"
-                              disabled={isRegisteringNotification}
-                              className="h-12 sm:h-14 px-8 bg-nie8-primary text-white rounded-2xl font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-nie8-primary/30 disabled:opacity-50"
-                            >
-                              {isRegisteringNotification ? 'Đang gửi...' : 'Nhận thông báo'}
-                            </button>
-                          </form>
-                        )}
+                        <div className="p-4 bg-nie8-bg rounded-2xl border border-nie8-primary/5 text-nie8-text/40 text-[10px] font-medium leading-relaxed">
+                          Sản phẩm này hiện đã hết hàng. Bạn có thể chọn size khác hoặc nhắn tin trực tiếp cho Niee8 qua Instagram để được hỗ trợ nhanh nhất.
+                        </div>
                       </div>
                     )}
 

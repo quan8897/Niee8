@@ -303,8 +303,6 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
         </div>
       </nav>
 
-      {/* Spacer để content không bị che bởi bottom nav trên mobile */}
-      <div className="h-16 lg:hidden" aria-hidden="true" />
     </>
   );
 }
