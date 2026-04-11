@@ -319,7 +319,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           const payload = { ...p, price: Number(cleanPrice) };
           const { error } = await supabase.from('products').insert([payload]);
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
-          setProducts(prev => [payload, ...prev]);
+          setProducts(prev => [p, ...prev]);
           showToast('Đã thêm sản phẩm!');
         }}
         onUpdateProduct={async (p) => {
@@ -327,7 +327,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           const payload = { ...p, price: Number(cleanPrice) };
           const { error } = await supabase.from('products').update(payload).eq('id', p.id);
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
-          setProducts(prev => prev.map(x => x.id === p.id ? payload : x));
+          setProducts(prev => prev.map(x => x.id === p.id ? p : x));
           showToast('Đã cập nhật!');
         }}
         onDeleteProduct={async (id) => {

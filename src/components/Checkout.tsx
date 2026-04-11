@@ -22,7 +22,20 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     address: '',
     city: '',
     note: '',
-    paymentMethod: 'cod' as 'cod' | 'payos'
+    paymentMethod: 'cod' as 'cod' | 'payos',
+    invoice: null as any
+  });
+
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({
+    type: 'personal',
+    name: '',
+    taxCode: '',
+    cccd: '',
+    passport: '',
+    email: '',
+    address: '',
+    saveAsDefault: false
   });
 
   // Coupon state
@@ -110,6 +123,8 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity, name: i.name, images: i.images, price: i.price })),
           paymentMethod: formData.paymentMethod,
           userId: user?.id,
+          note: formData.note 
+            + (formData.invoice ? `\n[YÊU CẦU XUẤT HĐ: ${formData.invoice.type === 'company' ? 'Công ty ' + formData.invoice.name + ' - MST: ' + formData.invoice.taxCode : 'Cá nhân ' + formData.invoice.name}]` : ''),
           discountAmount: discountAmount,
           couponCode: appliedCoupon?.code || null
         })
@@ -244,9 +259,18 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           </section>
 
           {/* eInvoice */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+          <section 
+            className="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setShowInvoiceModal(true)}
+          >
             <h2 className="text-sm font-bold text-gray-900">Hoá đơn điện tử</h2>
-            <span className="text-sm text-gray-500 flex items-center gap-2">Yêu cầu xuất <ChevronRight size={16} /></span>
+            <span className="text-sm flex items-center gap-2 flex-wrap justify-end">
+               {formData.invoice ? (
+                 <span className="text-green-600 font-medium">Đã tiếp nhận thông tin <span className="text-gray-400 font-normal ml-2">Sửa <ChevronRight size={14} className="inline" /></span></span>
+               ) : (
+                 <span className="text-gray-500">Yêu cầu xuất <ChevronRight size={16} /></span>
+               )}
+            </span>
           </section>
 
           {/* Order Note */}
@@ -376,6 +400,85 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
 
         </div>
       </div>
+
+      {showInvoiceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowInvoiceModal(false)}></div>
+          <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+               <button onClick={() => setShowInvoiceModal(false)} className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-500">
+                 <ArrowLeft size={16}/>
+               </button>
+               <h3 className="font-bold text-gray-900 absolute left-1/2 -translate-x-1/2">Xuất hoá đơn VAT</h3>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+               <div className="flex gap-6 mb-6">
+                 <label className="flex items-center gap-2 cursor-pointer">
+                   <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${invoiceForm.type === 'personal' ? 'border-4 border-black bg-white' : 'border-gray-300'}`}></div>
+                   <input type="radio" checked={invoiceForm.type === 'personal'} onChange={() => setInvoiceForm({...invoiceForm, type: 'personal'})} className="hidden"/>
+                   <span className="text-sm font-medium text-gray-800">Cá nhân</span>
+                 </label>
+                 <label className="flex items-center gap-2 cursor-pointer">
+                   <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${invoiceForm.type === 'company' ? 'border-4 border-black bg-white' : 'border-gray-300'}`}></div>
+                   <input type="radio" checked={invoiceForm.type === 'company'} onChange={() => setInvoiceForm({...invoiceForm, type: 'company'})} className="hidden"/>
+                   <span className="text-sm font-medium text-gray-800">Công ty</span>
+                 </label>
+               </div>
+
+               <div className="space-y-4">
+                 {invoiceForm.type === 'company' ? (
+                   <>
+                     <input type="text" placeholder="Tên công ty" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.name} onChange={e => setInvoiceForm({...invoiceForm, name: e.target.value})}/>
+                     <input type="text" placeholder="Mã số thuế" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.taxCode} onChange={e => setInvoiceForm({...invoiceForm, taxCode: e.target.value})}/>
+                   </>
+                 ) : (
+                   <>
+                     <input type="text" placeholder="Nhập tên" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.name} onChange={e => setInvoiceForm({...invoiceForm, name: e.target.value})}/>
+                     <div className="grid grid-cols-2 gap-4">
+                       <input type="text" placeholder="CCCD (không bắt buộc)" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.cccd} onChange={e => setInvoiceForm({...invoiceForm, cccd: e.target.value})}/>
+                       <input type="text" placeholder="Hộ chiếu (không bắt buộc)" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.passport} onChange={e => setInvoiceForm({...invoiceForm, passport: e.target.value})}/>
+                     </div>
+                   </>
+                 )}
+                 <input type="email" placeholder="Email" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.email} onChange={e => setInvoiceForm({...invoiceForm, email: e.target.value})}/>
+                 <input type="text" placeholder="Địa chỉ, tên đường" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:border-black focus:ring-0 outline-none transition-colors" value={invoiceForm.address} onChange={e => setInvoiceForm({...invoiceForm, address: e.target.value})}/>
+                 
+                 <button className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-bold rounded-lg transition-colors mt-2" onClick={() => setInvoiceForm({...invoiceForm, address: formData.address, name: formData.name, email: formData.email})}>Sử dụng địa chỉ giao hàng</button>
+
+                 <label className="flex items-center gap-2 mt-4 cursor-pointer pt-2">
+                   <input type="checkbox" checked={invoiceForm.saveAsDefault} onChange={e => setInvoiceForm({...invoiceForm, saveAsDefault: e.target.checked})} className="accent-black w-4 h-4 rounded border-gray-300"/>
+                   <span className="text-sm text-gray-600">Lưu thành thông tin xuất hoá đơn mặc định</span>
+                 </label>
+
+                 <div className="bg-[#F0F7FF] border border-[#BCE1FF] rounded-xl p-4 mt-6">
+                   <h4 className="flex items-center gap-2 text-[#0066CC] font-bold text-sm mb-2"><AlertCircle size={16}/> Lưu ý</h4>
+                   <ul className="list-disc pl-5 text-xs text-[#004D99] space-y-1">
+                     <li>Nhà bán hàng chỉ hỗ trợ xuất hoá đơn một lần duy nhất và bạn sẽ không thể thay đổi sau khi xác nhận đặt hàng</li>
+                     <li>CCCD hợp lệ chỉ bao gồm 12 ký tự số.</li>
+                   </ul>
+                 </div>
+               </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100">
+               <button 
+                 onClick={() => {
+                   if (!invoiceForm.name) {
+                     alert("Vui lòng nhập tên / tên công ty");
+                     return;
+                   }
+                   setFormData({...formData, invoice: invoiceForm});
+                   setShowInvoiceModal(false);
+                 }}
+                 className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors"
+               >
+                 Gửi yêu cầu
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
