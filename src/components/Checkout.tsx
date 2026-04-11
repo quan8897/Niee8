@@ -78,7 +78,13 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         .eq('code', codeToUse)
         .single();
 
-      if (error || !data) throw new Error('Mã không hợp lệ hoặc đã hết hạn.');
+      if (error || !data) throw new Error('Mã không hợp lệ.');
+      
+      const now = new Date();
+      if (data.expires_at && new Date(data.expires_at) < now) {
+        throw new Error('Mã này đã hết hạn sử dụng.');
+      }
+
       if (!data.is_active) throw new Error('Mã này đã bị vô hiệu hóa.');
       if (data.usage_limit && data.usage_count >= data.usage_limit) throw new Error('Mã này đã hết lượt sử dụng.');
       if (data.require_auth && !user) throw new Error('Mã này chỉ dành cho thành viên đã đăng nhập.');
@@ -476,6 +482,11 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                     const isMemberOnly = coupon.require_auth && !user;
                     const diffToMin = coupon.min_order_amount ? parseFloat(coupon.min_order_amount) - total : 0;
                     const isLockedByMin = diffToMin > 0;
+                    const isExpired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
+                    
+                    // Nếu mã đã hết hạn thì ẩn luôn khỏi danh sách cho sạch sẽ (theo ý bạn)
+                    if (isExpired) return null;
+                    
                     const isLocked = isMemberOnly || isLockedByMin;
 
                     return (
@@ -504,6 +515,10 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                           ) : isLockedByMin ? (
                             <div className="mt-3 flex items-center gap-1.5 text-orange-500 font-bold text-[10px] uppercase tracking-wider bg-orange-50/50 w-fit px-2 py-1 rounded">
                               <Sparkles size={12} /> Mua thêm {formatVND(diffToMin)} để nhận mã này
+                            </div>
+                          ) : isExpired ? (
+                            <div className="mt-3 flex items-center gap-1.5 text-gray-400 font-bold text-[10px] uppercase tracking-wider bg-gray-100 w-fit px-2 py-1 rounded">
+                              <AlertCircle size={12} /> Mã đã hết hạn sử dụng
                             </div>
                           ) : null}
                         </div>
