@@ -312,10 +312,34 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       <AdminDashboard
         products={products}
         siteSettings={siteSettings as any}
-        onAddProduct={async (p) => { setProducts(prev => [p, ...prev]); showToast('Đã thêm sản phẩm!'); }}
-        onUpdateProduct={async (p) => { setProducts(prev => prev.map(x => x.id === p.id ? p : x)); showToast('Đã cập nhật!'); }}
-        onDeleteProduct={async (id) => { setProducts(prev => prev.filter(p => p.id !== id)); showToast('Đã xóa', 'info'); }}
-        onUpdateSettings={async (s) => { setSiteSettings(s); showToast('Đã cập nhật cài đặt!'); }}
+        onAddProduct={async (p) => {
+          const cleanPrice = p.price?.toString().replace(/[^0-9]/g, '') || '0';
+          const payload = { ...p, price: Number(cleanPrice) };
+          const { error } = await supabase.from('products').insert([payload]);
+          if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          setProducts(prev => [payload, ...prev]);
+          showToast('Đã thêm sản phẩm!');
+        }}
+        onUpdateProduct={async (p) => {
+          const cleanPrice = p.price?.toString().replace(/[^0-9]/g, '') || '0';
+          const payload = { ...p, price: Number(cleanPrice) };
+          const { error } = await supabase.from('products').update(payload).eq('id', p.id);
+          if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          setProducts(prev => prev.map(x => x.id === p.id ? payload : x));
+          showToast('Đã cập nhật!');
+        }}
+        onDeleteProduct={async (id) => {
+          const { error } = await supabase.from('products').delete().eq('id', id);
+          if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          setProducts(prev => prev.filter(p => p.id !== id));
+          showToast('Đã xóa', 'info');
+        }}
+        onUpdateSettings={async (s) => {
+          const { error } = await supabase.from('site_settings').upsert({ id: 'default', ...s });
+          if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
+          setSiteSettings(s);
+          showToast('Đã cập nhật cài đặt!');
+        }}
         onClose={() => setCurrentView('home')}
         onLogout={logout}
       />
