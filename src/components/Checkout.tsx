@@ -359,7 +359,6 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                    <span className="text-gray-900 font-bold">Tổng thanh toán</span>
                    <span className="text-2xl font-bold text-gray-900">{formatVND(finalTotal)}</span>
                  </div>
-                 <p className="text-right text-[10px] text-gray-400">Giá trên đã bao gồm VAT {formatVND(finalTotal * 0.08)}</p>
                </div>
 
                <button 
