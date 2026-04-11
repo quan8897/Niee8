@@ -69,8 +69,12 @@ stateDiagram-v2
 
 1.  **Tính chính xác (Inventory Accuracy):** Sử dụng cơ chế Row-level locking (`FOR UPDATE`) trong RPC để đảm bảo tồn kho luôn chính xác trong môi trường cạnh tranh cao.
 2.  **Đồng bộ Expiry (Race Condition Fix):** Link thanh toán PayOS và Đơn hàng Pending đồng loạt hết hạn sau 15-30 phút. Điều này ngăn chặn việc khách hàng thanh toán cho một đơn hàng đã bị hệ thống hủy và giải phóng kho.
-3.  **Traceability:** Mọi đơn hàng PayOS được định danh bằng một `payos_order_code` (BigInt) duy nhất từ Sequence DB để tránh trùng lặp mã thanh toán.
-4.  **Bảo vệ mã giảm giá:** Logic hoàn lại lượt dùng mã giảm giá được tích hợp sâu trong Database, tự động kích hoạt khi trạng thái chuyển sang `cancelled`.
+3.  **Hệ thống Lưu vết Kho (Audit Trail):** Mọi biến động kho (trừ khi đặt hàng, cộng lại khi hủy) đều được ghi nhận vào bảng `stock_movements`. Điều này cho phép hậu kiểm chi tiết lý do tại sao số lượng kho thay đổi.
+4.  **Quy tắc Cộng dồn Mã giảm giá (Stacking Rules):** 
+    - Mỗi đơn hàng tối đa 1 mã Vận chuyển (loại 'shipping') và 1 mã Cửa hàng (loại 'total'/'shop').
+    - **Logic chốt:** Giảm giá Shop không được trừ vào phí ship. Khách hàng luôn phải thanh toán phần `ShippingFee - ShipDiscount`.
+5.  **Traceability:** Mọi đơn hàng PayOS được định danh bằng một `payos_order_code` (BigInt) duy nhất để tránh trùng lặp mã thanh toán.
+6.  **Bảo vệ mã giảm giá:** Logic hoàn lại lượt dùng mã giảm giá được tích hợp trong Database, tự động kích hoạt khi trạng thái chuyển sang `cancelled`.
 
 ---
 **Tài liệu này là căn cứ để xây dựng giao diện Admin và logic Database cho Niee8.**

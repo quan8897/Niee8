@@ -15,7 +15,7 @@ sequenceDiagram
     rect rgb(240, 245, 250)
         Note right of DB: Bước 1: Atomic Secure Checkout (RPC)
         FE->>DB: RPC: secure_checkout(items, coupon, userId)
-        Note over DB: Bắt đầu Transaction:<br/>1. Tính lại giá từ DB (Server-side)<br/>2. Kiểm tra/Trừ Stock (Row Lock)<br/>3. Kiểm tra/Tăng lượt dùng Coupon<br/>4. Lưu Orders & Movements
+        Note over DB: Bắt đầu Transaction:<br/>1. Tính Subtotal (Giá gốc từ DB)<br/>2. Áp mã Shop (Max = Subtotal)<br/>3. Áp mã Ship (Max = ShippingFee)<br/>4. Chốt: Final = (Subtotal - Shop) + (ShipFee - Ship)<br/>5. Trừ Stock (FOR UPDATE) & Lưu đơn
         
         alt Nhánh 1: Thành công
             DB-->>FE: JSON { success: true, payos_order_code, ... }

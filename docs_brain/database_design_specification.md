@@ -1,6 +1,6 @@
-# Đặc tả Thiết kế Cơ sở Dữ liệu - Niee8 E-commerce
+# Đặc tả Thiết kế Cơ sở Dữ liệu - Niee8 E-commerce (V5.2)
 
-Tài liệu này trình bày kiến trúc cơ sở dữ liệu chuẩn hóa cho hệ thống thời trang Niee8, tập trung vào hiệu suất cao, tính minh bạch và khả năng mở rộng trên nền tảng Supabase (PostgreSQL).
+Tài liệu này trình bày kiến trúc cơ sở dữ liệu chuẩn hóa cho hệ thống thời trang Niee8, tập trung vào bảo mật tuyệt đối, tính minh bạch và khả năng tra soát (Audit Trail).
 
 ## 1. Sơ đồ Thực thể Liên kết (ERD)
 
@@ -12,6 +12,8 @@ erDiagram
     profiles ||--|{ orders : "places"
     orders ||--|{ order_items : "contains"
     coupons ||--o{ orders : "applied_to"
+    products ||--|{ product_likes : "tracked_via"
+    products ||--|{ stock_movements : "audit_trail"
 
     profiles {
         uuid id PK "FK to auth.users"
@@ -25,88 +27,85 @@ erDiagram
         uuid id PK
         string name
         text description
-        decimal base_price
+        decimal price
         string category
         string_array images
+        integer sales_count
+        integer likes_count
     }
 
-    product_variants {
+    product_likes {
         uuid id PK
         uuid product_id FK
-        string size "S, M, L, XL"
-        string color "Optional"
-        string sku "Stock Keeping Unit"
-        decimal price_adjustment
+        uuid user_id FK "NULL for guests"
+        string ip_address "Identifier for guests"
+        timestamp created_at
     }
 
-    inventory {
+    stock_movements {
         uuid id PK
-        uuid variant_id FK "UK"
-        integer quantity
-        integer low_stock_threshold
+        uuid product_id FK
+        string size
+        integer quantity "Negative for sales, Positive for restock"
+        string type "sale, restock, cancel_return"
+        string reference_id "Order ID or transaction reference"
+        timestamp created_at
     }
 
     orders {
         uuid id PK
         uuid user_id FK
         bigint payos_order_code "Unique sequence for Payment"
-        decimal total_amount
+        decimal total_amount "Final calculated total"
+        decimal shipping_fee "Final shipping fee after discount"
+        decimal discount_amount "Shop discount applied"
         string status "pending, processing, shipping, completed, cancelled"
-        uuid coupon_id FK
+        jsonb coupon_codes "Array of applied codes"
         timestamp created_at
-    }
-
-    activity_logs {
-        uuid id PK
-        string action
-        jsonb details
-        uuid performed_by FK "FK to profiles"
-    }
-
-    error_logs {
-        integer id PK
-        timestamp created_at
-        string origin "RPC Name"
-        string error_message
-        jsonb details
     }
 ```
 
 ## 2. Chiến lược Đánh chỉ mục (Indexing Strategy)
 
-Chúng ta triển khai các lớp Index để tối ưu hóa hiệu năng:
-
 | Loại Index | Mục tiêu | Cột áp dụng |
 | :--- | :--- | :--- |
-| **B-Tree (Unique)** | Đảm bảo tính duy nhất & Tra cứu nhanh | `orders(payos_order_code)`, `coupons(code)` |
-| **GIN (Full-Text)** | Tìm kiếm sản phẩm theo từ khóa | `products(name, description)` |
-| **Relationship B-Tree** | Tăng tốc độ JOIN | `orders(user_id)`, `activity_logs(performed_by)` |
+| **B-Tree (Unique)** | Chống spam Like | `product_likes(product_id, ip_address, user_id)` |
+| **B-Tree (Unique)** | Tra cứu đơn hàng | `orders(payos_order_code)`, `coupons(code)` |
+| **Composite B-Tree** | Tra soát kho | `stock_movements(product_id, size, created_at)` |
+| **GIN (JSONB)** | Tìm kiếm mã giảm giá | `orders(coupon_codes)` |
 
-## 3. Mã triển khai (SQL Script - Phiên bản Bảo mật)
+## 3. Mã triển khai (SQL Script - Phiên bản V5.2)
 
 ```sql
--- 1. Khởi tạo Sequence & Log Tables
-CREATE SEQUENCE payos_order_code_seq START 100000;
-
-CREATE TABLE error_logs (
-    id SERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    origin TEXT,
-    error_message TEXT,
-    details JSONB
+-- 1. Bảng lưu vết kho (Audit Trail)
+CREATE TABLE stock_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES products(id),
+    size TEXT,
+    quantity INTEGER,
+    type TEXT,
+    reference_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Cập nhật bảng Orders & Activity
-ALTER TABLE orders ADD COLUMN payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq');
-ALTER TABLE activity_logs ADD COLUMN performed_by UUID REFERENCES profiles(id);
+-- 2. Bảng bảo mật lượt thích (Robust Likes)
+CREATE TABLE product_likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES products(id),
+    user_id UUID REFERENCES auth.users(id),
+    ip_address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(product_id, user_id),
+    UNIQUE(product_id, ip_address)
+);
 
--- 3. RPC: secure_checkout (Atomic Logic)
-CREATE OR REPLACE FUNCTION secure_checkout(...) -- Xem tệp supabase-security-hardening-final.sql để biết chi tiết
+-- 3. Cập nhật RPC secure_checkout (Phiên bản V5.2)
+-- Đã triển khai logic: (Subtotal - ShopDiscount) + (ShippingFee - ShipDiscount)
 ```
 
 ## 4. Nguyên tắc Vận hành (Architectural Best Practices)
 
-- **Atomic Checkout:** Toàn bộ quá trình kiểm tra giá, trừ kho và tạo đơn được bọc trong một Database Transaction duy nhất qua RPC.
-- **Server-side Calculation:** Tuyệt đối không tin tưởng giá trị `total_amount` từ client; mọi phép tính phải được thực thi lại trong Database.
-- **Idempotency:** Webhook thanh toán dựa trên `payos_order_code` và trạng thái `pending` để tránh xử lý trùng.
-- **Audit Logging:** Mọi thao tác trọng yếu đều được ghi vết người thực hiện qua `performed_by`.
+- **Zero-Trust Pricing (V5.2):** Mã Shop chỉ giảm tối đa bằng `Subtotal`. Mã Ship chỉ giảm tối đa bằng `ShippingFee`. Tổng thanh toán luôn >= Phí ship sau giảm.
+- **Audit Logging:** Mọi thay đổi kho đều phải có 1 bản ghi tương ứng trong `stock_movements`. Tuyệt đối không update trực tiếp stock mà không có reference.
+- **Race Condition Prevention:** Sử dụng `FOR UPDATE` trong RPC để khóa bản ghi Sản phẩm và Coupon trong suốt quá trình xử lý đơn hàng.
+- **Bot Mitigation:** Tích hợp kiểm tra IP và User-Agent tại Middleware để bảo vệ các API CRUD quan trọng.

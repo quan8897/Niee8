@@ -38,18 +38,18 @@ sequenceDiagram
 
 | Tiêu chí | Đánh giá | Chi tiết Kỹ thuật |
 | :--- | :--- | :--- |
-| **Chống thao túng giá** | **Xuất sắc (V5)** | Sử dụng RPC `secure_checkout` để tính toán lại giá 100% từ Database, loại bỏ hoàn toàn rủi ro Price Override. |
-| **Toàn vẹn kho hàng** | **Xuất sắc** | Atomic Transaction: Trừ kho và tạo đơn được thực hiện trong cùng một nhịp đập của DB, chống Race Condition. |
-| **Xác thực Webhook** | **Chuẩn SDK** | Sử dụng `@payos/node` chuẩn để xác thực chữ ký HMAC-SHA256, đảm bảo tính duy nhất và an toàn cho dòng tiền. |
-| **Idempotency** | **Đảm bảo** | Kiểm tra trạng thái và sử dụng `payos_order_code` để ngăn chặn việc xử lý webhook trùng lặp. |
-| **Đồng bộ Link Expiry** | **Hoàn thiện** | `expiredAt` trong link thanh toán khớp chính xác với 15 phút của hệ thống, tránh việc khách thanh toán đơn đã hủy. |
+| **Chống thao túng giá** | **Siêu cấp (V5.2)** | Sử dụng RPC `secure_checkout` để tính toán lại giá 100%. **Logic mới:** Mã Shop chỉ trừ vào Tiền hàng, không được phép trừ vào Phí ship. |
+| **Toàn vẹn kho hàng** | **Xuất sắc** | Atomic Transaction: Khóa `FOR UPDATE` cấp dòng cho sản phẩm và mã giảm giá, chống Race Condition tuyệt đối. |
+| **Stacking Logic** | **Chuẩn xác** | Áp dụng quy tắc 1-1: Mỗi đơn hàng chỉ được phép dùng tối đa 1 mã Vận chuyển và 1 mã Shop. Chặn đứng việc cộng dồn sai quy định. |
+| **Robust Likes** | **Gia cố** | Chuyển từ biến đếm đơn thuần sang bảng `product_likes` để lưu vết IP/User, chống spam lượt thích bằng Bot. |
+| **Middleware** | **Lớp bảo mật rìa** | Sử dụng Edge Middleware để lọc User-Agent lạ và chặn Bot cào dữ liệu AI/Checkout ngay từ cổng vào. |
 
 ## 4. Các điểm Ghi chú Vận hành (Operational Notes)
 
-- **Atomic Checkout Logic:** Một hàm duy nhất (`secure_checkout`) xử lý: Giá -> Kho -> Coupon -> Order. Nếu một bước lỗi, toàn bộ sẽ rollback để đảm bảo hệ thống không bao giờ ở trạng thái không nhất quán.
-- **Hệ thống Error Logging:** Bảng `error_logs` được thiết kế để "túm" mọi lỗi phát sinh trong RPC, giúp quản trị viên debug và tra soát dòng tiền cực nhanh.
-- **Hoàn kho an toàn:** Cơ chế hoàn kho dựa hoàn toàn trên Trigger DB (`on_order_cancelled`), tự động kích hoạt ngay cả khi Admin thao tác trực tiếp trên Supabase Dashboard.
-- **Traceability:** Mọi hành động nhạy cảm đều được định danh qua cột `performed_by` trong nhật ký hệ thống.
+- **Strict Stacking Rules:** Frontend và Backend đồng bộ logic tách biệt Slot: `ShopDiscount <= Subtotal` và `ShipDiscount <= ShippingFee`. Tổng thanh toán luôn >= 0.
+- **Atomic Checkout Logic:** Một hàm duy nhất (`secure_checkout`) xử lý: Giá -> Kho -> Coupon -> Order. Nếu một bước lỗi, toàn bộ sẽ rollback.
+- **Hệ thống Audit Logs:** Ngoài `error_logs`, hệ thống mới ghi nhận `stock_movements` chi tiết cho từng biến động kho để tra soát hậu kiểm.
+- **Traceability:** Mọi hành động Like đều được định danh qua bảng logs để ngăn chặn tấn công spam số liệu.
 
 ---
-**Kết luận:** Hệ thống Niee8 hiện tại đạt tiêu chuẩn **Enterprise-Grade** về xử lý thanh toán và quản trị rủi ro dòng tiền.
+**Kết luận:** Hệ thống Niee8 hiện tại đã được nâng cấp lên tiêu chuẩn **Zero-Trust Commerce**, đảm bảo an toàn tuyệt đối trước các hành vi thao túng giá và lạm dụng hệ thống.
