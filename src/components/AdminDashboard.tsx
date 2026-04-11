@@ -73,6 +73,7 @@ export default function AdminDashboard({
     story_content: ''
   });
 
+  const [settingsForm, setSettingsForm] = useState<import('../types').SiteSettings>(siteSettings || {
     heroImage: '',
     heroTitle: '',
     heroSubtitle: '',

@@ -196,52 +196,41 @@ export default function ProductGrid({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
 
         {/* Header section */}
-        <div className="flex justify-between items-end mb-8 sm:mb-16">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sm:mb-16">
           <div>
             <motion.span
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="inline-block text-nie8-secondary text-[10px] sm:text-xs font-medium tracking-[0.2em] uppercase mb-2 sm:mb-4"
+              className="inline-block text-nie8-secondary text-[10px] sm:text-xs font-bold tracking-[0.3em] uppercase mb-2 sm:mb-4"
             >
-              Lựa chọn Tinh tuyển
+              Editorial Lookbook
             </motion.span>
             <motion.h2
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               viewport={{ once: true }}
-              className="text-3xl sm:text-5xl font-serif italic text-nie8-text leading-tight"
+              className="text-4xl sm:text-6xl font-serif italic text-nie8-text leading-tight"
             >
-              Tủ đồ <span className="text-nie8-primary">Hiện đại.</span>
+              The <span className="text-nie8-primary">Journal.</span>
             </motion.h2>
           </div>
-          {/* Filter pills — dynamic từ data thực tế + sort */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scroll-hide">
+          
+          <div className="flex flex-wrap gap-2 w-full md:w-auto overflow-x-auto pb-1 scroll-hide">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-medium tracking-widest uppercase transition-all ${
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-widest uppercase transition-all ${
                   activeCategory === cat
-                    ? 'bg-nie8-primary text-white shadow-md shadow-nie8-primary/20'
-                    : 'text-nie8-text/40 hover:text-nie8-text border border-nie8-text/10 hover:border-nie8-primary/30'
+                    ? 'bg-nie8-primary text-white shadow-lg shadow-nie8-primary/20'
+                    : 'text-nie8-text/40 hover:text-nie8-text border border-nie8-text/10'
                 }`}
               >
                 {cat}
               </button>
             ))}
-            <div className="w-px bg-nie8-text/10 mx-1 flex-shrink-0" />
-            <select
-              value={activeSort}
-              onChange={e => setActiveSort(e.target.value as typeof activeSort)}
-              className="text-[10px] sm:text-xs text-nie8-text/60 bg-transparent border border-nie8-text/10 rounded-full px-3 py-1.5 focus:outline-none cursor-pointer hover:border-nie8-primary/30 transition-colors"
-            >
-              <option value="default">Mặc định</option>
-              <option value="new">Mới nhất</option>
-              <option value="price-asc">Giá tăng dần</option>
-              <option value="price-desc">Giá giảm dần</option>
-            </select>
           </div>
         </div>
 
@@ -256,11 +245,11 @@ export default function ProductGrid({
           ) : filteredProducts.length === 0 ? (
             <div className="col-span-full text-center py-24 text-nie8-text/30">
                <ShoppingBag size={48} className="mx-auto mb-4" strokeWidth={1} />
-               <p className="font-serif italic text-xl">Không tìm thấy sản phẩm phù hợp...</p>
+               <p className="font-serif italic text-xl">Hiện chưa có sản phẩm nào...</p>
             </div>
           ) : (
             currentProducts.map((product, index) => {
-              // Logic Magazine Layout: To (span 2) - Nhỏ - Vừa - To
+              // Magazine Layout Logic
               let spanClass = "col-span-1";
               let aspectClass = "aspect-[4/5]";
               
@@ -268,7 +257,7 @@ export default function ProductGrid({
                 const patternIndex = index % 8;
                 if (patternIndex === 0) {
                   spanClass = "col-span-2 row-span-2 md:col-span-2 md:row-span-2";
-                  aspectClass = "aspect-[4/5] md:aspect-[4/5]";
+                  aspectClass = "aspect-[4/5]";
                 } else if (patternIndex === 4) {
                   spanClass = "col-span-1 md:col-span-2";
                   aspectClass = "aspect-[16/9] md:aspect-[21/9]";
@@ -277,12 +266,12 @@ export default function ProductGrid({
 
               return (
                 <React.Fragment key={product.id}>
-                  {/* Story Block - Xuất hiện tinh tế giữa các sản phẩm */}
-                  {settings?.show_story && product.story_content && (index % 5 === 2) && (
+                  {/* Story Block Integration */}
+                  {settings?.show_story && product.story_content && (index % 6 === 3) && (
                     <motion.div 
                       initial={{ opacity: 0 }}
                       whileInView={{ opacity: 1 }}
-                      className="hidden lg:flex flex-col justify-center p-10 bg-nie8-bg/20 rounded-[40px] border border-nie8-primary/5 italic text-sm text-nie8-text/50 leading-relaxed font-serif text-center"
+                      className="hidden lg:flex flex-col justify-center p-10 bg-nie8-bg/20 rounded-[48px] border border-nie8-primary/5 italic text-sm text-nie8-text/50 leading-relaxed font-serif text-center"
                     >
                       "{product.story_content}"
                     </motion.div>
@@ -293,18 +282,17 @@ export default function ProductGrid({
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className={`${spanClass} relative group cursor-pointer h-full`}
+                    className={`${spanClass} relative group cursor-pointer`}
                     onClick={() => openProduct(product)}
                   >
                     <div className="h-full flex flex-col">
-                      <div className={`${aspectClass} rounded-[32px] sm:rounded-[48px] overflow-hidden relative shadow-sm border border-nie8-primary/5 group-hover:shadow-2xl group-hover:shadow-nie8-primary/10 transition-all duration-700`}>
+                      <div className={`${aspectClass} rounded-[40px] sm:rounded-[56px] overflow-hidden relative shadow-sm border border-nie8-primary/5 group-hover:shadow-2xl group-hover:shadow-nie8-primary/10 transition-all duration-700`}>
                         <LazyImage
                           src={product.images[0]}
                           alt={product.name}
                           className="group-hover:scale-105"
                         />
                         
-                        {/* Status Badges */}
                         {product.stock_quantity === 0 && (
                           <div className="absolute top-4 left-4 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full z-10 shadow-lg">
                             HẾT HÀNG
@@ -313,27 +301,19 @@ export default function ProductGrid({
 
                         <button 
                           onClick={(e) => toggleWishlist(product.id, e)}
-                          className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-nie8-text/40 hover:text-red-500 transition-all shadow-sm z-10 border border-white/50"
+                          className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-nie8-text/40 hover:text-red-500 transition-all z-10 border border-white/50"
                         >
                           <Heart size={18} className={wishlist.has(product.id) ? 'fill-red-500 text-red-500' : ''} />
                         </button>
-
-                        {/* Price Tag (Modern Typography) */}
-                        <div className="absolute bottom-6 left-6 z-10 hidden sm:block">
-                          <span className="bg-nie8-primary text-white px-4 py-2 rounded-full text-[10px] font-bold tracking-widest shadow-xl">
-                            {formatVND(product.price)}
-                          </span>
-                        </div>
                       </div>
                       
-                      {/* Text Info */}
                       <div className="mt-4 sm:mt-6 px-2 text-center">
-                        <h3 className="text-xs sm:text-base font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors line-clamp-1">
+                        <h3 className="text-xs sm:text-base font-serif italic text-nie8-text group-hover:text-nie8-primary transition-colors">
                           {product.name}
                         </h3>
-                        <div className="sm:hidden mt-1 font-bold text-[10px] text-nie8-primary">
+                        <p className="mt-1 font-bold text-[10px] sm:text-xs text-nie8-primary">
                           {formatVND(product.price)}
-                        </div>
+                        </p>
                       </div>
                     </div>
                   </motion.div>
@@ -518,9 +498,10 @@ export default function ProductGrid({
                             key={i}
                             onClick={() => setActiveImageIndex(i)}
                             className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${i === activeImageIndex ? 'border-nie8-primary' : 'border-transparent opacity-60'}`}
-                          >
-                            <img src={img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-{/* Size selector */}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="mb-5">
                       <div className="flex items-center justify-between mb-2.5">
                         <span className="text-xs font-bold uppercase tracking-wider text-nie8-text">Kích thước</span>
