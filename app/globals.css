@@ -1,16 +1,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap');
 @import "tailwindcss";
 
+:root {
+  --nie8-bg: #F5EEE5;
+  --nie8-primary: #5C4D3F;
+  --nie8-secondary: #9E8C78;
+  --nie8-accent: #D8CEBF;
+  --nie8-text: #5C4D3F;
+  --nie8-white: #FFFFFF;
+}
+
+.theme-slate {
+  --nie8-bg: #FAF3EB;
+  --nie8-primary: #3D4E61;
+  --nie8-secondary: #5A6A7D;
+  --nie8-accent: #5A6A7D;
+  --nie8-text: #3D4E61;
+}
+
 @theme {
   --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
   --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   
-  --color-nie8-bg:        #F5EEE5;
-  --color-nie8-primary:   #5C4D3F;
-  --color-nie8-secondary: #9E8C78;
-  --color-nie8-accent:    #D8CEBF;
-  --color-nie8-text:      #5C4D3F;
-  --color-nie8-white:     #FFFFFF;
+  --color-nie8-bg: var(--nie8-bg);
+  --color-nie8-primary: var(--nie8-primary);
+  --color-nie8-secondary: var(--nie8-secondary);
+  --color-nie8-accent: var(--nie8-accent);
+  --color-nie8-text: var(--nie8-text);
+  --color-nie8-white: var(--nie8-white);
 }
 
 @layer base {
