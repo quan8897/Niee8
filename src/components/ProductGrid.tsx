@@ -13,6 +13,7 @@ interface ProductGridProps {
   onBuyNow?: (product: Product, size: string, quantity: number) => void;
   settings: SiteSettings | null;
   isLoading?: boolean;
+  user?: any;
 }
 
 // Skeleton card cho loading state
@@ -52,7 +53,8 @@ export default function ProductGrid({
   onAddToCart, 
   onBuyNow,
   settings,
-  isLoading = false 
+  isLoading = false,
+  user
 }: ProductGridProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -164,11 +166,19 @@ export default function ProductGrid({
       return next;
     });
 
-    // 2. Gửi tín hiệu lên Database để tích lũy chỉ số (Background)
+    // 2. Gửi tín hiệu lên Database để lưu vết và bảo mật (IP/User)
     try {
+      // Vì là Client-side, ta dùng mã định danh trình duyệt (Guest ID) thay cho IP thật nếu không có quyền
+      let guestId = localStorage.getItem('nie8_guest_id');
+      if (!guestId) {
+        guestId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        localStorage.setItem('nie8_guest_id', guestId);
+      }
+
       await supabase.rpc('handle_product_like', { 
         p_id: id, 
-        p_increment: isAdding ? 1 : -1 
+        p_ip: guestId,
+        p_uid: user?.id || null
       });
     } catch (err) {
       console.error('Lỗi khi cập nhật lượt yêu thích:', err);

@@ -467,6 +467,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
             onBuyNow={(product, size, quantity) => { addToCart(product, size, quantity); setCurrentView('checkout'); }}
             settings={siteSettings}
             isLoading={false}
+            user={user}
           />
 
           {/* Newsletter */}
