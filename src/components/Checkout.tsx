@@ -125,19 +125,22 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       }
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Yêu cầu thanh toán bị từ chối');
-
-      // Ghi nhật ký hệ thống: Thông báo đơn hàng mới cho Admin
-      await supabase.from('activity_logs').insert({
-        product_id: null,
-        action: 'Đơn hàng mới',
-        details: `Có đơn hàng mới #${data.orderId} từ khách hàng ${formData.name} (${formData.phone}). Tổng cộng: ${new Intl.NumberFormat('vi-VN').format(finalTotal)}đ`
-      });
-
-      // Update coupon usage count if applied 
-      if (appliedCoupon) {
-        await supabase.rpc('increment_coupon_usage', { p_code: appliedCoupon.code });
+      
+      if (!response.ok) {
+        // Ánh xạ mã lỗi từ Server sang thông báo tiếng Việt
+        const errorMessages: Record<string, string> = {
+          'OUT_OF_STOCK': 'Rất tiếc, một sản phẩm trong giỏ hàng vừa hết hàng. Vui lòng kiểm tra lại.',
+          'PRODUCT_NOT_FOUND': 'Sản phẩm không còn tồn tại trong hệ thống.',
+          'COUPON_INVALID': 'Mã giảm giá không hợp lệ hoặc đã hết lượt sử dụng.',
+          'SYSTEM_ERROR': 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.'
+        };
+        
+        const message = data.error_code ? errorMessages[data.error_code] : (data.error || 'Yêu cầu bị từ chối');
+        throw new Error(message);
       }
+
+      // UPDATE: Không cần insert activity_logs và increment_coupon_usage ở đây 
+      // vì RPC secure_checkout trên Server đã thực hiện tự động và an toàn hơn.
 
       if (data.checkoutUrl) {
         localStorage.setItem('nie8_temp_phone', formData.phone);
@@ -147,7 +150,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       }
     } catch (error: any) {
       console.error('Checkout Error:', error);
-      alert(`Lỗi đặt hàng: ${error.message}`);
+      alert(error.message);
     } finally {
       setIsProcessing(false);
     }

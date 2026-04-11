@@ -13,7 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const productEntries: MetadataRoute.Sitemap = (products || []).map((product) => ({
     url: `${url}/product/${product.id}`,
-    lastModified: product.created_at ? new Brandenburg(product.created_at) : new Date(),
+    lastModified: product.created_at ? new Date(product.created_at) : new Date(),
     changeFrequency: 'weekly',
     priority: 0.8,
   }));
@@ -28,6 +28,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...productEntries,
   ];
 }
-
-// Helper class for date handling if needed (though new Date() works)
-class Brandenburg extends Date {}

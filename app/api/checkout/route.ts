@@ -1,32 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import PayOS from '@payos/node';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  // Tạo OrderID ngẫu nhiên bảo mật hơn một chút
   const orderId = `NIE8-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
   
   try {
     const body = await request.json();
     const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, discountAmount, couponCode } = body;
 
-    // Biến môi trường
     const payosCid = process.env.PAYOS_CLIENT_ID;
     const payosKey = process.env.PAYOS_API_KEY;
     const payosCs = process.env.PAYOS_CHECKSUM_KEY;
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const sbSvcKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Bắt buộc dùng Service Role
+    const sbSvcKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    if (!payosCid || !payosCs || !sbSvcKey) {
-      return NextResponse.json({ error: 'Config Error: Missing Env Vars on Vercel' }, { status: 500 });
+    if (!payosCid || !payosKey || !payosCs || !sbSvcKey) {
+      return NextResponse.json({ error: 'Thiếu cấu hình PayOS hoặc Supabase trên môi trường Vercel.' }, { status: 500 });
     }
 
+    const payos = new PayOS(payosCid, payosKey, payosCs);
     const supabase = createClient(sbUrl, sbSvcKey);
 
-    // LỖI 2 FIX: Truyền đầy đủ tham số vào RPC
+    // 1. Ghi đơn hàng và trừ kho an toàn qua RPC
     const { data: rpcResult, error: rpcError } = await supabase.rpc('secure_checkout', {
       p_order_id: orderId,
       p_user_id: userId || null,
@@ -43,50 +43,46 @@ export async function POST(request: NextRequest) {
     });
 
     if (rpcError) throw new Error(`Database Error: ${rpcError.message}`);
-    if (rpcResult?.success === false) return NextResponse.json({ error: rpcResult.error }, { status: 400 });
+    if (rpcResult?.success === false) return NextResponse.json({ 
+        error_code: rpcResult.error_code, 
+        error: rpcResult.error 
+    }, { status: 400 });
 
-    // 2. Thanh toán PayOS
+    // 2. Tạo link thanh toán PayOS (nếu chọn phương thức payos)
     if (paymentMethod === 'payos') {
-      // LỖI 1 FIX: OrderCode duy nhất hơn và Signature đúng thứ tự PayOS yêu cầu
-      const orderCode = Number(String(Date.now()).slice(-8)); 
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://nie8studio.vn').replace(/\/$/, '');
+      const orderCode = rpcResult.payos_order_code; // Lấy mã số nguyên từ DB (PostgreSQL Sequence)
+      
+      // Đồng bộ thời gian hết hạn: 15 phút (khớp với Cronjob tự hủy đơn)
+      const expiredAt = Math.floor(Date.now() / 1000) + (15 * 60);
 
       const paymentData = {
-        orderCode,
-        amount: Math.max(2000, totalAmount),
-        description: orderId.slice(0, 25), // PayOS giới hạn 25 ký tự description
+        orderCode: Number(orderCode),
+        amount: Math.round(rpcResult.calculated_total), // Dùng giá đã được tính lại từ Database
+        description: orderId.slice(0, 25),
         cancelUrl: `${appUrl}/?payment=cancel&orderId=${orderId}`,
-        returnUrl: `${appUrl}/?payment=pending&orderId=${orderId}`
+        returnUrl: `${appUrl}/?payment=pending&orderId=${orderId}`,
+        expiredAt: expiredAt 
       };
 
-      // LỖI 1 FIX: Thứ tự fix cứng theo tài liệu PayOS (amount -> cancelUrl -> description -> orderCode -> returnUrl)
-      const signatureString = `amount=${paymentData.amount}&cancelUrl=${paymentData.cancelUrl}&description=${paymentData.description}&orderCode=${paymentData.orderCode}&returnUrl=${paymentData.returnUrl}`;
-      const signature = crypto.createHmac('sha256', payosCs).update(signatureString).digest('hex');
-
-      const pyRes = await fetch('https://api-merchant.payos.vn/v2/payment-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-client-id': payosCid,
-          'x-api-key': payosKey!
-        },
-        body: JSON.stringify({ ...paymentData, signature })
-      });
-
-      const pyData = await pyRes.json();
-      if (pyData.code !== '00') throw new Error(`PayOS API Error: ${pyData.desc}`);
-
-      return NextResponse.json({ 
-        success: true, 
-        orderId, 
-        checkoutUrl: pyData.data.checkoutUrl 
-      });
+      try {
+        const pyData = await payos.createPaymentLink(paymentData);
+        return NextResponse.json({ 
+          success: true, 
+          orderId, 
+          checkoutUrl: pyData.checkoutUrl 
+        });
+      } catch (payosError: any) {
+        // Rollback đơn hàng nếu tạo link thất bại (Optional, hoặc để Cronjob tự hốt)
+        console.error('[PayOS SDK Error]:', payosError);
+        throw new Error(`Lỗi khởi tạo thanh toán: ${payosError.message}`);
+      }
     }
 
     return NextResponse.json({ success: true, orderId });
 
   } catch (err: any) {
-    console.error('[Checkout API Error]:', err.message);
+    console.error('[Checkout API Fatal Error]:', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

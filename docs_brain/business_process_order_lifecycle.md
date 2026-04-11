@@ -60,17 +60,17 @@ stateDiagram-v2
 - **Shipped (Đang giao):** Hàng đã rời kho. Trách nhiệm thuộc về đơn vị vận chuyển.
 
 ### 2.2. Nhóm Trạng thái Hủy & Trả hàng
-- **Cancelled (Đã hủy):** Đơn hàng dừng lại trước khi giao. Hệ thống thực hiện **Hoàn kho 100%**.
+- **Cancelled (Đã hủy):** Đơn hàng dừng lại trước khi giao. Hệ thống thực hiện **Hoàn kho tự động qua Database Trigger**. Cơ chế này đảm bảo hàng được trả về kể cả khi đơn bị hủy bởi Cronjob, Webhook thất bại hoặc Admin xóa DB.
 - **Returning (Đang thu hồi):** Hàng đang trên đường quay về kho. Kho chưa được cập nhật ở bước này.
-- **Returned (Đã trả hàng - Tốt):** Hàng về kho, kiểm tra đạt chuẩn. Hệ thống thực hiện **Cộng lại kho**.
+- **Returned (Đã trả hàng - Tốt):** Hàng về kho, kiểm tra đạt chuẩn. Hệ thống thực hiện cộng lại kho qua thủ tục nhập kho thủ công (Manual Restock).
 - **Discarded (Đã hủy bỏ - Hư hỏng):** Hàng về kho nhưng bị lỗi/hỏng. Hệ thống **Không cộng lại kho** nhưng ghi nhận vào báo cáo hao hụt.
 
 ## 3. Các điểm mấu chốt về Nghiệp vụ (Business Rules)
 
-1.  **Tính chính xác (Inventory Accuracy):** Mọi thay đổi kho hàng phải đi kèm với một `reference_id` (Mã đơn hàng) để truy xuất nguồn gốc.
-2.  **Thời gian giữ hàng (Expiry):** Đơn hàng `Pending` qua cổng PayOS có thời hạn 15 phút. Sau thời gian này, hệ thống tự động hủy đơn và giải phóng hàng.
-3.  **Bảo vệ mã giảm giá:** Khi đơn hàng bị hủy (`Cancelled`) hoặc trả hàng (`Returned`), lượt sử dụng của mã giảm giá phải được tự động hoàn lại cho khách hàng.
-4.  **Minh bạch (Audit Trail):** Mọi thao tác chuyển trạng thái đơn hàng đều được lưu vết trong nhật ký hệ thống để đối soát khi có khiếu nại.
+1.  **Tính chính xác (Inventory Accuracy):** Sử dụng cơ chế Row-level locking (`FOR UPDATE`) trong RPC để đảm bảo tồn kho luôn chính xác trong môi trường cạnh tranh cao.
+2.  **Đồng bộ Expiry (Race Condition Fix):** Link thanh toán PayOS và Đơn hàng Pending đồng loạt hết hạn sau 15-30 phút. Điều này ngăn chặn việc khách hàng thanh toán cho một đơn hàng đã bị hệ thống hủy và giải phóng kho.
+3.  **Traceability:** Mọi đơn hàng PayOS được định danh bằng một `payos_order_code` (BigInt) duy nhất từ Sequence DB để tránh trùng lặp mã thanh toán.
+4.  **Bảo vệ mã giảm giá:** Logic hoàn lại lượt dùng mã giảm giá được tích hợp sâu trong Database, tự động kích hoạt khi trạng thái chuyển sang `cancelled`.
 
 ---
 **Tài liệu này là căn cứ để xây dựng giao diện Admin và logic Database cho Niee8.**

@@ -38,17 +38,18 @@ sequenceDiagram
 
 | Tiêu chí | Đánh giá | Chi tiết Kỹ thuật |
 | :--- | :--- | :--- |
-| **Chống thao túng giá** | **Xuất sắc** | Sử dụng RPC `secure_checkout` để tính toán lại giá từ Database, bỏ qua giá từ Client gửi lên. |
-| **Toàn vẹn kho hàng** | **Xuất sắc** | Sử dụng `FOR UPDATE` để khóa dòng dữ liệu, tránh tình trạng quá bán (Overselling) khi nhiều người mua cùng lúc. |
-| **Idempotency** | **Đảm bảo** | Webhook chỉ xử lý đơn hàng ở trạng thái `pending`, ngăn chặn việc cập nhật trùng lặp trạng thái. |
-| **Xác thực Webhook** | **Đảm bảo** | Kiểm tra chữ ký số HMAC-SHA256 trên mỗi yêu cầu từ cổng thanh toán. |
-| **Dọn dẹp & Hoàn kho** | **Hoàn thiện** | Cron job tự động quét và hoàn trả số lượng vào kho (`restore_stock`) cho các đơn hàng bỏ dở sau 15 phút. |
+| **Chống thao túng giá** | **Xuất sắc (V5)** | Sử dụng RPC `secure_checkout` để tính toán lại giá 100% từ Database, loại bỏ hoàn toàn rủi ro Price Override. |
+| **Toàn vẹn kho hàng** | **Xuất sắc** | Atomic Transaction: Trừ kho và tạo đơn được thực hiện trong cùng một nhịp đập của DB, chống Race Condition. |
+| **Xác thực Webhook** | **Chuẩn SDK** | Sử dụng `@payos/node` chuẩn để xác thực chữ ký HMAC-SHA256, đảm bảo tính duy nhất và an toàn cho dòng tiền. |
+| **Idempotency** | **Đảm bảo** | Kiểm tra trạng thái và sử dụng `payos_order_code` để ngăn chặn việc xử lý webhook trùng lặp. |
+| **Đồng bộ Link Expiry** | **Hoàn thiện** | `expiredAt` trong link thanh toán khớp chính xác với 15 phút của hệ thống, tránh việc khách thanh toán đơn đã hủy. |
 
 ## 4. Các điểm Ghi chú Vận hành (Operational Notes)
 
-- **RPC cancel_order_safe:** Một hàm cực kỳ quan trọng giúp hoàn trả cả **Hàng hóa** và **Lượt dùng mã giảm giá** cho khách hàng khi giao dịch thất bại.
-- **Dọn dẹp tự động:** Hệ thống sử dụng Vercel Cron để duy trì độ chính xác của kho hàng 24/7 mà không cần sự can thiệp của con người.
-- **Bảo mật RLS:** Mọi bảng dữ liệu quan trọng đều được thắt chặt bằng chính sách Row Level Security (RLS) của Supabase.
+- **Atomic Checkout Logic:** Một hàm duy nhất (`secure_checkout`) xử lý: Giá -> Kho -> Coupon -> Order. Nếu một bước lỗi, toàn bộ sẽ rollback để đảm bảo hệ thống không bao giờ ở trạng thái không nhất quán.
+- **Hệ thống Error Logging:** Bảng `error_logs` được thiết kế để "túm" mọi lỗi phát sinh trong RPC, giúp quản trị viên debug và tra soát dòng tiền cực nhanh.
+- **Hoàn kho an toàn:** Cơ chế hoàn kho dựa hoàn toàn trên Trigger DB (`on_order_cancelled`), tự động kích hoạt ngay cả khi Admin thao tác trực tiếp trên Supabase Dashboard.
+- **Traceability:** Mọi hành động nhạy cảm đều được định danh qua cột `performed_by` trong nhật ký hệ thống.
 
 ---
-**Kết luận:** Hệ thống Niee8 hiện tại được xây dựng trên một nền tảng kỹ thuật vững chắc, tuân thủ các nguyên lý thiết kế tiên tiến của Cloud-native và Database-driven architecture.
+**Kết luận:** Hệ thống Niee8 hiện tại đạt tiêu chuẩn **Enterprise-Grade** về xử lý thanh toán và quản trị rủi ro dòng tiền.

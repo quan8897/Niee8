@@ -12,52 +12,43 @@ sequenceDiagram
 
     Customer->>FE: Ấn Checkout (Giỏ hàng)
     
-    rect rgb(245, 245, 240)
-        Note right of FE: Bước 1: Kiểm tra tồn kho & Khóa bản ghi
-        FE->>DB: RPC: validate_inventory_v4(items)
+    rect rgb(240, 245, 250)
+        Note right of DB: Bước 1: Atomic Secure Checkout (RPC)
+        FE->>DB: RPC: secure_checkout(items, coupon, userId)
+        Note over DB: Bắt đầu Transaction:<br/>1. Tính lại giá từ DB (Server-side)<br/>2. Kiểm tra/Trừ Stock (Row Lock)<br/>3. Kiểm tra/Tăng lượt dùng Coupon<br/>4. Lưu Orders & Movements
         
-        alt Nhánh 1: Đủ hàng
-            DB-->>FE: HTTP 200: Inventory Validated
-        else Nhánh 2: Hết hàng/Không đủ
-            DB-->>FE: HTTP 400: Out of Stock Error
-            FE-->>Customer: Thông báo: "Sản phẩm vừa hết hàng"
+        alt Nhánh 1: Thành công
+            DB-->>FE: JSON { success: true, payos_order_code, ... }
+        else Nhánh 2: Thất bại (Hết hàng/Mã lỗi/Hệ thống)
+            DB-->>FE: JSON { success: false, error_code: 'OUT_OF_STOCK' | 'COUPON_INVALID' }
+            FE-->>Customer: Hiển thị thông báo tiếng Việt tương ứng
         end
     end
 
-    rect rgb(250, 240, 230)
-        Note right of FE: Bước 2: Xử lý Coupon & Khuyến mãi
-        FE->>DB: RPC: validate_coupon(code)
-        DB-->>FE: Trả về: Giá trị giảm giá (Discount)
-    end
-
-    rect rgb(240, 245, 250)
-        Note right of DB: Bước 3: Tạo đơn hàng & Trừ tồn kho (Atomic)
-        FE->>DB: RPC: create_secure_order(items, coupon_id)
-        Note over DB: Bắt đầu Transaction:<br/>1. Trừ Stock (Concurrency Lock)<br/>2. Lưu Orders & Order_Items<br/>3. Ghi log Stock Movement
-        DB-->>FE: Trả về: Order_ID & Total_Amount
-    end
-
     rect rgb(255, 255, 255)
-        Note right of FE: Bước 4: Thanh toán phía Cổng (Gateway)
-        FE->>PG: API: createPaymentLink(Order_ID, Amount)
-        PG-->>FE: Trả về: paymentUrl
-        FE-->>Customer: Điều hướng tới trang thanh toán
+        Note right of FE: Bước 2: Thanh toán phía Cổng (PayOS SDK)
+        FE->>FE: Init PayOS SDK (ID, Key, Checksum)
+        FE->>PG: payos.createPaymentLink(orderCode, expiredAt: 15m)
+        PG-->>FE: Trả về: checkoutUrl
+        FE-->>Customer: Chuyển hướng tới PayOS
         
-        Customer->>PG: Thực hiện trả tiền
-        PG-->>Customer: Xác nhận giao dịch
+        Customer->>PG: Thực hiện trả tiền (QR/Chuyển khoản)
         
-        Note over PG, FE: Luồng Webhook (Background)
-        PG->>FE: Webhook: payment_completed(status, signature)
-        FE->>DB: UPDATE orders SET status = 'paid' WHERE id = Order_ID
+        Note over PG, FE: Luồng Webhook (Bảo mật SDK)
+        PG->>FE: Webhook Post (Signature HMAC-SHA256)
+        FE->>FE: payos.verifyPaymentWebhookData(body)
+        FE->>DB: UPDATE orders SET status = 'processing' <br/>WHERE payos_order_code = code AND status = 'pending'
+        DB-->>FE: Confirmed (Rows Affected: 1)
     end
 
     FE-->>Customer: Hiển thị trang: "Thanh toán thành công!"
 ```
 
-### 🛠 Giải thích kỹ thuật cho Backend:
-1.  **Xử lý Concurrency (Bước 1 & 3):** Sử dụng các hàm RPC (Stored Procedures) với cơ chế `SELECT FOR UPDATE` hoặc các ràng buộc `CHECK (stock >= 0)` để đảm bảo khi 2 khách hàng cùng mua món cuối cùng, chỉ 1 người thành công.
-2.  **Tính nguyên tử (Atomicity):** Các bước tạo Order và trừ Stock được bọc trong một Database Transaction. Nếu bước tạo Order lỗi, Stock sẽ tự động được Rollback.
-3.  **Bảo mật:** Webhook từ Cổng thanh toán được kiểm tra chữ ký (Signature Verification) trước khi cập nhật trạng thái đơn hàng để chống gian lận.
+### 🛠 Giải thích kỹ thuật:
+1.  **Atomic Transaction:** Không có kẽ hở giữa việc kiểm tra hàng và trừ kho. Mọi thứ diễn ra trong một nhịp đập duy nhất của Database.
+2.  **Server-side Pricing:** Giá tiền được tính toán lại 100% dựa trên bảng `products`. Mọi can thiệp giá từ Client đều bị vô hiệu hóa.
+3.  **SDK Standard:** Sử dụng thư viện chính thức từ PayOS để đảm bảo chữ ký Webhook và link thanh toán luôn đạt chuẩn bảo mật mới nhất.
+4.  **Idempotency & Concurrency:** Sử dụng `payos_order_code` và kiểm tra trạng thái ngay khi update để tránh việc xử lý trùng lặp webhook khi có độ trễ mạng.
 
 ---
 **Sơ đồ này đảm bảo hệ thống Nie8 vận hành minh bạch, chính xác 100% về kho hàng và tài chính.**

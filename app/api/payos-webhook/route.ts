@@ -1,86 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import PayOS from '@payos/node';
 
 export const runtime = 'nodejs';
 
-// Hàm xác minh chữ ký Webhook thủ công
-function verifyWebhookSignature(webhookBody: any, checksumKey: string) {
-  const { data, signature } = webhookBody;
-  
-  const sortedData = Object.keys(data)
-    .sort()
-    .reduce((obj: any, key: string) => {
-      obj[key] = data[key];
-      return obj;
-    }, {});
-
-  const queryString = Object.keys(sortedData)
-    .map(key => `${key}=${sortedData[key]}`)
-    .join('&');
-
-  const computedSignature = crypto
-    .createHmac('sha256', checksumKey)
-    .update(queryString)
-    .digest('hex');
-
-  return computedSignature === signature;
-}
-
 export async function POST(request: NextRequest) {
-  console.log('[PayOS Webhook] Received request');
-  
   try {
     const body = await request.json();
-    const checksumKey = process.env.PAYOS_CHECKSUM_KEY!;
-    
-    // 1. Xác minh chữ ký thủ công (không dùng SDK)
-    if (!verifyWebhookSignature(body, checksumKey)) {
-      console.warn('[PayOS Webhook] Chữ ký không hợp lệ');
+    const payosCid = process.env.PAYOS_CLIENT_ID;
+    const payosKey = process.env.PAYOS_API_KEY;
+    const payosCs = process.env.PAYOS_CHECKSUM_KEY;
+
+    if (!payosCid || !payosKey || !payosCs) {
+      throw new Error('Thiếu cấu hình PayOS trên môi trường Vercel.');
+    }
+
+    const payos = new PayOS(payosCid, payosKey, payosCs);
+
+    // 1. Xác minh chữ ký Webhook bằng SDK chính thức
+    let webhookData;
+    try {
+      webhookData = payos.verifyPaymentWebhookData(body);
+    } catch (verifyError) {
+      console.warn('[PayOS Webhook] Chữ ký không hợp lệ:', verifyError);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    const { data: webhookData } = body;
-    console.log('[PayOS Webhook] Data verified:', webhookData);
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    
-    if (!supabaseServiceKey) {
-      throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { description, code } = webhookData;
-
-    // Tìm order ID
-    const orderIdMatch = description?.match(/NIE8-[A-Z0-9]+/);
-    if (!orderIdMatch) {
-      return NextResponse.json({ message: 'Order ID not found' });
-    }
-
-    const orderId = orderIdMatch[0];
+    const { orderCode, code } = webhookData;
     const isSuccess = code === '00';
     const newStatus = isSuccess ? 'processing' : 'cancelled';
 
-    console.log(`[PayOS Webhook] Updating ${orderId} to ${newStatus}`);
+    console.log(`[PayOS Webhook] Received data for orderCode: ${orderCode}, status: ${newStatus}`);
 
-    const { data: updatedOrder, error } = await supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 2. Cập nhật đơn hàng (Idempotency Check)
+    // Chỉ cập nhật nếu đơn đang ở trạng thái 'pending'
+    const { data: updatedOrders, error: updateError } = await supabase
       .from('orders')
       .update({
         status: newStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', orderId)
+      .eq('payos_order_code', orderCode) // Truy vấn bằng mã số nguyên (chính xác tuyệt đối)
       .eq('status', 'pending')
-      .select();
+      .select('id'); // Lấy lại ID để xác nhận có dòng nào được cập nhật không
 
-    if (error) throw error;
+    if (updateError) {
+      console.error('[PayOS Webhook DB Error]:', updateError.message);
+      throw updateError;
+    }
+
+    // 3. Xử lý kết quả
+    if (!updatedOrders || updatedOrders.length === 0) {
+      // Đơn hàng không tồn tại hoặc đã được xử lý (idempotency)
+      console.log(`[PayOS Webhook] OrderCode ${orderCode} already processed or mismatch.`);
+      return NextResponse.json({ success: true, message: 'Already processed or no pending order found.' });
+    }
+
+    console.log(`[PayOS Webhook] Successfully updated order ${updatedOrders[0].id} to ${newStatus}`);
+
+    // Tại đây bạn có thể thêm logic gửi Telegram/Email thông báo đơn hàng mới
+    // Chỉ gửi khi updatedOrders.length > 0 để tránh bị bắn tin nhắn trùng lặp
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
     console.error('[PayOS Webhook Fatal Error]:', error.message);
+    // Vẫn trả về 200 nếu đây là lỗi logic nội bộ sau khi đã verify xong, 
+    // để tránh PayOS retry vô hạn (tùy chiến lược của bạn)
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

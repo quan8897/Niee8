@@ -49,122 +49,64 @@ erDiagram
     orders {
         uuid id PK
         uuid user_id FK
+        bigint payos_order_code "Unique sequence for Payment"
         decimal total_amount
         string status "pending, processing, shipping, completed, cancelled"
         uuid coupon_id FK
         timestamp created_at
     }
 
-    order_items {
+    activity_logs {
         uuid id PK
-        uuid order_id FK
-        uuid variant_id FK
-        integer quantity
-        decimal unit_price "Snapshot price"
+        string action
+        jsonb details
+        uuid performed_by FK "FK to profiles"
     }
 
-    coupons {
-        uuid id PK
-        string code "UK - Invariant"
-        string discount_type "percentage, fixed"
-        decimal discount_value
-        timestamp expiry_date
+    error_logs {
+        integer id PK
+        timestamp created_at
+        string origin "RPC Name"
+        string error_message
+        jsonb details
     }
 ```
 
 ## 2. Chiến lược Đánh chỉ mục (Indexing Strategy)
 
-Chúng ta triển khai 5 lớp Index để tối ưu hóa hiệu năng:
+Chúng ta triển khai các lớp Index để tối ưu hóa hiệu năng:
 
 | Loại Index | Mục tiêu | Cột áp dụng |
 | :--- | :--- | :--- |
-| **B-Tree (Unique)** | Đảm bảo tính duy nhất & Tra cứu nhanh | `coupons(code)`, `product_variants(sku)` |
+| **B-Tree (Unique)** | Đảm bảo tính duy nhất & Tra cứu nhanh | `orders(payos_order_code)`, `coupons(code)` |
 | **GIN (Full-Text)** | Tìm kiếm sản phẩm theo từ khóa | `products(name, description)` |
-| **Composite B-Tree** | Tối ưu hóa Lọc & Sắp xếp (Sorting) | `products(category, created_at DESC)`, `products(category, base_price)` |
-| **Relationship B-Tree** | Tăng tốc độ JOIN giữa các bảng | `product_variants(product_id)`, `order_items(order_id)`, `orders(user_id)` |
-| **Partial Index** | Cảnh báo tồn kho thấp (Low Stock) | `inventory(quantity)` WHERE `quantity <= low_stock_threshold` |
+| **Relationship B-Tree** | Tăng tốc độ JOIN | `orders(user_id)`, `activity_logs(performed_by)` |
 
-## 3. Mã triển khai (SQL Script)
-
-Bạn có thể chạy đoạn Script này trong Supabase SQL Editor để khởi tạo cấu trúc dữ liệu chuẩn hóa:
+## 3. Mã triển khai (SQL Script - Phiên bản Bảo mật)
 
 ```sql
--- 1. Bật phần mở rộng cần thiết
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- 1. Khởi tạo Sequence & Log Tables
+CREATE SEQUENCE payos_order_code_seq START 100000;
 
--- 2. Tạo các bảng cốt lõi
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id),
-  full_name TEXT,
-  phone TEXT,
-  address TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE error_logs (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    origin TEXT,
+    error_message TEXT,
+    details JSONB
 );
 
-CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  description TEXT,
-  base_price DECIMAL(12,2) NOT NULL,
-  category TEXT,
-  images TEXT[],
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- 2. Cập nhật bảng Orders & Activity
+ALTER TABLE orders ADD COLUMN payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq');
+ALTER TABLE activity_logs ADD COLUMN performed_by UUID REFERENCES profiles(id);
 
-CREATE TABLE product_variants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-  size TEXT NOT NULL,
-  color TEXT,
-  sku TEXT UNIQUE NOT NULL,
-  price_adjustment DECIMAL(12,2) DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE inventory (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  variant_id UUID UNIQUE REFERENCES product_variants(id) ON DELETE CASCADE,
-  quantity INTEGER DEFAULT 0,
-  low_stock_threshold INTEGER DEFAULT 5
-);
-
-CREATE TABLE coupons (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  code TEXT UNIQUE NOT NULL,
-  discount_type TEXT CHECK (discount_type IN ('percentage', 'fixed_amount')),
-  discount_value DECIMAL(12,2) NOT NULL,
-  expiry_date TIMESTAMPTZ,
-  is_active BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES profiles(id),
-  total_amount DECIMAL(12,2) NOT NULL,
-  status TEXT DEFAULT 'pending',
-  coupon_id UUID REFERENCES coupons(id),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE order_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-  variant_id UUID REFERENCES product_variants(id),
-  quantity INTEGER NOT NULL,
-  unit_price DECIMAL(12,2) NOT NULL
-);
-
--- 3. Tạo các Index tối ưu hóa
-CREATE INDEX idx_products_search ON products USING GIN (to_tsvector('vietnamese', name || ' ' || description));
-CREATE INDEX idx_products_cat_date ON products (category, created_at DESC);
-CREATE INDEX idx_variants_pid ON product_variants (product_id);
-CREATE INDEX idx_inventory_low_stock ON inventory (quantity) WHERE quantity <= low_stock_threshold;
-CREATE INDEX idx_order_items_oid ON order_items (order_id);
+-- 3. RPC: secure_checkout (Atomic Logic)
+CREATE OR REPLACE FUNCTION secure_checkout(...) -- Xem tệp supabase-security-hardening-final.sql để biết chi tiết
 ```
 
 ## 4. Nguyên tắc Vận hành (Architectural Best Practices)
 
-- **Chuẩn hóa (Normalization):** Dữ liệu được chia nhỏ để tránh trùng lặp và đảm bảo tính nhất quán.
-- **Snapshot Price:** Luôn lưu `unit_price` trong bảng `order_items` để giữ nguyên giá trị đơn hàng khi giá sản phẩm gốc thay đổi.
-- **RLS (Row Level Security):** Luôn bật RLS trên Supabase để đảm bảo người dùng chỉ có thể xem/sửa đơn hàng của chính mình.
-- **Audit Logs:** Các thao tác quan trọng liên quan đến kho và đơn hàng nên được ghi log.
+- **Atomic Checkout:** Toàn bộ quá trình kiểm tra giá, trừ kho và tạo đơn được bọc trong một Database Transaction duy nhất qua RPC.
+- **Server-side Calculation:** Tuyệt đối không tin tưởng giá trị `total_amount` từ client; mọi phép tính phải được thực thi lại trong Database.
+- **Idempotency:** Webhook thanh toán dựa trên `payos_order_code` và trạng thái `pending` để tránh xử lý trùng.
+- **Audit Logging:** Mọi thao tác trọng yếu đều được ghi vết người thực hiện qua `performed_by`.
