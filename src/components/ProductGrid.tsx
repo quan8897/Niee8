@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus, Sparkles } from 'lucide-react';
+import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus, Sparkles, ChevronDown } from 'lucide-react';
 import { Product, SiteSettings } from '../types';
 import ProtectedImage from './ProtectedImage';
 import { supabase } from '../lib/supabase';
@@ -65,6 +65,7 @@ export default function ProductGrid({
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
   const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc' | 'sales-desc' | 'likes-desc'>('default');
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const touchStartX = useRef<number>(0);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -87,8 +88,8 @@ export default function ProductGrid({
       ? products
       : products.filter(p => p.category === activeCategory);
 
-    // Chỉ hiển thị sản phẩm có hình ảnh để bảo vệ tính thẩm mỹ của Lookbook
-    result = result.filter(p => p.images && p.images.length > 0);
+    // Chỉ hiển thị sản phẩm có hình ảnh hợp lệ (không trống) để bảo vệ tính thẩm mỹ của Lookbook
+    result = result.filter(p => p.images && p.images.length > 0 && p.images[0] && p.images[0].trim() !== '');
 
     // Sắp xếp: Còn hàng lên đầu, hết hàng xuống cuối
     result = [...result].sort((a, b) => {
@@ -232,47 +233,83 @@ export default function ProductGrid({
             </motion.h2>
           </div>
           
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-4 w-full md:w-auto overflow-x-auto pb-1 scroll-hide">
+          {/* Categories: Ép về 1 hàng duy nhất trên mọi màn hình */}
+          <div className="flex flex-nowrap items-center gap-x-4 sm:gap-x-6 w-full md:w-auto overflow-x-auto pb-1 scroll-hide border-b border-nie8-text/5 md:border-none">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`whitespace-nowrap text-[11px] sm:text-xs font-bold tracking-[0.25em] uppercase transition-all relative py-1 ${
+                className={`whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-[0.25em] uppercase transition-all relative py-2 ${
                   activeCategory === cat
                     ? 'text-nie8-text'
-                    : 'text-nie8-text/40 hover:text-nie8-text/70'
+                    : 'text-nie8-text/30 hover:text-nie8-text/60'
                 }`}
               >
                 {cat}
                 {activeCategory === cat && (
                   <motion.div 
                     layoutId="activeCategory"
-                    className="absolute -bottom-1 left-0 right-0 h-[1.5px] bg-nie8-primary"
+                    className="absolute -bottom-0.5 left-0 right-0 h-[1.5px] bg-nie8-primary"
                   />
                 )}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-6 w-full md:w-auto overflow-x-auto pb-1 scroll-hide border-t border-nie8-text/5 pt-6 md:border-none md:pt-0">
-            <span className="text-[9px] font-bold text-nie8-text/50 uppercase tracking-[0.25em]">Sắp xếp:</span>
-            {[
-              { id: 'sales-desc', label: 'Bán chạy' },
-              { id: 'likes-desc', label: 'Yêu thích' },
-              { id: 'price-asc', label: 'Giá ↑' },
-              { id: 'price-desc', label: 'Giá ↓' },
-            ].map(sort => (
-              <button
-                key={sort.id}
-                onClick={() => setActiveSort(sort.id as any)}
-                className={`whitespace-nowrap text-[10px] uppercase tracking-[0.15em] transition-all relative group ${
-                  activeSort === sort.id ? 'text-nie8-text font-bold' : 'text-nie8-text/40 hover:text-nie8-text/70'
-                }`}
+          {/* Sắp xếp: Dropdown bên phải gọn gàng */}
+          <div className="relative shrink-0 ml-auto md:ml-0 pt-2 md:pt-0">
+            <button 
+              onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+              className="flex items-center gap-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-nie8-text/50 hover:text-nie8-text transition-all"
+            >
+              <span>SẮP XẾP: <span className="text-nie8-text ml-1">{
+                activeSort === 'sales-desc' ? 'Bán chạy' :
+                activeSort === 'likes-desc' ? 'Yêu thích' :
+                activeSort === 'price-asc' ? 'Giá ↑' :
+                activeSort === 'price-desc' ? 'Giá ↓' : 'Mặc định'
+              }</span></span>
+              <motion.div
+                animate={{ rotate: isSortDropdownOpen ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
               >
-                {sort.label}
-                <span className={`absolute -bottom-1 left-0 w-0 h-[1px] bg-nie8-text/20 transition-all duration-300 group-hover:w-full ${activeSort === sort.id ? 'w-full bg-nie8-primary/40' : ''}`} />
-              </button>
-            ))}
+                <ChevronDown size={14} className="text-nie8-primary/60" />
+              </motion.div>
+            </button>
+
+            <AnimatePresence>
+              {isSortDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsSortDropdownOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-4 w-48 bg-white/95 backdrop-blur-md border border-nie8-primary/10 rounded-2xl shadow-2xl p-2 z-20"
+                  >
+                    {[
+                      { id: 'sales-desc', label: 'Bán chạy' },
+                      { id: 'likes-desc', label: 'Yêu thích' },
+                      { id: 'price-asc', label: 'Giá thấp đến cao' },
+                      { id: 'price-desc', label: 'Giá cao đến thấp' },
+                      { id: 'default', label: 'Mặc định' }
+                    ].map(sort => (
+                      <button
+                        key={sort.id}
+                        onClick={() => {
+                          setActiveSort(sort.id as any);
+                          setIsSortDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          activeSort === sort.id ? 'bg-nie8-primary/5 text-nie8-primary' : 'text-nie8-text/50 hover:bg-nie8-primary/5 hover:text-nie8-text'
+                        }`}
+                      >
+                        {sort.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -308,17 +345,6 @@ export default function ProductGrid({
 
               return (
                 <React.Fragment key={product.id}>
-                  {/* Story Block Integration */}
-                  {settings?.show_story && product.story_content && product.story_content.length > 10 && (index % 6 === 3) && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      whileInView={{ opacity: 1 }}
-                      className="hidden lg:flex flex-col justify-center p-10 bg-nie8-bg/20 rounded-[48px] border border-nie8-primary/5 italic text-sm text-nie8-text/50 leading-relaxed font-serif text-center"
-                    >
-                      "{product.story_content}"
-                    </motion.div>
-                  )}
-
                   <motion.div
                     layout
                     initial={{ opacity: 0, y: 20 }}
