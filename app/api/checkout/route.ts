@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount } = body;
+    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, invoice, discountAmount, couponCode } = body;
 
     // Biến môi trường
     const payosCid = process.env.PAYOS_CLIENT_ID;
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(sbUrl, sbSvcKey);
 
-    // LỖI 2 FIX: Truyền đầy đủ tham số vào RPC (bao gồm p_items)
+    // LỖI 2 FIX: Truyền đầy đủ tham số vào RPC
     const { data: rpcResult, error: rpcError } = await supabase.rpc('secure_checkout', {
       p_order_id: orderId,
       p_user_id: userId || null,
@@ -34,9 +34,13 @@ export async function POST(request: NextRequest) {
       p_customer_phone: customerPhone,
       p_customer_address: customerAddress,
       p_customer_city: customerCity,
-      p_items: items, // Đã thêm p_items
+      p_items: items,
       p_total_amount: totalAmount,
-      p_payment_method: paymentMethod
+      p_payment_method: paymentMethod,
+      p_note: note || null,
+      p_invoice_info: invoice || null,
+      p_discount_amount: discountAmount || 0,
+      p_coupon_code: couponCode || null
     });
 
     if (rpcError) throw new Error(`Database Error: ${rpcError.message}`);

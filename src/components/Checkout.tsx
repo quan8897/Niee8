@@ -124,7 +124,8 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           paymentMethod: formData.paymentMethod,
           userId: user?.id,
           note: formData.note 
-            + (formData.invoice ? `\n[YÊU CẦU XUẤT HĐ: ${formData.invoice.type === 'company' ? 'Công ty ' + formData.invoice.name + ' - MST: ' + formData.invoice.taxCode : 'Cá nhân ' + formData.invoice.name}]` : ''),
+            + (formData.invoice ? `\n[Có yêu cầu xuất HĐ VAT, xem trong Invoice Info]` : ''),
+          invoice: formData.invoice || null,
           discountAmount: discountAmount,
           couponCode: appliedCoupon?.code || null
         })
