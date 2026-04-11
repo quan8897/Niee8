@@ -1,0 +1,4 @@
+- [/] Cập nhật Form Sản phẩm: Khóa ô tồn kho khi sửa (Read-only)
+- [ ] Tinh chỉnh Modal "Điều chỉnh kho": Đẹp, gọn như mẫu, hỗ trợ tăng/giảm.
+- [ ] Cập nhật luồng Hủy đơn hàng: Thêm lựa chọn Hoàn kho hoặc Hủy hỏng.
+- [ ] Kiểm tra Build và bàn giao hướng dẫn sử dụng nhanh.

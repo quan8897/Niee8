@@ -1,0 +1,4 @@
+- [ ] Tạo file SQL định nghĩa bảng activity_logs
+- [ ] Cập nhật StoreClient.tsx: Thêm logic so sánh dữ liệu (diff) và ghi Log khi đổi Giá/Tên
+- [ ] Cập nhật AdminDashboard.tsx: Thêm tab "Nhật ký hệ thống" và giao diện hiển thị
+- [ ] Kiểm tra thực tế: Thử sửa giá và xem Log có tự sinh ra không
