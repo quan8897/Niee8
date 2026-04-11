@@ -298,32 +298,6 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Stock notification
-  const handleRegisterStockNotification = async (productId: string, email: string, size: string = 'M') => {
-    try {
-      console.log('Registering stock notification:', { productId, email, size });
-      const { data, error } = await supabase
-        .from('stock_notifications')
-        .insert([{ 
-          product_id: productId, 
-          size: size, 
-          email: email, 
-          status: 'pending' 
-        }]);
-      
-      if (error) {
-        console.error('Supabase Notification Error:', error);
-        throw error;
-      }
-      
-      showToast('Đã đăng ký nhận thông báo! Chúng tôi sẽ email cho bạn.');
-      return true;
-    } catch (err: any) { 
-      console.error('Failed to register notification:', err);
-      showToast(err.message || 'Lỗi khi đăng ký thông báo', 'error'); 
-      return false; 
-    }
-  };
 
   // Loading state - Chỉ hiện loading nếu đang ở các trang cần quyền (Admin) hoặc thực sự chưa có dữ liệu gì
   if (!isAuthReady && (currentView === 'admin' || !products.length)) {
@@ -491,7 +465,6 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
             products={products}
             onAddToCart={addToCart}
             onBuyNow={(product, size, quantity) => { addToCart(product, size, quantity); setCurrentView('checkout'); }}
-            onRegisterStockNotification={handleRegisterStockNotification}
             settings={siteSettings}
             isLoading={false}
           />

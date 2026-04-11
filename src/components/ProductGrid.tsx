@@ -11,7 +11,6 @@ interface ProductGridProps {
   products: Product[];
   onAddToCart: (product: Product, size: string, quantity: number) => void;
   onBuyNow?: (product: Product, size: string, quantity: number) => void;
-  onRegisterStockNotification?: (productId: string, email: string, size: string) => Promise<boolean>;
   settings: SiteSettings | null;
   isLoading?: boolean;
 }
@@ -52,7 +51,6 @@ export default function ProductGrid({
   products, 
   onAddToCart, 
   onBuyNow,
-  onRegisterStockNotification,
   settings,
   isLoading = false 
 }: ProductGridProps) {

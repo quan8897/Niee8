@@ -11,13 +11,20 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_movements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.stock_notifications ENABLE ROW LEVEL SECURITY;
 
 -- Drop old policies nếu có để tránh conflict
 DROP POLICY IF EXISTS "Cho phép tất cả mọi người xem sản phẩm" ON public.products;
 DROP POLICY IF EXISTS "Cho phép tất cả mọi người xem cài đặt" ON public.site_settings;
 DROP POLICY IF EXISTS "Chỉ Admin mới được thay đổi sản phẩm" ON public.products;
 DROP POLICY IF EXISTS "Chỉ Admin mới được thay đổi cài đặt" ON public.site_settings;
+DROP POLICY IF EXISTS "products_select_public" ON public.products;
+DROP POLICY IF EXISTS "products_write_admin" ON public.products;
+DROP POLICY IF EXISTS "settings_select_public" ON public.site_settings;
+DROP POLICY IF EXISTS "settings_write_admin" ON public.site_settings;
+DROP POLICY IF EXISTS "orders_select_own" ON public.orders;
+DROP POLICY IF EXISTS "orders_insert_auth" ON public.orders;
+DROP POLICY IF EXISTS "orders_update_admin" ON public.orders;
+DROP POLICY IF EXISTS "stock_movements_admin" ON public.stock_movements;
 
 -- Products: Tất cả xem, chỉ Admin sửa
 CREATE POLICY "products_select_public" ON public.products FOR SELECT USING (true);
@@ -46,12 +53,7 @@ CREATE POLICY "stock_movements_admin" ON public.stock_movements FOR ALL USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
--- Stock Notifications: Khách thêm của mình
-CREATE POLICY "stock_notif_insert" ON public.stock_notifications FOR INSERT WITH CHECK (true);
-CREATE POLICY "stock_notif_select_admin" ON public.stock_notifications FOR SELECT USING (
-    auth.uid()::text = user_id::text OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-);
+
 
 
 -- ==========================================
