@@ -264,7 +264,7 @@ export default function ProductGrid({
               return (
                 <React.Fragment key={product.id}>
                   {/* Story Block Integration */}
-                  {settings?.show_story && product.story_content && (index % 6 === 3) && (
+                  {settings?.show_story && product.story_content && product.story_content.length > 10 && (index % 6 === 3) && (
                     <motion.div 
                       initial={{ opacity: 0 }}
                       whileInView={{ opacity: 1 }}
