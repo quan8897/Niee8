@@ -39,12 +39,15 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
   const shippingFee = 2000; // Fixed 2000 VND for test
   
   // Calculate total discount from multiple coupons
-  const calculateTotalDiscount = () => {
-    let totalDiscount = 0;
+  // Calculate separate discounts for shop items and shipping
+  const calculateDiscounts = () => {
+    let shipDiscount = 0;
+    let shopDiscount = 0;
+
     appliedCoupons.forEach(coupon => {
       let currentDiscount = 0;
-      const basis = coupon.category === 'shipping' ? shippingFee : 
-                   coupon.category === 'total' ? (total + shippingFee) : total;
+      const isShipping = coupon.category === 'shipping';
+      const basis = isShipping ? shippingFee : total;
 
       if (coupon.discount_amount) {
         currentDiscount = parseFloat(coupon.discount_amount);
@@ -55,15 +58,20 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         }
       }
       
-      // Cap at the basis (cannot discount more than the sub-total it applies to)
-      totalDiscount += Math.min(currentDiscount, basis);
+      // Cap individual coupon at its specific sub-total
+      if (isShipping) {
+        shipDiscount = Math.min(currentDiscount, shippingFee);
+      } else {
+        shopDiscount = Math.min(currentDiscount, total);
+      }
     });
-    return totalDiscount;
+
+    return { shipDiscount, shopDiscount };
   };
 
-  const discountAmount = calculateTotalDiscount();
-
-  const finalTotal = total + shippingFee - discountAmount;
+  const { shipDiscount, shopDiscount } = calculateDiscounts();
+  const discountAmount = shipDiscount + shopDiscount;
+  const finalTotal = (total - shopDiscount) + (shippingFee - shipDiscount);
 
   const handleApplyCoupon = async (codeFromModal?: string) => {
     const codeToUse = (codeFromModal || couponCode).trim().toUpperCase();
@@ -92,9 +100,13 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         throw new Error(`Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ để áp dụng mã này.`);
       }
 
-      // Stacking logic: 1 per category
+      // Stacking logic: Max 1 shipping + Max 1 shop (anything else)
+      const isNewShipping = data.category === 'shipping';
       setAppliedCoupons(prev => {
-        const filtered = prev.filter(c => c.category !== data.category);
+        const filtered = prev.filter(c => {
+          const isExistingShipping = c.category === 'shipping';
+          return isNewShipping ? !isExistingShipping : isExistingShipping;
+        });
         return [...filtered, data];
       });
       setCouponCode('');
