@@ -299,6 +299,8 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           setCurrentView('track-order');
         }}
         user={user}
+        onUpdateQuantity={updateCartQuantity}
+        onRemoveItem={removeCartItem}
       />
     );
   }
