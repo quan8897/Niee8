@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Truck, CreditCard, ChevronRight, MapPin, Phone, User, CheckCircle2, AlertCircle, ArrowLeft, Loader2, Mail, Info, Trash2, Plus, Minus, Receipt, Ticket } from 'lucide-react';
-import { getSupabaseClient } from '../lib/supabase/client';
+import { supabase } from '../lib/supabase';
 
 interface CheckoutProps {
   items: any[];
@@ -52,7 +52,6 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     setIsApplyingCoupon(true);
     setCouponError(null);
     try {
-      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
@@ -127,7 +126,6 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
 
       // Update coupon usage count if applied 
       if (appliedCoupon) {
-        const supabase = getSupabaseClient();
         await supabase.rpc('increment_coupon_usage', { p_code: appliedCoupon.code });
       }
 
