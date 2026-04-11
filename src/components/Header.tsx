@@ -1,4 +1,4 @@
-import { ShoppingBag, Search, Menu, Heart, Home, Sparkles, User as UserIcon, X, Package } from 'lucide-react';
+import { ShoppingBag, Search, Menu, Heart, Home, User as UserIcon, X, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 
@@ -8,7 +8,6 @@ interface HeaderProps {
   isAdmin?: boolean;
   onAdminClick?: () => void;
   onLoginClick?: () => void;
-  onAIClick?: () => void;
   onTrackOrderClick?: () => void;
   user?: any;
   onLogout?: () => void;
@@ -16,7 +15,7 @@ interface HeaderProps {
   onNavigate?: (page: string) => void;
 }
 
-export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, onLoginClick, onAIClick, onTrackOrderClick, user, onLogout, settings, onNavigate }: HeaderProps) {
+export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, onLoginClick, onTrackOrderClick, user, onLogout, settings, onNavigate }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('home');

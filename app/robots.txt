@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /track-order
+
+Sitemap: https://nie8studio.vn/sitemap.xml

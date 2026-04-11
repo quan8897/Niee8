@@ -4,7 +4,7 @@ Dưới đây là kế hoạch kiểm thử chấp nhận người dùng (UAT) c
 
 ## 1. Tổng quan (Overview)
 - **Dự án:** NIE8 - Minimalist Fashion Store
-- **Mục tiêu:** Kiểm tra tính đúng đắn của luồng mua hàng, quản lý kho và các tính năng thông minh (AI Stylist, Restock Notification).
+- **Mục tiêu:** Kiểm tra tính đúng đắn của luồng mua hàng, quản lý kho và tính năng thông báo (Restock Notification).
 - **Vai trò kiểm thử:**
     - **Khách hàng:** Trải nghiệm mua sắm, đăng ký thông báo.
     - **Admin (COO/PO):** Quản lý sản phẩm, đơn hàng và chiến lược nhập kho.
@@ -13,10 +13,9 @@ Dưới đây là kế hoạch kiểm thử chấp nhận người dùng (UAT) c
 
 ### A. Luồng Khách hàng (Customer Flow)
 1. **Trang chủ & Danh mục:** Kiểm tra hiển thị sản phẩm, lọc theo danh mục.
-2. **Chi tiết sản phẩm:** Xem ảnh, chọn size, xem gợi ý phối đồ từ AI.
+2. **Chi tiết sản phẩm:** Xem ảnh, chọn size, xem mô tả và chất liệu.
 3. **Giỏ hàng & Thanh toán:** Thêm/Xóa sản phẩm, cập nhật số lượng, quy trình đặt hàng.
 4. **Đăng ký nhận thông báo (Restock):** Đăng ký email khi sản phẩm/size hết hàng.
-5. **AI Stylist:** Chat với trợ lý ảo để nhận tư vấn thời trang.
 
 ### B. Luồng Quản trị (Admin Flow)
 1. **Dashboard Overview:** Theo dõi các chỉ số doanh thu, đơn hàng và nhu cầu nhập hàng.

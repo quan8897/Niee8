@@ -3,14 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
-import { Product, CartItem, SavedCartItem, SiteSettings, Toast } from '@/types';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import Header from '@/components/store/Header';
-import Hero from '@/components/store/Hero';
-import ProductGrid from '@/components/store/ProductGrid';
-import Footer from '@/components/store/Footer';
-import Cart from '@/components/store/Cart';
-import Checkout from '@/components/store/Checkout';
 import dynamic from 'next/dynamic';
 import { Product, CartItem, SavedCartItem, SiteSettings, Toast } from '@/types';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -25,9 +17,6 @@ import FloatingActions from '@/components/store/FloatingActions';
 // Dynamic imports for heavy components
 const OrderTracking = dynamic(() => import('@/components/store/OrderTracking'), {
   loading: () => <div className="min-h-screen bg-nie8-bg flex items-center justify-center"><div className="w-8 h-8 border-2 border-nie8-primary/20 border-t-nie8-primary rounded-full animate-spin" /></div>
-});
-const AIStylist = dynamic(() => import('@/components/store/AIStylist'), {
-  loading: () => null
 });
 const AuthModal = dynamic(() => import('@/components/store/AuthModal'), {
   loading: () => null
@@ -102,8 +91,6 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isAIStylistOpen, setIsAIStylistOpen] = useState(false);
-  const [aiContextProduct, setAiContextProduct] = useState<Product | null>(null);
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<'admin' | 'client' | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -420,7 +407,6 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           isAdmin={userRole === 'admin'}
           onAdminClick={() => setCurrentView('admin')}
           onLoginClick={() => setIsAuthModalOpen(true)}
-          onAIClick={() => setIsAIStylistOpen(true)}
           onTrackOrderClick={() => setCurrentView('track-order')}
           user={user}
           onLogout={logout}
@@ -432,7 +418,6 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
             products={products}
             onAddToCart={addToCart}
             onBuyNow={(product, size, quantity) => { addToCart(product, size, quantity); setCurrentView('checkout'); }}
-            onChatWithAI={(product) => { setAiContextProduct(product); setIsAIStylistOpen(true); }}
             onRegisterStockNotification={handleRegisterStockNotification}
             settings={siteSettings}
             isLoading={false}
@@ -444,7 +429,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
               <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8 }} viewport={{ once: true }} className="max-w-3xl mx-auto">
                 <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif italic text-white mb-2 sm:mb-4 leading-tight">
                   Gia nhập <br className="sm:hidden" />
-                  <span className="text-nie8-accent">niee8 Circle.</span>
+                  <span className="text-nie8-accent">nie8 Circle.</span>
                 </h2>
                 <p className="text-white/60 text-xs sm:text-sm mb-4 sm:mb-6 leading-relaxed max-w-xl mx-auto">
                   Nhận quyền truy cập sớm vào các bộ sưu tập mới và mẹo phối đồ độc quyền.
@@ -460,10 +445,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
 
         <div className="h-16 lg:hidden" aria-hidden="true" />
         <Footer onAdminLogin={() => setIsAuthModalOpen(true)} />
-        <FloatingActions onAIClick={() => setIsAIStylistOpen(true)} />
-
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onSuccess={() => showToast('Đăng nhập thành công!', 'success')} />
-        <AIStylist isOpen={isAIStylistOpen} onClose={() => setIsAIStylistOpen(false)} productContext={aiContextProduct} />
         <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={updateCartQuantity} onRemoveItem={removeCartItem} onCheckout={() => { setIsCartOpen(false); setCurrentView('checkout'); }} />
       </motion.div>
     </AnimatePresence>

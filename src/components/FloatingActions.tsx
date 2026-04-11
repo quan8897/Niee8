@@ -1,12 +1,10 @@
-import React from 'react';
-import { Sparkles, Instagram, Facebook, Music } from 'lucide-react';
+import { Instagram, Facebook, Music } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface FloatingActionsProps {
-  onAIClick: () => void;
 }
 
-export default function FloatingActions({ onAIClick }: FloatingActionsProps) {
+export default function FloatingActions({}: FloatingActionsProps) {
   return (
     <div className="fixed bottom-24 sm:bottom-8 right-4 sm:right-8 z-[90] flex flex-col gap-3 sm:gap-4">
       {/* Zalo - Nền trắng, chữ xanh */}
