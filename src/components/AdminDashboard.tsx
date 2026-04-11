@@ -4,7 +4,7 @@ import {
   X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, 
   Settings, Package, Loader2, LogOut, LayoutDashboard, 
   Instagram, Calendar, TrendingUp, Users, MessageSquare, 
-  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, Bell, PackagePlus
+  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag
 } from 'lucide-react';
 import { Product, SiteSettings, Order } from '../types';
 import { supabase } from '../lib/supabase';
@@ -86,17 +86,6 @@ export default function AdminDashboard({
     isGeneratingCaption: false
   });
 
-
-  const fetchStockNotifications = async () => {
-    setIsLoadingNotifications(true);
-    try {
-      const { data, error } = await supabase
-        .from('stock_notifications')
-        .select(`
-          *,
-          products (name)
-        `)
-        .order('created_at', { ascending: false });
 
   const openRestockModal = (product: Product) => {
     setRestockProduct(product);
