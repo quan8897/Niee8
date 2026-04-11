@@ -815,7 +815,6 @@ export default function AdminDashboard({
                               </div>
                             )}
                           </div>
-                        </div>
                         <textarea required rows={4} value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Mô tả sản phẩm" className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary resize-none" />
                         
                         {/* Lifestyle & Editorial Fields */}
