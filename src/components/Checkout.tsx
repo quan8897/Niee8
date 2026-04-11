@@ -339,21 +339,24 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
              
              {appliedCoupons.length > 0 && (
                 <div className="space-y-2 mb-4">
-                  {appliedCoupons.map(coupon => (
-                    <div key={coupon.code} className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
-                      <div className="flex items-center gap-3 text-green-700">
-                        <Ticket size={20} />
-                        <div>
-                          <p className="font-bold text-sm uppercase">{coupon.code}</p>
-                          <p className="text-xs opacity-80">
-                            {coupon.category === 'shipping' ? 'Miễn phí vận chuyển' : 
-                             `Đã giảm ${coupon.discount_amount ? formatVND(parseFloat(coupon.discount_amount)) : `${coupon.discount_percent}%`}`}
-                          </p>
+                   {appliedCoupons.map(coupon => {
+                    const isShipping = coupon.category === 'shipping';
+                    return (
+                      <div key={coupon.code} className={`flex items-center justify-between border rounded-xl p-4 ${isShipping ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
+                        <div className={`flex items-center gap-3 ${isShipping ? 'text-blue-700' : 'text-orange-700'}`}>
+                          <Ticket size={20} />
+                          <div>
+                            <p className="font-bold text-sm uppercase">{coupon.code}</p>
+                            <p className="text-xs opacity-80">
+                              {coupon.category === 'shipping' ? 'Giảm phí vận chuyển' : 
+                               `Đã giảm ${coupon.discount_amount ? formatVND(parseFloat(coupon.discount_amount)) : `${coupon.discount_percent}%`}`}
+                            </p>
+                          </div>
                         </div>
+                        <button onClick={() => removeCoupon(coupon.code)} className="text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
                       </div>
-                      <button onClick={() => removeCoupon(coupon.code)} className="text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
              )}
 
