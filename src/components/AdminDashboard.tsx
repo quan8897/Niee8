@@ -18,6 +18,7 @@ interface AdminDashboardProps {
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateSettings: (settings: SiteSettings) => void;
+  onThemePreview: (theme: 'warm' | 'slate') => void;
   onClose: () => void;
   onLogout?: () => void;
 }
@@ -31,6 +32,7 @@ export default function AdminDashboard({
   onUpdateProduct, 
   onDeleteProduct, 
   onUpdateSettings,
+  onThemePreview,
   onClose,
   onLogout
 }: AdminDashboardProps) {
@@ -1038,21 +1040,27 @@ export default function AdminDashboard({
                         <div className="grid grid-cols-2 gap-3">
                           <button 
                             type="button"
-                            onClick={() => setSettingsForm({...settingsForm, theme_mode: 'warm'})}
+                            onClick={() => {
+                              setSettingsForm({...settingsForm, theme_mode: 'warm'});
+                              onThemePreview('warm');
+                            }}
                             className={`p-4 rounded-2xl border-2 flex flex-col gap-2 transition-all ${settingsForm.theme_mode === 'warm' ? 'border-nie8-primary bg-white' : 'border-nie8-primary/10 hover:border-nie8-primary/30'}`}
                           >
                             <div className="w-full h-8 bg-[#F5EEE5] rounded-lg border border-black/5" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Warm Coffee</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-nie8-text">Warm Coffee</span>
                           </button>
                           <button 
                             type="button"
-                            onClick={() => setSettingsForm({...settingsForm, theme_mode: 'slate'})}
+                            onClick={() => {
+                              setSettingsForm({...settingsForm, theme_mode: 'slate'});
+                              onThemePreview('slate');
+                            }}
                             className={`p-4 rounded-2xl border-2 flex flex-col gap-2 transition-all ${settingsForm.theme_mode === 'slate' ? 'border-[#3D4E61] bg-white' : 'border-nie8-primary/10 hover:border-nie8-primary/30'}`}
                           >
                             <div className="w-full h-8 bg-[#FAF3EB] rounded-lg border border-[#3D4E61]/20 flex gap-1 p-1">
                                <div className="w-full h-full bg-[#3D4E61] rounded" />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Slate Editorial</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#3D4E61]">Slate Editorial</span>
                           </button>
                         </div>
                       </div>

@@ -75,11 +75,28 @@ export default function ProductGrid({
     return ['Tất cả', ...cats.sort()];
   }, [products]);
 
+  // Helper kiểm tra sản phẩm hết hàng an toàn (Tính toán từ các size để đảm bảo chính xác)
+  const isProductOutOfStock = (p: Product) => {
+    // 1. Kiểm tra nếu không có dữ liệu size thì dùng stock_quantity
+    if (!p.stock_by_size) return !p.stock_quantity || p.stock_quantity <= 0;
+    
+    // 2. Tính tổng thực tế từ các size
+    const totalFromSizes = Object.values(p.stock_by_size).reduce((sum, qty) => sum + (qty || 0), 0);
+    return totalFromSizes <= 0;
+  };
+
   // Filter + Sort logic
   const filteredProducts = useMemo(() => {
     let result = activeCategory === 'Tất cả'
       ? products
       : products.filter(p => p.category === activeCategory);
+
+    // Sắp xếp: Còn hàng lên đầu, hết hàng xuống cuối
+    result = [...result].sort((a, b) => {
+      const aOut = isProductOutOfStock(a) ? 1 : 0;
+      const bOut = isProductOutOfStock(b) ? 1 : 0;
+      return aOut - bOut;
+    });
 
     if (activeSort === 'new') {
       result = [...result].sort((a, b) =>
@@ -125,10 +142,7 @@ export default function ProductGrid({
 
   const closeModal = () => setSelectedProduct(null);
 
-  // Helper kiểm tra sản phẩm hết hàng an toàn
-  const isProductOutOfStock = (p: Product) => {
-    return !p.stock_quantity || p.stock_quantity <= 0;
-  };
+
 
   // Format tiền VND
   const formatVND = (priceStr: string) => {
@@ -464,7 +478,7 @@ export default function ProductGrid({
                       <div className="flex items-center gap-1">
                         <div className="flex">
                           {[...Array(5)].map((_, i) => (
-                            <Star key={i} size={11} fill={i < 4 ? '#5C4D3F' : 'none'} className="text-nie8-primary" />
+                            <Star key={i} size={11} fill={i < 4 ? 'currentColor' : 'none'} className="text-nie8-primary" />
                           ))}
                         </div>
                         <span className="text-[10px] text-nie8-text/40 ml-1">(24)</span>

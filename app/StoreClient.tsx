@@ -58,15 +58,17 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   const [currentView, setCurrentView] = useState<View>('home');
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(initialSettings);
-  
-  // Apply Theme based on settings
+  const [previewTheme, setPreviewTheme] = useState<'warm' | 'slate' | null>(null);
+
+  // Apply theme to HTML tag for maximum coverage
   useEffect(() => {
-    if (siteSettings?.theme_mode === 'slate') {
-      document.body.classList.add('theme-slate');
+    const activeTheme = previewTheme || siteSettings?.theme_mode || 'warm';
+    if (activeTheme === 'slate') {
+      document.documentElement.classList.add('theme-slate');
     } else {
-      document.body.classList.remove('theme-slate');
+      document.documentElement.classList.remove('theme-slate');
     }
-  }, [siteSettings?.theme_mode]);
+  }, [siteSettings?.theme_mode, previewTheme]);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -362,9 +364,11 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           const { error } = await supabase.from('site_settings').upsert({ id: 'default', ...s });
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
           setSiteSettings(s);
+          setPreviewTheme(null); // Clear preview on save
           showToast('Đã cập nhật cài đặt!');
         }}
-        onClose={() => setCurrentView('home')}
+        onThemePreview={(theme) => setPreviewTheme(theme)}
+        onClose={() => { setPreviewTheme(null); setCurrentView('home'); }}
         onLogout={logout}
       />
     );
