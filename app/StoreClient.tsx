@@ -365,6 +365,13 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
           const { error } = await supabase.from('products').insert([payload]);
           if (error) { showToast('Lỗi: ' + error.message, 'error'); return; }
           
+          // Ghi nhật ký hệ thống
+          await supabase.from('activity_logs').insert({
+            product_id: p.id,
+            action: 'Thêm sản phẩm mới',
+            details: `Đã thêm sản phẩm: ${p.name} (${p.category}) với giá ${new Intl.NumberFormat('vi-VN').format(Number(cleanPrice))}đ`
+          });
+          
           // Ghi sổ cái cho số lượng ban đầu
           if (p.stock_by_size) {
             const movements = Object.entries(p.stock_by_size)

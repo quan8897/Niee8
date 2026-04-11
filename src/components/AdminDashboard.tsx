@@ -164,8 +164,14 @@ export default function AdminDashboard({
         });
         
       if (movementError) console.error('Error logging stock movement:', movementError);
-
-
+ 
+      // Ghi nhật ký hệ thống: Nhập kho thủ công
+      await supabase.from('activity_logs').insert({
+        product_id: restockProduct.id,
+        action: 'Nhập kho thủ công',
+        details: `Nhập thêm ${restockQuantity} sản phẩm size ${restockSize} cho: ${restockProduct.name}`
+      });
+ 
       onUpdateProduct({
         ...restockProduct,
         stock_by_size: newStockBySize,
@@ -412,6 +418,18 @@ export default function AdminDashboard({
     if (error) throw error;
     
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    
+    // Ghi nhật ký hệ thống: Cập nhật trạng thái đơn hàng
+    const statusLabels: Record<string, string> = {
+      'pending': 'Chờ thanh toán', 'processing': 'Đang chuẩn bị', 'shipping': 'Đang giao',
+      'completed': 'Hoàn thành', 'cancelled': 'Đã hủy', 'returning': 'Đang trả hàng',
+      'returned': 'Đã trả hàng', 'discarded': 'Hàng hư hỏng'
+    };
+    await supabase.from('activity_logs').insert({
+      action: 'Cập nhật đơn hàng',
+      details: `Đơn hàng #${orderId.slice(-8)} chuyển sang trạng thái: ${statusLabels[status] || status}`
+    });
+
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status } : null);
     }
@@ -453,6 +471,13 @@ export default function AdminDashboard({
 
       // Cập nhật trạng thái đơn cũ
       await finalizeStatusUpdate(orderId, finalStatus);
+      
+      // Ghi nhật ký hệ thống: Xử lý trả hàng chi tiết
+      await supabase.from('activity_logs').insert({
+        action: 'Xử lý trả hàng',
+        details: `Đơn hàng #${orderId.slice(-8)} xử lý theo diện: ${scenario === 'restock' ? 'HOÀN KHO & HOÀN TIỀN' : 'HÀNG HƯ HỎNG (Discard)'}`
+      });
+
       setReturnConfirm({ show: false, orderId: '', items: [], scenario: 'restock' });
     } catch (error) {
       console.error('Error processing return action:', error);

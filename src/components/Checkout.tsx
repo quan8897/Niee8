@@ -127,6 +127,13 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Yêu cầu thanh toán bị từ chối');
 
+      // Ghi nhật ký hệ thống: Thông báo đơn hàng mới cho Admin
+      await supabase.from('activity_logs').insert({
+        product_id: null,
+        action: 'Đơn hàng mới',
+        details: `Có đơn hàng mới #${data.orderId} từ khách hàng ${formData.name} (${formData.phone}). Tổng cộng: ${new Intl.NumberFormat('vi-VN').format(finalTotal)}đ`
+      });
+
       // Update coupon usage count if applied 
       if (appliedCoupon) {
         await supabase.rpc('increment_coupon_usage', { p_code: appliedCoupon.code });
