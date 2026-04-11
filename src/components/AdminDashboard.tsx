@@ -512,6 +512,8 @@ export default function AdminDashboard({
                           product.name.toLowerCase().includes(stockSearchQuery.toLowerCase());
       return matchCategory && matchSearch;
     });
+  }, [stockMovements, stockFilterCategory, stockSearchQuery]);
+
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'bg-blue-100 text-blue-600';
