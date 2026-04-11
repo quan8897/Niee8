@@ -650,13 +650,12 @@ export default function ProductGrid({
                           Thanh toán ngay
                         </button>
 
-                        {/* AI Chat button */}
+                        {/* Phase 1: AI Chat button đã ẩn. Thay bằng nút Yêu thích */}
                         <button
-                          onClick={() => onChatWithAI?.(selectedProduct)}
                           className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-nie8-bg border-2 border-nie8-primary/10 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform hover:border-nie8-primary/30 text-nie8-primary"
-                          title="Hỏi AI Stylist về sản phẩm này"
+                          title="Thêm vào yêu thích"
                         >
-                          <Sparkles size={20} />
+                          <Heart size={20} />
                         </button>
                       </div>
                     ) : (

@@ -46,6 +46,20 @@ Tài liệu này mô tả các luồng nghiệp vụ chuẩn đang được áp 
   - Báo cáo Sản phẩm bán chạy nhất (Top-selling).
   - Báo cáo Nhu cầu nhập hàng (Sản phẩm nào đang có nhiều người đăng ký nhận thông báo nhất) để Admin đưa ra quyết định sản xuất/nhập hàng chính xác.
 
-## 7. Các nghiệp vụ cần phát triển thêm trong tương lai
+## 7. Mã giảm giá (Coupon System)
+- **Nghiệp vụ:** Khách hàng có thể nhập mã giảm giá khi thanh toán. Hệ thống hỗ trợ giảm theo số tiền cố định (Fixed) hoặc phần trăm (Percentage).
+- **Quy tắc:** Mã giảm giá bị giới hạn số lượng (`usage_limit`). Nếu đạt giới hạn, hệ thống không cho phép dùng.
+- **Xử lý kỹ thuật:** Ngay khi tạo đơn hàng, hệ thống gọi RPC tăng lượt sử dụng. Nếu đơn hàng bị hủy, RPC `cancel_order_safe` sẽ hoàn trả lại lượt sử dụng này.
+
+## 8. Hóa đơn điện tử (VAT Invoice)
+- **Nghiệp vụ:** Khách hàng doanh nghiệp hoặc cá nhân cần lấy hóa đơn VAT.
+- **Quy tắc:** Khách nhập Mã số thuế, tên tổ chức, địa chỉ, email công ty trực tiếp trên Modal tại trang đặt hàng.
+- **Xử lý kỹ thuật:** Thông tin được nén dưới cấu trúc JSON và đẩy trực tiếp vào cột `invoice_info` JSONB trong bảng `orders`.
+
+## 9. Chống kẹt kho ảo (Auto-cancel 15min)
+- **Vấn đề:** Khách bấm đặt hàng (kho đã trừ cứng) nhưng đóng trình duyệt ngang xương trang PayOS mà không bấm Hủy thanh toán, khiến cái áo bị kẹt mãi mãi (Pending).
+- **Giải pháp:** Sử dụng **Vercel Cron Job**. Cứ mỗi phút, Vercel tự gọi `/api/cron/cleanup`. Hệ thống quét toàn bộ đơn đang ở vòng lặp "Pending" quá 15 phút. Hệ thống tự động dùng cơ chế `cancel_order_safe` để chuyển sang Cancelled và hoàn lại kho (+1 áo) để người khác mua.
+
+## 10. Các nghiệp vụ cần phát triển thêm trong tương lai
 - **Cảnh báo sắp hết hàng (Low Stock Alert):** Thêm ngưỡng cảnh báo (ví dụ: < 5 sản phẩm) để hệ thống tự động báo đỏ.
 - **Quản lý Giá vốn (COGS):** Lưu lại giá nhập của từng đợt hàng để tính toán chính xác Lợi nhuận (Profit).

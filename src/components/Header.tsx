@@ -259,15 +259,13 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
               <span className="text-[9px] font-bold uppercase tracking-widest">Tìm</span>
             </button>
 
-            {/* AI Stylist — CTA chính giữa, nổi bật nhất */}
+            {/* Wishlist — Phase 1: AI Stylist đã được ẩn, thay bằng Yêu thích */}
             <button
-              onClick={onAIClick}
-              className="flex flex-col items-center gap-1 -mt-5"
+              onClick={() => setActiveNav('wishlist')}
+              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 -mt-1 transition-colors ${activeNav === 'wishlist' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
             >
-              <div className="w-14 h-14 bg-nie8-primary rounded-full flex items-center justify-center shadow-xl shadow-nie8-primary/40 active:scale-90 transition-transform">
-                <Sparkles size={24} className="text-white" />
-              </div>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-nie8-primary">AI Stylist</span>
+              <Heart size={22} strokeWidth={activeNav === 'wishlist' ? 2.5 : 1.8} />
+              <span className="text-[9px] font-bold uppercase tracking-widest">Yêu thích</span>
             </button>
 
             {/* Wishlist */}

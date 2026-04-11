@@ -51,6 +51,17 @@ Dưới đây là kế hoạch kiểm thử chấp nhận người dùng (UAT) c
 | TC-SC-03 | XSS qua tên sản phẩm hoặc ghi chú đơn hàng | Các chuỗi `<script>` được escape, không thực thi trên trình duyệt. |
 | TC-SC-04 | Thay đổi giá sản phẩm trong request đặt hàng | Backend tính toán lại giá dựa trên Database, không tin tưởng giá từ Client. |
 
+### 4.4. Kiểm thử Chuyên sâu Thương mại Điện tử (E-commerce Core QA)
+| ID | Kịch bản (Test Scenario) | Mong đợi (Expected Result) |
+|:---|:---|:---|
+| TC-EC-01 | **[Mua hàng & Kho]** Thêm vào giỏ khi tồn kho = 1, nhưng sang tab khác lấy user khác mua mất (Tồn kho = 0) | Khi bấm Reload / Checkout, Frontend tự động Clamp số lượng hiển thị về 0 và đẩy khỏi giỏ, Backend chặn giao dịch (Oversell Check). |
+| TC-EC-02 | **[Mã giảm giá]** Áp dụng mã Coupon hợp lệ (Fixed & Percentage) | Tổng tiền tự động được tính trừ đúng công thức. Lượt sử dụng mã (Usage Count) tăng lên +1. |
+| TC-EC-03 | **[Mã giảm giá]** Áp dụng mã đã cạn giới hạn (`usage_count >= usage_limit`) | Hệ thống báo lỗi "Mã giảm giá đã hết lượt sử dụng" và không cho áp dụng. |
+| TC-EC-04 | **[Hóa đơn điện tử]** Tích chọn xuất hóa đơn VAT (Cá nhân/Công ty) tại bước Checkout | Phải hiển thị Form phụ nhập MST, Tên tổ chức. Sau khi mua, thông tin lưu chính xác dưới định dạng JSONB tại cột `invoice_info`. |
+| TC-EC-05 | **[Hủy đơn PayOS]** Khách chọn "Hủy thanh toán / Quay lại" trên PayOS QR | Đơn hàng nháy sang `Cancelled`. Kho tức khắc hoàn trả (+1 áo), Lượt giảm giá hoàn trả (-1). |
+| TC-EC-06 | **[Hủy tự động]** Khách tạo đơn PayOS rồi hờ hững... đóng luôn trình duyệt (Tạo kẹt kho ảo) | Sau chính xác 15 phút, Robot quét (Vercel Cron) tìm đơn Pending này, Set `Cancelled` và hoàn lại kho tự động, hoàn mã giảm giá. |
+| TC-EC-07 | **[Quản lý Đơn]** Admin tự tay hủy đơn hàng từ Admin Dashboard | Hệ thống ghi Log báo cáo Hủy/Hoàn kho xuống sổ cái `stock_movements`. Kho nhảy số dương. |
+
 ## 6. Kiểm thử bổ sung (Advanced Testing Scenarios)
 
 ### 6.1. Kiểm thử Hiệu năng & Chịu tải (Performance & Load Testing)

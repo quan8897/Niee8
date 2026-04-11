@@ -174,6 +174,10 @@ Phân quyền người dùng (liên kết với Supabase Auth).
 | `customer_city` | text | Tỉnh/Thành phố |
 | `items` | jsonb | Mảng `CartItem` đã mua |
 | `total_amount` | numeric | Tổng tiền (VNĐ) |
+| `discount_amount` | numeric | Tiền giảm giá |
+| `coupon_code` | text (FK) | Mã giảm giá |
+| `invoice_info` | jsonb | Khách yêu cầu xuất VAT |
+| `note` | text | Ghi chú từ khách |
 | `status` | text | `pending / processing / shipping / completed / cancelled` |
 | `payment_method` | text | `'cod'` hoặc `'payos'` |
 | `created_at` | timestamp | Tự động |
@@ -208,6 +212,18 @@ Phân quyền người dùng (liên kết với Supabase Auth).
 | `hero_title` | text | Tiêu đề lớn |
 | `hero_subtitle` | text | Tiêu đề phụ |
 | `hero_description` | text | Đoạn mô tả ngắn |
+
+### 5.7. Table: `coupons` (Mã giảm giá)
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `code` | text (PK) | Mã nhập vào (vd TẾT2026) |
+| `type` | text | `'fixed'` hoặc `'percentage'` |
+| `value` | numeric | 100000 (fixed) hoặc 20 (percentage) |
+| `min_order_amount`| numeric | Giá trị tối thiểu để áp mã |
+| `usage_limit` | integer | Số lượt sử dụng tối đa |
+| `usage_count` | integer | Số lượt đã sử dụng |
+| `is_active` | boolean | Trạng thái bật/tắt mã |
+| `created_at` | timestamp | Tự động |
 
 ---
 
@@ -252,15 +268,16 @@ Cộng lại stock vào stock_by_size
 Ghi log → stock_movements (type: 'return')
 ```
 
-### 6.4. Cron Job Dọn Đơn Hàng Bỏ Rơi
+### 6.4. Chống kẹt Kho Ảo (Cron Job)
 ```
-Vercel Cron mỗi 15 phút gọi GET /api/cron/cleanup
+Vercel Cron mỗi phút gọi GET /api/cron/cleanup
     ↓
-Tìm orders status='pending' AND created_at < NOW() - 30min
+Tìm orders status='pending' AND created_at < NOW() - 15min
     ↓
-Batch update status='cancelled'
-    ↓
-Gọi restore_stock() cho từng đơn bị hủy
+Lặp qua các đơn và gọi RPC cancel_order_safe()
+    ├── Chuyển status = 'cancelled'
+    ├── Hoàn tồn kho (stock_quantity + stock_by_size)
+    └── Hoàn lượt sử dụng mã giảm giá (usage_count)
 ```
 
 ---
