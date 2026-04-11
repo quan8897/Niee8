@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, X, ChevronLeft, ChevronRight, Star, Share2, Minus, Plus, Sparkles } from 'lucide-react';
 import { Product, SiteSettings } from '../types';
 import ProtectedImage from './ProtectedImage';
+import { supabase } from '../lib/supabase';
 
 const PRODUCTS_PER_PAGE = 12;
 
