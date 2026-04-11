@@ -903,7 +903,6 @@ export default function AdminDashboard({
                 </div>
               </motion.div>
             )}
-            )}
 
             {activeTab === 'orders' && (
               <motion.div 
