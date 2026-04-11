@@ -169,12 +169,17 @@ export default function AdminDashboard({
         if (!item.name || !item.price) {
           throw new Error(`Sản phẩm thứ ${index + 1} thiếu tên hoặc giá.`);
         }
+        const stockBySize = item.stock_by_size || { S: 0, M: 0, L: 0, XL: 0 };
+        const totalStock = Object.values(stockBySize).reduce((a: any, b: any) => (a || 0) + (b || 0), 0);
+
         onAddProduct({
           ...item,
           id: (Date.now() + index).toString(),
           images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
           category: item.category || 'Áo',
-          description: item.description || ''
+          description: item.description || '',
+          stock_by_size: stockBySize,
+          stock_quantity: totalStock
         } as Product);
       });
       

@@ -125,6 +125,11 @@ export default function ProductGrid({
 
   const closeModal = () => setSelectedProduct(null);
 
+  // Helper kiểm tra sản phẩm hết hàng an toàn
+  const isProductOutOfStock = (p: Product) => {
+    return !p.stock_quantity || p.stock_quantity <= 0;
+  };
+
   // Format tiền VND
   const formatVND = (priceStr: string) => {
     const amount = parseFloat(priceStr.replace(/[^0-9]/g, ''));
@@ -273,7 +278,7 @@ export default function ProductGrid({
                           className="group-hover:scale-105"
                         />
                         
-                        {product.stock_quantity === 0 && (
+                        {isProductOutOfStock(product) && (
                           <div className="absolute top-4 left-4 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full z-10 shadow-lg">
                             HẾT HÀNG
                           </div>
@@ -562,7 +567,7 @@ export default function ProductGrid({
                     {selectedProduct.outfit_suggestions && selectedProduct.outfit_suggestions.length > 0 && (() => {
                       const validSuggestions = selectedProduct.outfit_suggestions
                         .map(id => products.find(p => p.id === id))
-                        .filter((p): p is Product => p != null && p.stock_quantity > 0);
+                        .filter((p): p is Product => p != null && !isProductOutOfStock(p));
                       if (validSuggestions.length === 0) return null;
                       return (
                         <div className="mb-4 mt-6">
@@ -607,7 +612,7 @@ export default function ProductGrid({
                   {/* === STICKY CTA — quan trọng nhất trên mobile ===== */}
                   <div className="flex-shrink-0 px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-nie8-primary/10 safe-area-pb z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                     {/* Check stock for the SPECIFIC selected size */}
-                    {(selectedProduct.stock_by_size?.[selectedSize] || 0) > 0 ? (
+                    {!isProductOutOfStock(selectedProduct) && (selectedProduct.stock_by_size?.[selectedSize] || 0) > 0 ? (
                       <div className="flex gap-3">
                         {/* Wishlist button */}
                         <button
