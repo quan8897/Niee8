@@ -201,7 +201,9 @@ export default function AdminDashboard({
       'Áo': 'A',
       'Quần': 'Q',
       'Váy': 'V',
-      'Nguyên set (bộ)': 'S'
+      'Nguyên set': 'S',
+      'Áo khoác': 'K',
+      'Phụ kiện': 'P'
     };
     
     const prefix = categoryMap[category] || 'X';
@@ -911,7 +913,9 @@ export default function AdminDashboard({
                               <option value="Áo">Áo</option>
                               <option value="Quần">Quần</option>
                               <option value="Váy">Váy</option>
-                              <option value="Nguyên set (bộ)">Nguyên set (bộ)</option>
+                              <option value="Nguyên set">Nguyên set</option>
+                              <option value="Áo khoác">Áo khoác</option>
+                              <option value="Phụ kiện">Phụ kiện</option>
                             </select>
                           </div>
 
@@ -1095,7 +1099,7 @@ export default function AdminDashboard({
                     className="flex-grow bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary text-sm font-medium"
                   />
                   <div className="flex bg-white border border-nie8-primary/10 rounded-2xl p-1 overflow-x-auto scroll-hide shrink-0">
-                    {['Tất cả', 'Áo', 'Quần', 'Váy', 'Nguyên set (bộ)'].map(cat => (
+                    {['Tất cả', 'Áo', 'Quần', 'Váy', 'Nguyên set', 'Áo khoác', 'Phụ kiện'].map(cat => (
                       <button
                         key={cat}
                         onClick={() => setStockFilterCategory(cat)}

@@ -63,15 +63,12 @@ export default function ProductGrid({
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
-  const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc'>('default');
+  const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc' | 'sales-desc' | 'likes-desc'>('default');
   const touchStartX = useRef<number>(0);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Dynamic categories từ data thực tế
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
-    return ['Tất cả', ...cats.sort()];
-  }, [products]);
+  // Chuẩn hóa danh mục theo yêu cầu: Áo, Quần, Váy, Nguyên set, Áo khoác, Phụ kiện
+  const categories = ['Tất cả', 'Áo', 'Quần', 'Váy', 'Nguyên set', 'Áo khoác', 'Phụ kiện'];
 
   // Helper kiểm tra sản phẩm hết hàng an toàn (Tính toán từ các size để đảm bảo chính xác)
   const isProductOutOfStock = (p: Product) => {
@@ -108,6 +105,10 @@ export default function ProductGrid({
       result = [...result].sort((a, b) =>
         parseFloat(b.price.replace(/[^0-9]/g, '')) - parseFloat(a.price.replace(/[^0-9]/g, ''))
       );
+    } else if (activeSort === 'sales-desc') {
+      result = [...result].sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0));
+    } else if (activeSort === 'likes-desc') {
+      result = [...result].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
     }
     return result;
   }, [products, activeCategory, activeSort]);
@@ -149,13 +150,26 @@ export default function ProductGrid({
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
   };
 
-  const toggleWishlist = (id: string, e: React.MouseEvent) => {
+  const toggleWishlist = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const isAdding = !wishlist.has(id);
+    
+    // 1. Cập nhật UI ngay lập tức để tạo cảm giác mượt mà
     setWishlist(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      isAdding ? next.add(id) : next.delete(id);
       return next;
     });
+
+    // 2. Gửi tín hiệu lên Database để tích lũy chỉ số (Background)
+    try {
+      await supabase.rpc('handle_product_like', { 
+        p_id: id, 
+        p_increment: isAdding ? 1 : -1 
+      });
+    } catch (err) {
+      console.error('Lỗi khi cập nhật lượt yêu thích:', err);
+    }
   };
 
   const handleAddToCart = () => {
@@ -229,6 +243,26 @@ export default function ProductGrid({
               </button>
             ))}
           </div>
+
+          <div className="flex items-center gap-6 w-full md:w-auto overflow-x-auto pb-1 scroll-hide border-t border-nie8-text/5 pt-4 md:border-none md:pt-0">
+            <span className="text-[9px] font-bold text-nie8-text/20 uppercase tracking-[0.2em]">Sắp xếp theo:</span>
+            {[
+              { id: 'sales-desc', label: 'Bán chạy' },
+              { id: 'likes-desc', label: 'Yêu thích' },
+              { id: 'price-asc', label: 'Giá ↑' },
+              { id: 'price-desc', label: 'Giá ↓' },
+            ].map(sort => (
+              <button
+                key={sort.id}
+                onClick={() => setActiveSort(sort.id as any)}
+                className={`whitespace-nowrap text-[10px] uppercase tracking-widest transition-all ${
+                  activeSort === sort.id ? 'text-nie8-primary font-bold' : 'text-nie8-text/30 hover:text-nie8-text'
+                }`}
+              >
+                {sort.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* GRID CONTAINER: THE MAGAZINE LOOKBOOK */}
@@ -292,11 +326,15 @@ export default function ProductGrid({
                           />
                         </div>
                         
-                        {isProductOutOfStock(product) && (
+                        {isProductOutOfStock(product) ? (
                           <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md text-nie8-text/60 text-[10px] font-bold px-4 py-1.5 rounded-full z-10 shadow-sm border border-white/50 tracking-widest">
                             SOLD OUT
                           </div>
-                        )}
+                        ) : product.sales_count && product.sales_count > 10 ? (
+                          <div className="absolute top-4 left-4 bg-nie8-text text-white text-[8px] font-bold px-3 py-1 rounded-full z-10 tracking-[0.2em] flex items-center gap-1.5 opacity-80">
+                             <div className="w-1 h-1 bg-yellow-400 rounded-full animate-pulse"></div> BEST SELLER
+                          </div>
+                        ) : null}
 
                         <button 
                           onClick={(e) => toggleWishlist(product.id, e)}

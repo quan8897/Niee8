@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, discountAmount, shippingFee, couponCode } = body;
+    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, discountAmount, shippingFee, couponCodes } = body;
 
     const payosCid = process.env.PAYOS_CLIENT_ID;
     const payosKey = process.env.PAYOS_API_KEY;
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       p_note: note || null,
       p_discount_amount: discountAmount || 0,
       p_shipping_fee: shippingFee || 0,
-      p_coupon_code: couponCode || null
+      p_coupon_codes: couponCodes || []
     });
 
     if (rpcError) throw new Error(`Database Error: ${rpcError.message}`);

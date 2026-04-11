@@ -13,6 +13,8 @@ export interface Product {
   supplier_code?: string;
   supplier_link?: string;
   created_at?: string;
+  sales_count?: number;
+  likes_count?: number;
 }
 
 export interface StockMovement {

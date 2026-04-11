@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Truck, CreditCard, ChevronRight, MapPin, Phone, User, CheckCircle2, AlertCircle, ArrowLeft, Loader2, Mail, Info, Trash2, Plus, Minus, Receipt, Ticket } from 'lucide-react';
+import { Truck, CreditCard, ChevronRight, MapPin, Phone, User, CheckCircle2, AlertCircle, ArrowLeft, Loader2, Mail, Info, Trash2, Plus, Minus, Receipt, Ticket, X, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 interface CheckoutProps {
@@ -29,61 +29,79 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
   
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [appliedCoupons, setAppliedCoupons] = useState<any[]>([]);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+  const [allCoupons, setAllCoupons] = useState<any[]>([]);
 
   const shippingFee = 2000; // Fixed 2000 VND for test
   
-  // Calculate discount
-  let discountAmount = 0;
-  if (appliedCoupon) {
-    if (appliedCoupon.discount_amount) {
-      discountAmount = parseFloat(appliedCoupon.discount_amount);
-    } else if (appliedCoupon.discount_percent) {
-      discountAmount = (total * appliedCoupon.discount_percent) / 100;
-    }
-    // Cannot discount more than the cart total
-    if (discountAmount > total) discountAmount = total;
-  }
+  // Calculate total discount from multiple coupons
+  const calculateTotalDiscount = () => {
+    let totalDiscount = 0;
+    appliedCoupons.forEach(coupon => {
+      let currentDiscount = 0;
+      const basis = coupon.category === 'shipping' ? shippingFee : 
+                   coupon.category === 'total' ? (total + shippingFee) : total;
+
+      if (coupon.discount_amount) {
+        currentDiscount = parseFloat(coupon.discount_amount);
+      } else if (coupon.discount_percent) {
+        currentDiscount = (basis * coupon.discount_percent) / 100;
+        if (coupon.max_discount_amount) {
+          currentDiscount = Math.min(currentDiscount, parseFloat(coupon.max_discount_amount));
+        }
+      }
+      
+      // Cap at the basis (cannot discount more than the sub-total it applies to)
+      totalDiscount += Math.min(currentDiscount, basis);
+    });
+    return totalDiscount;
+  };
+
+  const discountAmount = calculateTotalDiscount();
 
   const finalTotal = total + shippingFee - discountAmount;
 
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
+  const handleApplyCoupon = async (codeFromModal?: string) => {
+    const codeToUse = (codeFromModal || couponCode).trim().toUpperCase();
+    if (!codeToUse) return;
+    
     setIsApplyingCoupon(true);
     setCouponError(null);
     try {
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
-        .eq('code', couponCode.toUpperCase())
+        .eq('code', codeToUse)
         .single();
 
-      if (error || !data) {
-        throw new Error('Mã không hợp lệ hoặc đã hết hạn.');
-      }
-
+      if (error || !data) throw new Error('Mã không hợp lệ hoặc đã hết hạn.');
       if (!data.is_active) throw new Error('Mã này đã bị vô hiệu hóa.');
       if (data.usage_limit && data.usage_count >= data.usage_limit) throw new Error('Mã này đã hết lượt sử dụng.');
+      if (data.require_auth && !user) throw new Error('Mã này chỉ dành cho thành viên đã đăng nhập.');
       if (data.min_order_amount && total < parseFloat(data.min_order_amount)) {
         throw new Error(`Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ để áp dụng mã này.`);
       }
 
-      setAppliedCoupon(data);
+      // Stacking logic: 1 per category
+      setAppliedCoupons(prev => {
+        const filtered = prev.filter(c => c.category !== data.category);
+        return [...filtered, data];
+      });
+      setCouponCode('');
       setCouponError(null);
+      setIsVoucherModalOpen(false);
     } catch (err: any) {
       setCouponError(err.message);
-      setAppliedCoupon(null);
     } finally {
       setIsApplyingCoupon(false);
     }
   };
 
-  const removeCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCode('');
-    setCouponError(null);
+  const removeCoupon = (code: string) => {
+    setAppliedCoupons(prev => prev.filter(c => c.code !== code));
   };
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -115,7 +133,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           note: formData.note,
           discountAmount: discountAmount,
           shippingFee: shippingFee,
-          couponCode: appliedCoupon?.code || null
+          couponCodes: appliedCoupons.map(c => c.code)
         })
       });
 
@@ -157,7 +175,15 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     } finally {
       setIsProcessing(false);
     }
-  }, [formData, items, user, finalTotal, isProcessing, appliedCoupon, discountAmount]);
+  }, [formData, items, user, finalTotal, isProcessing, appliedCoupons, discountAmount]);
+
+  useEffect(() => {
+    async function loadCoupons() {
+      const { data } = await supabase.from('coupons').select('*').eq('is_active', true);
+      if (data) setAllCoupons(data);
+    }
+    loadCoupons();
+  }, []);
 
   useEffect(() => {
     if (currentOrderId && onComplete) {
@@ -310,42 +336,53 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           <section className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm">
              <h2 className="text-lg font-bold text-gray-900 mb-4">Mã khuyến mãi</h2>
              
-             {appliedCoupon ? (
-                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
-                  <div className="flex items-center gap-3 text-green-700">
-                    <Ticket size={20} />
-                    <div>
-                      <p className="font-bold text-sm uppercase">{appliedCoupon.code}</p>
-                      <p className="text-xs opacity-80">Đã áp dụng giảm {appliedCoupon.discount_amount ? formatVND(appliedCoupon.discount_amount) : `${appliedCoupon.discount_percent}%`}</p>
+             {appliedCoupons.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {appliedCoupons.map(coupon => (
+                    <div key={coupon.code} className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-4">
+                      <div className="flex items-center gap-3 text-green-700">
+                        <Ticket size={20} />
+                        <div>
+                          <p className="font-bold text-sm uppercase">{coupon.code}</p>
+                          <p className="text-xs opacity-80">
+                            {coupon.category === 'shipping' ? 'Miễn phí vận chuyển' : 
+                             `Đã giảm ${coupon.discount_amount ? formatVND(parseFloat(coupon.discount_amount)) : `${coupon.discount_percent}%`}`}
+                          </p>
+                        </div>
+                      </div>
+                      <button onClick={() => removeCoupon(coupon.code)} className="text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
                     </div>
-                  </div>
-                  <button onClick={removeCoupon} className="text-xs text-red-500 hover:underline font-bold uppercase">Xóa mã</button>
-                </div>
-             ) : (
-                <div className="flex flex-col gap-3">
-                  <button className="w-full flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-500 hover:bg-gray-100 transition-colors">
-                    <span className="flex items-center gap-2"><Ticket size={16} /> Chọn mã</span>
-                    <ChevronRight size={16} />
-                  </button>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Nhập mã khuyến mãi" 
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      className="flex-grow bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-gray-900 focus:ring-0 uppercase placeholder-gray-400 transition-colors" 
-                    />
-                    <button 
-                      onClick={handleApplyCoupon}
-                      disabled={isApplyingCoupon || !couponCode}
-                      className="bg-black text-white px-6 py-3 rounded-lg font-bold text-sm hover:bg-gray-800 disabled:bg-gray-400 transition-colors flex items-center justify-center min-w-[100px]"
-                    >
-                      {isApplyingCoupon ? <Loader2 size={16} className="animate-spin" /> : 'Áp dụng'}
-                    </button>
-                  </div>
-                  {couponError && <p className="text-red-500 text-xs font-medium flex items-center gap-1"><AlertCircle size={12}/> {couponError}</p>}
+                  ))}
                 </div>
              )}
+
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => setIsVoucherModalOpen(true)}
+                  className="w-full flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                >
+                  <span className="flex items-center gap-2"><Ticket size={16} /> Chọn mã</span>
+                  <ChevronRight size={16} />
+                </button>
+                
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Nhập mã khuyến mãi" 
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    className="flex-grow bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-stone-900 focus:ring-0 uppercase placeholder-gray-400 transition-colors" 
+                  />
+                  <button 
+                    onClick={() => handleApplyCoupon()}
+                    disabled={isApplyingCoupon || !couponCode}
+                    className="bg-black text-white px-6 py-3 rounded-lg font-bold text-sm hover:bg-gray-800 disabled:bg-gray-400 transition-colors flex items-center justify-center min-w-[100px]"
+                  >
+                    {isApplyingCoupon ? <Loader2 size={16} className="animate-spin" /> : 'Áp dụng'}
+                  </button>
+                </div>
+                {couponError && <p className="text-red-500 text-xs font-medium flex items-center gap-1"><AlertCircle size={12}/> {couponError}</p>}
+             </div>
           </section>
 
           {/* Summary */}
@@ -375,16 +412,111 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                </div>
 
                <button 
-                  onClick={handleSubmit}
+                  onClick={() => handleSubmit()}
                   disabled={isProcessing || items.length === 0}
-                  className="w-full mt-6 bg-black text-white py-4 rounded-xl font-bold text-sm hover:bg-gray-800 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
-                >
-                  {isProcessing ? <Loader2 size={18} className="animate-spin" /> : 'Đặt hàng'}
-                </button>
+                  className="w-full mt-6 bg-black text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-xl shadow-gray-200 hover:shadow-2xl hover:translate-y-[-2px] transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:bg-gray-400"
+               >
+                  {isProcessing ? <Loader2 size={24} className="animate-spin" /> : 'Hoàn tất đặt hàng'}
+               </button>
+
+               <div className="mt-6 flex items-center justify-center gap-6 opacity-40 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default">
+                  {/* Security/Trust Badges */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold uppercase mb-1">Secure by</span>
+                    <img src="https://pay.payos.vn/assets/img/logo-payos.svg" alt="PayOS" className="h-4" />
+                  </div>
+                  <div className="flex flex-col items-center border-l border-gray-200 pl-6">
+                    <span className="text-[8px] font-bold uppercase mb-1">Verified by</span>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-4" />
+                  </div>
+                  <div className="flex flex-col items-center border-l border-gray-200 pl-6">
+                    <span className="text-[8px] font-bold uppercase mb-1">Protected by</span>
+                    <div className="flex items-center gap-1 font-bold text-[10px] text-gray-800">
+                      <CheckCircle2 size={10} className="text-blue-500" /> SSL
+                    </div>
+                  </div>
+               </div>
              </div>
           </section>
         </div>
       </div>
+
+      {/* VOUCHER MODAL */}
+      <AnimatePresence>
+        {isVoucherModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsVoucherModalOpen(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                <h3 className="text-xl font-bold text-gray-900 tracking-tight">Chọn mã giảm giá</h3>
+                <button onClick={() => setIsVoucherModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                {allCoupons.length === 0 ? (
+                  <p className="text-center text-gray-400 py-10 italic">Hiện không có mã giảm giá khả dụng.</p>
+                ) : (
+                  allCoupons.map((coupon) => {
+                    const isApplied = appliedCoupons.some(c => c.code === coupon.code);
+                    const isMemberOnly = coupon.require_auth && !user;
+                    const diffToMin = coupon.min_order_amount ? parseFloat(coupon.min_order_amount) - total : 0;
+                    const isLockedByMin = diffToMin > 0;
+                    const isLocked = isMemberOnly || isLockedByMin;
+
+                    return (
+                      <div 
+                        key={coupon.code} 
+                        className={`relative group rounded-2xl border-2 transition-all p-5 flex gap-4 ${isApplied ? 'border-gray-900 bg-gray-50' : isLocked ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-gray-300 cursor-pointer'}`}
+                        onClick={() => !isLocked && handleApplyCoupon(coupon.code)}
+                      >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${coupon.category === 'shipping' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
+                          <Ticket size={24} />
+                        </div>
+                        <div className="flex-grow">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-gray-900 uppercase tracking-wider">{coupon.code}</h4>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${coupon.category === 'shipping' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                              {coupon.category === 'shipping' ? 'Freeship' : 'Voucher Shop'}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-gray-800 mb-1">{coupon.name || 'Ưu đãi Đặc biệt'}</p>
+                          <p className="text-xs text-gray-500 leading-relaxed">{coupon.description || `Giảm ngay cho đơn hàng từ ${formatVND(coupon.min_order_amount || 0)}`}</p>
+                          
+                          {isMemberOnly ? (
+                            <div className="mt-3 flex items-center gap-1.5 text-rose-500 font-bold text-[10px] uppercase tracking-wider bg-rose-50/50 w-fit px-2 py-1 rounded">
+                              <Info size={12} /> Chỉ dành cho thành viên - Đăng nhập ngay
+                            </div>
+                          ) : isLockedByMin ? (
+                            <div className="mt-3 flex items-center gap-1.5 text-blue-500 font-bold text-[10px] uppercase tracking-wider bg-blue-50/50 w-fit px-2 py-1 rounded">
+                              <Sparkles size={12} /> Mua thêm {formatVND(diffToMin)} để nhận mã này
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-col justify-center">
+                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isApplied ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`}>
+                             {isApplied && <CheckCircle2 size={12} className="text-white" />}
+                           </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

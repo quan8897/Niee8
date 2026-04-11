@@ -11,12 +11,21 @@ ALTER TABLE public.orders
 ADD COLUMN IF NOT EXISTS payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq'),
 ADD COLUMN IF NOT EXISTS cancellation_token UUID DEFAULT gen_random_uuid(),
 ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS coupon_codes JSONB DEFAULT '[]'::jsonb;
 
--- Đảm bảo bảng Coupons có đủ các cột cần thiết cho logic bảo mật
+-- Đảm bảo bảng Coupons có đủ các cột cần thiết cho logic bảo mật và phân loại
 ALTER TABLE public.coupons 
 ADD COLUMN IF NOT EXISTS usage_count INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS max_usage INTEGER;
+ADD COLUMN IF NOT EXISTS max_usage INTEGER,
+ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'product', -- 'product', 'shipping', 'total'
+ADD COLUMN IF NOT EXISTS require_auth BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS max_discount_amount NUMERIC;
+
+-- Bổ sung chỉ số sức hút cho Sản phẩm
+ALTER TABLE public.products
+ADD COLUMN IF NOT EXISTS sales_count BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS likes_count BIGINT DEFAULT 0;
 
 -- Mở rộng bảng Nhật ký để biết AI hay Admin đã thực hiện
 ALTER TABLE public.activity_logs 
@@ -45,7 +54,7 @@ CREATE OR REPLACE FUNCTION secure_checkout(
     p_note TEXT DEFAULT NULL,
     p_discount_amount NUMERIC DEFAULT 0,
     p_shipping_fee NUMERIC DEFAULT 0,
-    p_coupon_code TEXT DEFAULT NULL
+    p_coupon_codes TEXT[] DEFAULT ARRAY[]::TEXT[]
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -101,15 +110,22 @@ BEGIN
         VALUES (v_product_id, v_size, -v_quantity, 'sale', p_order_id, 'Bán hàng tự động (secure_checkout).');
     END LOOP;
 
-    -- 2. KIỂM TRA MÃ GIẢM GIÁ (NẾU CÓ)
-    IF p_coupon_code IS NOT NULL THEN
-        UPDATE public.coupons
-        SET usage_count = usage_count + 1
-        WHERE code = p_coupon_code AND (max_usage IS NULL OR usage_count < max_usage);
-        
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'COUPON_INVALID: Mã giảm giá không hợp lệ hoặc đã hết lượt dùng';
-        END IF;
+    -- 2. KIỂM TRA & CẬP NHẬT TẤT CẢ MÃ GIẢM GIÁ (STACKING)
+    IF p_coupon_codes IS NOT NULL AND array_length(p_coupon_codes, 1) > 0 THEN
+        DECLARE
+            v_code TEXT;
+        BEGIN
+            FOREACH v_code IN ARRAY p_coupon_codes
+            LOOP
+                UPDATE public.coupons
+                SET usage_count = usage_count + 1
+                WHERE code = v_code AND (max_usage IS NULL OR usage_count < max_usage) AND is_active = true;
+                
+                IF NOT FOUND THEN
+                    RAISE EXCEPTION 'COUPON_INVALID: Mã % không hợp lệ hoặc đã hết lượt dùng', v_code;
+                END IF;
+            END LOOP;
+        END;
     END IF;
 
     -- 3. ĐỐI SOÁT GIÁ (Tính lại tổng tiền thực tế: hàng + ship - giảm giá)
@@ -132,12 +148,12 @@ BEGIN
         id, user_id, customer_name, customer_phone,
         customer_address, customer_city, items,
         total_amount, shipping_fee, payment_method, status,
-        note, discount_amount, coupon_code
+        note, discount_amount, coupon_codes
     ) VALUES (
         p_order_id, p_user_id, p_customer_name, p_customer_phone,
         p_customer_address, p_customer_city, p_items,
         v_calculated_total, p_shipping_fee, p_payment_method, 'pending',
-        p_note, p_discount_amount, p_coupon_code
+        p_note, p_discount_amount, to_jsonb(p_coupon_codes)
     );
 
     -- 5. GHI NHẬT KÝ
@@ -220,3 +236,46 @@ EXCEPTION
         RETURN jsonb_build_object('success', false, 'error', SQLERRM);
 END;
 $$;
+
+
+-- [4] HÀM XỬ LÝ LIGHT-WEIGHT LIKE (Kết nối với nút Tim có sẵn)
+CREATE OR REPLACE FUNCTION handle_product_like(p_id TEXT, p_increment INTEGER)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    UPDATE public.products
+    SET likes_count = GREATEST(0, likes_count + p_increment)
+    WHERE id = p_id;
+END;
+$$;
+
+
+-- [5] TỰ ĐỘNG CẬP NHẬT DOANH SỐ KHI ĐƠN HÀNG THÀNH CÔNG
+CREATE OR REPLACE FUNCTION trigger_increment_sales_count()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    item JSONB;
+BEGIN
+    -- Khi đơn hàng chuyển sang 'processing' (đã thanh toán) hoặc 'completed'
+    IF (NEW.status IN ('processing', 'completed')) AND (OLD.status = 'pending') THEN
+        FOR item IN SELECT * FROM jsonb_array_elements(NEW.items)
+        LOOP
+            UPDATE public.products
+            SET sales_count = sales_count + (item->>'quantity')::INTEGER
+            WHERE id = item->>'id';
+        END LOOP;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_order_success_increment_sales ON public.orders;
+CREATE TRIGGER on_order_success_increment_sales
+    AFTER UPDATE OF status ON public.orders
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_increment_sales_count();
