@@ -500,7 +500,7 @@ export default function AdminDashboard({
             <div className="w-10 h-10 bg-nie8-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-nie8-primary/20">
               <Instagram size={20} />
             </div>
-            <span className="text-2xl font-serif italic text-nie8-text">niee8 <span className="text-nie8-primary">Admin.</span></span>
+            <span className="text-2xl font-serif italic text-nie8-text">nie8 <span className="text-nie8-primary">Admin.</span></span>
           </div>
 
           <nav className="space-y-2">
@@ -543,7 +543,7 @@ export default function AdminDashboard({
       <main className="flex-grow flex flex-col overflow-hidden bg-white">
         {/* Mobile Header */}
         <header className="lg:hidden p-4 border-b border-nie8-primary/10 flex items-center justify-between bg-white sticky top-0 z-10">
-          <span className="text-xl font-serif italic text-nie8-text">niee8.</span>
+          <span className="text-xl font-serif italic text-nie8-text">nie8.</span>
           <div className="flex gap-2">
             <button onClick={() => setActiveTab('overview')} className={`p-2 rounded-xl ${activeTab === 'overview' ? 'text-nie8-primary bg-nie8-primary/10' : 'text-nie8-text/40'}`}><LayoutDashboard size={20} /></button>
             <button onClick={() => setActiveTab('products')} className={`p-2 rounded-xl ${activeTab === 'products' ? 'text-nie8-primary bg-nie8-primary/10' : 'text-nie8-text/40'}`}><Package size={20} /></button>

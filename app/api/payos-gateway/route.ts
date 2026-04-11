@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     // Bóc tách dữ liệu
     const orderId = body.orderId || 'ORD' + Date.now();
     const amount = Math.round(Number(body.amount) || 2000);
-    const description = String(body.description || 'Niee8 Payment').slice(0, 25);
+    const description = String(body.description || 'Nie8 Payment').slice(0, 25);
     const items = Array.isArray(body.items) ? body.items : [];
     const returnUrl = body.returnUrl || '';
     const cancelUrl = body.cancelUrl || '';

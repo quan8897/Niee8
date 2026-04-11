@@ -10,7 +10,7 @@ export default function Footer({ onAdminLogin }: FooterProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div className="col-span-1 md:col-span-2 lg:col-span-1">
-            <h2 className="text-2xl font-serif italic text-nie8-text mb-2 tracking-tighter lowercase">niee8</h2>
+            <h2 className="text-2xl font-serif italic text-nie8-text mb-2 tracking-tighter lowercase">nie8</h2>
             <p className="text-[10px] text-nie8-primary font-medium uppercase tracking-widest mb-4">Minimalist Romantic & Craftsmanship</p>
             <p className="text-nie8-text/60 mb-6 leading-relaxed text-xs">
               Nơi phong cách gặp gỡ sự vô tận. Chúng tôi tin vào vẻ đẹp của sự tối giản và chất lượng bền bỉ theo thời gian.
@@ -61,14 +61,14 @@ export default function Footer({ onAdminLogin }: FooterProps) {
               </li>
               <li className="flex items-center gap-2">
                 <Mail size={14} className="text-nie8-primary" />
-                <span>hello@niee8.vn</span>
+                <span>hello@nie8studio.vn</span>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="pt-6 border-t border-nie8-primary/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[9px] uppercase tracking-[0.2em] text-nie8-text/40">
-          <p>© 2024 niee8. Tất cả quyền được bảo lưu.</p>
+          <p>© 2024 nie8. Tất cả quyền được bảo lưu.</p>
           <div className="flex gap-8">
             <a href="#" className="hover:text-nie8-text transition-colors">Chính sách bảo mật</a>
             <a href="#" className="hover:text-nie8-text transition-colors">Điều khoản dịch vụ</a>

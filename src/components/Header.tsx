@@ -12,9 +12,11 @@ interface HeaderProps {
   onTrackOrderClick?: () => void;
   user?: any;
   onLogout?: () => void;
+  settings?: any;
+  onNavigate?: (page: string) => void;
 }
 
-export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, onLoginClick, onAIClick, onTrackOrderClick, user, onLogout }: HeaderProps) {
+export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, onLoginClick, onAIClick, onTrackOrderClick, user, onLogout, settings, onNavigate }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('home');
@@ -44,7 +46,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             <nav className="hidden lg:flex items-center gap-8 text-xs font-medium tracking-[0.2em] uppercase">
               <a href="#" className="hover:text-nie8-primary transition-colors">Cửa hàng</a>
               <a href="#" className="hover:text-nie8-primary transition-colors">Bộ sưu tập</a>
-              <a href="#" className="hover:text-nie8-primary transition-colors">Về niee8</a>
+              <a href="#" className="hover:text-nie8-primary transition-colors">Về nie8</a>
               {isAdmin && (
                 <button
                   onClick={onAdminClick}
@@ -64,14 +66,13 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             </button>
 
             {/* Logo — center */}
-            <motion.a
-              href="#"
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="absolute left-1/2 -translate-x-1/2 text-2xl sm:text-3xl font-serif italic text-nie8-text tracking-tighter lowercase select-none"
+            <button 
+              onClick={() => onNavigate?.('home')} 
+              className="absolute left-1/2 -translate-x-1/2 text-2xl sm:text-3xl font-serif italic tracking-tighter text-nie8-text flex items-center gap-1 group"
             >
-              niee<span className="text-3xl sm:text-4xl not-italic">8</span>
-            </motion.a>
+              NIE<span className="text-nie8-primary group-hover:italic">8</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-nie8-primary mt-2 group-hover:animate-ping" />
+            </button>
 
             {/* Right actions */}
             <div className="flex items-center gap-3 sm:gap-5">
@@ -160,7 +161,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             >
               {/* Menu header */}
               <div className="flex items-center justify-between p-6 border-b border-nie8-primary/10">
-                <span className="text-2xl font-serif italic text-nie8-text">niee8</span>
+                <span className="text-2xl font-serif italic text-nie8-text">nie8</span>
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="w-9 h-9 rounded-full border border-nie8-primary/20 flex items-center justify-center"
@@ -177,7 +178,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
                   { label: 'Bộ sưu tập', href: '#' },
                   { label: 'Hàng mới về', href: '#', badge: 'Mới' },
                   { label: 'Theo dõi đơn hàng', onClick: onTrackOrderClick },
-                  { label: 'Về niee8', href: '#' },
+                  { label: 'Về nie8', href: '#' },
                   { label: 'Liên hệ', href: '#' },
                   ...(user ? [
                     { label: 'Đăng xuất', onClick: onLogout }
@@ -228,7 +229,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
 
               {/* Menu footer */}
               <div className="p-6 border-t border-nie8-primary/10">
-                <p className="text-xs text-nie8-text/30 uppercase tracking-widest">© 2024 niee8</p>
+                <p className="text-xs text-nie8-text/30 uppercase tracking-widest">© 2024 nie8</p>
               </div>
             </motion.div>
           </>

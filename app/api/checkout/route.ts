@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     if (paymentMethod === 'payos') {
       // LỖI 1 FIX: OrderCode duy nhất hơn và Signature đúng thứ tự PayOS yêu cầu
       const orderCode = Number(String(Date.now()).slice(-8)); 
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://niee8.vercel.app').replace(/\/$/, '');
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://nie8studio.vn').replace(/\/$/, '');
 
       const paymentData = {
         orderCode,

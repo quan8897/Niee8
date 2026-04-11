@@ -133,7 +133,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       }
 
       if (data.checkoutUrl) {
-        localStorage.setItem('niee8_temp_phone', formData.phone);
+        localStorage.setItem('nie8_temp_phone', formData.phone);
         window.location.href = data.checkoutUrl;
       } else {
         setCurrentOrderId(data.orderId);
@@ -175,7 +175,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
   return (
     <div className="min-h-screen bg-[#F8F9FA] pt-24 pb-20 px-4 sm:px-8 font-sans">
       <div className="max-w-6xl mx-auto flex items-center justify-between mb-8 cursor-pointer" onClick={onBack}>
-         <div className="text-xl font-serif italic text-nie8-text hover:text-nie8-primary transition-colors flex items-center gap-2"><ArrowLeft size={20} /> niee8.</div>
+         <div className="text-xl font-serif italic text-nie8-text hover:text-nie8-primary transition-colors flex items-center gap-2"><ArrowLeft size={20} /> nie8.</div>
       </div>
       
       <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-8 items-start">

@@ -9,7 +9,7 @@ interface HeroProps {
 
 export default function Hero({ settings }: HeroProps) {
   const heroImage = settings?.heroImage || "https://images.unsplash.com/photo-1551163943-3f6a855d1153?q=80&w=1920&auto=format&fit=crop";
-  const heroTitle = settings?.heroTitle || "niee8.";
+  const heroTitle = settings?.heroTitle || "nie8.";
   const heroSubtitle = settings?.heroSubtitle || "Minimalist Romantic & Craftsmanship";
   const heroDescription = settings?.heroDescription || "Những thiết kế tinh tuyển dành cho người phụ nữ hiện đại, trân trọng chất lượng hơn số lượng. Kiểu dáng vượt thời gian trong bảng màu trung tính.";
 
@@ -84,7 +84,7 @@ export default function Hero({ settings }: HeroProps) {
           >
             <ProtectedImage 
               src={heroImage} 
-              alt="Niee8 Editorial" 
+              alt="Nie8 Editorial" 
               className="w-full h-full object-cover transition-transform duration-[3s] hover:scale-110"
               containerClassName="w-full h-full"
               referrerPolicy="no-referrer"

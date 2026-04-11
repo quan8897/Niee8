@@ -286,15 +286,17 @@ export default function ProductGrid({
                   >
                     <div className="h-full flex flex-col">
                       <div className={`${aspectClass} rounded-[40px] sm:rounded-[56px] overflow-hidden relative shadow-sm border border-nie8-primary/5 group-hover:shadow-2xl group-hover:shadow-nie8-primary/10 transition-all duration-700`}>
-                        <LazyImage
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="group-hover:scale-105"
-                        />
+                        <div className={`w-full h-full transition-transform duration-700 hover:scale-110 ${isProductOutOfStock(product) ? 'opacity-70 grayscale-[0.3]' : ''}`}>
+                          <LazyImage
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="group-hover:scale-105"
+                          />
+                        </div>
                         
                         {isProductOutOfStock(product) && (
-                          <div className="absolute top-4 left-4 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full z-10 shadow-lg">
-                            HẾT HÀNG
+                          <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md text-nie8-text/60 text-[10px] font-bold px-4 py-1.5 rounded-full z-10 shadow-sm border border-white/50 tracking-widest">
+                            SOLD OUT
                           </div>
                         )}
 
@@ -534,7 +536,7 @@ export default function ProductGrid({
                             >
                               {selectedProduct.is_set ? `Set ${size}` : size}
                               {isOutOfStock && (
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-nie8-secondary/40 rounded-full border border-white" />
                               )}
                             </button>
                           );
@@ -562,7 +564,7 @@ export default function ProductGrid({
                         </button>
                       </div>
                       {(selectedProduct.stock_by_size?.[selectedSize] || 0) > 0 && quantity >= (selectedProduct.stock_by_size?.[selectedSize] || 0) && (
-                        <p className="text-[10px] text-red-500 mt-1">Đã đạt số lượng tối đa trong kho</p>
+                        <p className="text-[10px] text-nie8-primary/60 mt-1">Đã đạt số lượng tối đa trong kho</p>
                       )}
                     </div>
 
@@ -586,7 +588,7 @@ export default function ProductGrid({
                       return (
                         <div className="mb-4 mt-6">
                           <span className="text-xs font-bold uppercase tracking-wider text-nie8-primary flex items-center gap-1 mb-3">
-                            <Sparkles size={14} /> Gợi ý thêm từ Niee8
+                            <Sparkles size={14} /> Gợi ý thêm từ Nie8
                           </span>
                           <div className="flex gap-3 overflow-x-auto scroll-hide pb-2">
                             {validSuggestions.map(suggestedProduct => (
@@ -667,7 +669,7 @@ export default function ProductGrid({
                            Size {selectedSize} hiện đang hết hàng
                         </div>
                         <div className="p-4 bg-nie8-bg rounded-2xl border border-nie8-primary/5 text-nie8-text/40 text-[10px] font-medium leading-relaxed">
-                          Sản phẩm này hiện đã hết hàng. Bạn có thể chọn size khác hoặc nhắn tin trực tiếp cho Niee8 qua Instagram để được hỗ trợ nhanh nhất.
+                          Sản phẩm này hiện đã hết hàng. Bạn có thể chọn size khác hoặc nhắn tin trực tiếp cho Nie8 qua Instagram để được hỗ trợ nhanh nhất.
                         </div>
                       </div>
                     )}
