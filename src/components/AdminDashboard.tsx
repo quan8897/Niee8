@@ -514,6 +514,13 @@ export default function AdminDashboard({
     });
   }, [stockMovements, stockFilterCategory, stockSearchQuery]);
 
+  const stockKPIs = useMemo(() => {
+    const sales = stockMovements.filter(m => m.type === 'sale').reduce((acc, m) => acc + Math.abs(m.quantity), 0);
+    const returns = stockMovements.filter(m => m.type === 'return').reduce((acc, m) => acc + Math.abs(m.quantity), 0);
+    const returnRate = sales > 0 ? ((returns / (sales + returns)) * 100).toFixed(1) : '0';
+    return { sales, returns, returnRate };
+  }, [stockMovements]);
+
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'bg-blue-100 text-blue-600';
