@@ -56,9 +56,17 @@ export async function POST(request: NextRequest) {
       // Đồng bộ thời gian hết hạn: 15 phút (khớp với Cronjob tự hủy đơn)
       const expiredAt = Math.floor(Date.now() / 1000) + (15 * 60);
 
+      // XỬ LÝ ĐƠN HÀNG 0Đ (Giảm giá 100%)
+      const amount = Math.round(rpcResult.calculated_total);
+      if (amount <= 0) {
+        // Đơn hàng miễn phí -> Chuyển sang xử lý luôn
+        await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
+        return NextResponse.json({ success: true, orderId });
+      }
+
       const paymentData = {
         orderCode: Number(orderCode),
-        amount: Math.round(rpcResult.calculated_total), 
+        amount: amount, 
         description: orderId.slice(0, 25),
         cancelUrl: `${appUrl}/?payment=cancel&orderId=${orderId}&token=${rpcResult.cancellation_token}`,
         returnUrl: `${appUrl}/?payment=pending&orderId=${orderId}`,

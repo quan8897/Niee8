@@ -11,6 +11,11 @@ ALTER TABLE public.orders
 ADD COLUMN IF NOT EXISTS payos_order_code BIGINT UNIQUE DEFAULT nextval('payos_order_code_seq'),
 ADD COLUMN IF NOT EXISTS cancellation_token UUID DEFAULT gen_random_uuid();
 
+-- Đảm bảo bảng Coupons có đủ các cột cần thiết cho logic bảo mật
+ALTER TABLE public.coupons 
+ADD COLUMN IF NOT EXISTS usage_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS max_usage INTEGER;
+
 -- Mở rộng bảng Nhật ký để biết AI hay Admin đã thực hiện
 ALTER TABLE public.activity_logs 
 ADD COLUMN IF NOT EXISTS performed_by UUID REFERENCES auth.users(id);
@@ -115,7 +120,7 @@ BEGIN
                     'order_id', p_order_id, 
                     'client_total', p_total_amount, 
                     'db_calculated_total', v_calculated_total,
-                    'diff_percentage', ROUND((ABS(v_calculated_total - p_total_amount) / v_calculated_total * 100)::numeric, 2)
+                    'diff_percentage', CASE WHEN v_calculated_total > 0 THEN ROUND((ABS(v_calculated_total - p_total_amount) / v_calculated_total * 100)::numeric, 2) ELSE 0 END
                 ));
     END IF;
 
