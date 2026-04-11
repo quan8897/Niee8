@@ -60,6 +60,17 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(initialSettings);
   const [previewTheme, setPreviewTheme] = useState<'warm' | 'slate' | null>(null);
 
+  // Hàm làm mới dữ liệu sản phẩm từ DB
+  const refreshProducts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setProducts(data);
+    } catch (err) {
+      console.error('Failed to refresh products:', err);
+    }
+  }, [supabase]);
+
   // Apply theme to HTML tag for maximum coverage
   useEffect(() => {
     const activeTheme = previewTheme || siteSettings?.theme_mode || 'warm';
@@ -139,6 +150,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
               setLastOrderInfo({ id: orderId, phone: tempPhone });
               setCurrentView('track-order');
               localStorage.removeItem('niee8_temp_phone');
+              refreshProducts(); // Cập nhật kho mới nhất
             }
           } else if (order?.status === 'pending') {
             // Chưa được xác nhận qua Webhook
@@ -147,6 +159,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
             if (tempPhone) {
               setLastOrderInfo({ id: orderId, phone: tempPhone });
               setCurrentView('track-order');
+              refreshProducts(); // Cập nhật kho mới nhất
             }
           } else {
             showToast('Thanh toán không thành công.', 'error');
@@ -162,9 +175,10 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       
       // Khôi phục kho và trạng thái giỏ hàng
       supabase.rpc('cancel_order_safe', { p_order_id: orderId }).then(() => {
-        // Làm vòng lặp nhẹ để đồng bộ lại dữ liệu products mới nhất (sau khi được trả kho)
-        window.location.href = window.location.pathname; 
+        refreshProducts(); // Cập nhật lại kho sau khi hoàn
+        showToast('Đã khôi phục sản phẩm vào kho', 'info');
       });
+      window.history.replaceState({}, '', window.location.pathname);
       
     }
   }, [showToast, supabase]);
@@ -320,6 +334,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
         onComplete={(orderId, phone) => {
           setSavedCartItems([]);
           setLastOrderInfo({ id: orderId, phone });
+          refreshProducts(); // Quan trọng: Cập nhật lại kho ngay lập tức
           setCurrentView('track-order');
         }}
         user={user}
