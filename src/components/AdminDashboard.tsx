@@ -4,7 +4,7 @@ import {
   X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, 
   Settings, Package, Loader2, LogOut, LayoutDashboard, 
   Instagram, Calendar, TrendingUp, Users, MessageSquare, 
-  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag
+  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus
 } from 'lucide-react';
 import { Product, SiteSettings, Order } from '../types';
 import { supabase } from '../lib/supabase';
@@ -611,29 +611,11 @@ export default function AdminDashboard({
 
                   <div className="bg-nie8-bg/30 rounded-[40px] p-8 border border-nie8-primary/5">
                     <div className="flex justify-between items-center mb-8">
-                      <h3 className="text-2xl font-serif italic text-nie8-text">Nhu cầu nhập hàng</h3>
-                      <button onClick={() => setActiveTab('stock-requests')} className="text-xs font-bold uppercase tracking-widest text-nie8-primary hover:underline">Xem chi tiết</button>
+                      <h3 className="text-2xl font-serif italic text-nie8-text">Hoạt động gần đây</h3>
+                      <button className="text-xs font-bold uppercase tracking-widest text-nie8-primary hover:underline">Xem tất cả</button>
                     </div>
                     <div className="space-y-4">
-                      {stockNotifications.slice(0, 3).map((notification, i) => (
-                        <div key={i} className="bg-white p-4 rounded-3xl flex items-center gap-6 group hover:shadow-lg transition-all">
-                          <div className="w-12 h-12 bg-nie8-bg rounded-2xl flex items-center justify-center text-nie8-primary flex-shrink-0">
-                            <Bell size={20} />
-                          </div>
-                          <div className="flex-grow">
-                            <h4 className="font-bold text-nie8-text text-sm mb-1">{notification.product_name}</h4>
-                            <div className="flex items-center gap-2 text-[10px] text-nie8-text/40 uppercase tracking-widest font-bold">
-                              Size {notification.size || 'M'} • {new Date(notification.created_at).toLocaleDateString('vi-VN')}
-                            </div>
-                          </div>
-                          <div className="px-4 py-2 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-bold uppercase tracking-widest">
-                            Đang chờ
-                          </div>
-                        </div>
-                      ))}
-                      {stockNotifications.length === 0 && (
-                        <p className="text-center text-sm text-nie8-text/40 py-8">Chưa có dữ liệu nhu cầu.</p>
-                      )}
+                      <p className="text-center text-sm text-nie8-text/40 py-8 italic">Đang cập nhật luồng hoạt động mới...</p>
                     </div>
                   </div>
                 </div>
@@ -921,14 +903,6 @@ export default function AdminDashboard({
                 </div>
               </motion.div>
             )}
-
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
             )}
 
             {activeTab === 'orders' && (
