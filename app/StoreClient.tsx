@@ -145,9 +145,15 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       };
       verifyPayment();
       window.history.replaceState({}, '', window.location.pathname);
-    } else if (paymentStatus === 'cancel') {
-      showToast('Thanh toán đã bị hủy.', 'error');
-      window.history.replaceState({}, '', window.location.pathname);
+    } else if (paymentStatus === 'cancel' && orderId) {
+      showToast('Thanh toán đã bị hủy. Sản phẩm đã được trả lại kho!', 'error');
+      
+      // Khôi phục kho và trạng thái giỏ hàng
+      supabase.rpc('cancel_order_safe', { p_order_id: orderId }).then(() => {
+        // Làm vòng lặp nhẹ để đồng bộ lại dữ liệu products mới nhất (sau khi được trả kho)
+        window.location.href = window.location.pathname; 
+      });
+      
     }
   }, [showToast, supabase]);
 
@@ -161,7 +167,13 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
     savedCartItems.map(saved => {
       const product = products.find(p => p.id === saved.id);
       if (!product) return null;
-      return { ...product, quantity: saved.quantity, size: saved.size };
+      
+      const maxStock = product.stock_by_size?.[saved.size] || 0;
+      const validQty = Math.min(saved.quantity, maxStock);
+      
+      if (validQty <= 0) return null;
+      
+      return { ...product, quantity: validQty, size: saved.size };
     }).filter(Boolean) as CartItem[],
     [savedCartItems, products]
   );

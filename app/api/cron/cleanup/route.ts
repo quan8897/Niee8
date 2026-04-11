@@ -13,15 +13,15 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Tìm đơn hàng PayOS pending quá 30 phút
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // Tìm đơn hàng PayOS pending quá 15 phút (Chuẩn SLA mới)
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
     const { data: expiredOrders, error } = await supabase
       .from('orders')
-      .select('id, items')
+      .select('id, items, coupon_code')
       .eq('status', 'pending')
       .eq('payment_method', 'payos')
-      .lt('created_at', thirtyMinutesAgo);
+      .lt('created_at', fifteenMinutesAgo);
 
     if (error) throw error;
     if (!expiredOrders || expiredOrders.length === 0) {
@@ -31,23 +31,15 @@ export async function GET(request: NextRequest) {
     let cancelledCount = 0;
 
     for (const order of expiredOrders) {
-      // Hủy đơn hàng và hoàn kho thông qua RPC restore_stock
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', order.id);
+      // Hủy đơn hàng và hoàn kho AN TOÀN bằng Tướng Quân RPC cancel_order_safe
+      const { error: cancelError } = await supabase.rpc('cancel_order_safe', {
+        p_order_id: order.id
+      });
 
-      if (!updateError) {
-        // Gọi restore_stock cho từng item
-        for (const item of (order.items || [])) {
-          await supabase.rpc('restore_stock', {
-            p_product_id: item.id,
-            p_size: item.size,
-            p_quantity: item.quantity,
-            p_order_id: order.id,
-          });
-        }
+      if (!cancelError) {
         cancelledCount++;
+      } else {
+        console.error(`Lỗi khi hủy đơn ${order.id}:`, cancelError);
       }
     }
 

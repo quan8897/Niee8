@@ -101,9 +101,9 @@ BEGIN
             stock_quantity = stock_quantity - v_quantity
         WHERE id = v_product_id;
 
-        -- LƯU LẠI LỊCH SỬ KHO
-        INSERT INTO public.stock_movements (product_id, size, quantity, type, order_id, note)
-        VALUES (v_product_id, v_size, v_quantity, 'export', p_order_id, 'Xuất kho cho đơn hàng mới');
+        -- LƯU LẠI LỊCH SỬ KHO (Dùng 'sale' và -v_quantity để vượt qua CHECK CONSTRAINT)
+        INSERT INTO public.stock_movements (product_id, size, quantity, type, reference_id, note)
+        VALUES (v_product_id, v_size, -v_quantity, 'sale', p_order_id, 'Xuất kho bán hàng (chốt đơn)');
     END LOOP;
 
     -- 3. TẠO ĐƠN HÀNG (Với dữ liệu đầy đủ bao gồm MÃ GIẢM GIÁ VÀ HÓA ĐƠN)
