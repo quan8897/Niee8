@@ -14,4 +14,3 @@ export default function TikTokIcon({ size = 24, className = "", ...props }: { si
     </svg>
   );
 }
- Greenway
