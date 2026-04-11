@@ -44,7 +44,7 @@ export default function Checkout({ items, total, onBack, onComplete, user }: Che
           customerAddress: formData.address,
           customerCity: formData.city,
           totalAmount: finalTotal,
-          items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity })),
+          items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity, name: i.name, images: i.images, price: i.price })),
           paymentMethod: formData.paymentMethod,
           userId: user?.id
         })

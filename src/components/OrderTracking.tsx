@@ -352,10 +352,10 @@ export default function OrderTracking({ onBack, initialOrderId, initialPhone, us
                     {order.items.map((item, i) => (
                       <div key={i} className="flex gap-4">
                         <div className="w-12 h-16 rounded-xl overflow-hidden bg-nie8-bg flex-shrink-0">
-                          <img src={item.images[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={item.images?.[0] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&q=80'} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-nie8-text line-clamp-1">{item.name}</p>
+                          <p className="text-xs font-bold text-nie8-text line-clamp-1">{item.name || 'Sản phẩm ' + (i + 1)}</p>
                           <p className="text-[10px] text-nie8-text/40 uppercase tracking-widest font-bold">Size: {item.size} × {item.quantity}</p>
                         </div>
                       </div>
