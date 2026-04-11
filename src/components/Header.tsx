@@ -61,6 +61,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             <button
               className="lg:hidden w-9 h-9 flex items-center justify-center text-nie8-text"
               onClick={() => setIsMenuOpen(true)}
+              aria-label="Mở menu điều hướng"
             >
               <Menu size={22} />
             </button>
@@ -104,13 +105,13 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
                 <Package size={20} />
               </button>
               <button
-                aria-label="Tìm kiếm"
+                aria-label="Tìm kiếm sản phẩm"
                 className="hidden sm:flex text-nie8-text hover:text-nie8-primary transition-colors"
               >
                 <Search size={18} />
               </button>
               <button
-                aria-label="Yêu thích"
+                aria-label="Sản phẩm yêu thích"
                 className="hidden sm:flex text-nie8-text hover:text-nie8-primary transition-colors"
               >
                 <Heart size={18} />
@@ -245,7 +246,8 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             {/* Home */}
             <button
               onClick={() => setActiveNav('home')}
-              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'home' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
+              aria-label="Trang chủ"
+              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'home' ? 'text-nie8-primary' : 'text-nie8-text/60'}`}
             >
               <Home size={22} strokeWidth={activeNav === 'home' ? 2.5 : 1.8} />
               <span className="text-[9px] font-bold uppercase tracking-widest">Home</span>
@@ -254,7 +256,8 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             {/* Search */}
             <button
               onClick={() => setActiveNav('search')}
-              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'search' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
+              aria-label="Tìm kiếm"
+              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'search' ? 'text-nie8-primary' : 'text-nie8-text/60'}`}
             >
               <Search size={22} strokeWidth={activeNav === 'search' ? 2.5 : 1.8} />
               <span className="text-[9px] font-bold uppercase tracking-widest">Tìm</span>
@@ -263,7 +266,8 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             {/* Wishlist — Phase 1: AI Stylist đã được ẩn, thay bằng Yêu thích */}
             <button
               onClick={() => setActiveNav('wishlist')}
-              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 -mt-1 transition-colors ${activeNav === 'wishlist' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
+              aria-label="Danh sách yêu thích"
+              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 -mt-1 transition-colors ${activeNav === 'wishlist' ? 'text-nie8-primary' : 'text-nie8-text/60'}`}
             >
               <Heart size={22} strokeWidth={activeNav === 'wishlist' ? 2.5 : 1.8} />
               <span className="text-[9px] font-bold uppercase tracking-widest">Yêu thích</span>
@@ -272,7 +276,8 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             {/* Wishlist */}
             <button
               onClick={() => { setActiveNav('track'); onTrackOrderClick?.(); }}
-              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'track' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
+              aria-label="Theo dõi đơn hàng"
+              className={`flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'track' ? 'text-nie8-primary' : 'text-nie8-text/60'}`}
             >
               <Package size={22} strokeWidth={activeNav === 'track' ? 2.5 : 1.8} />
               <span className="text-[9px] font-bold uppercase tracking-widest">Đơn hàng</span>
@@ -281,7 +286,8 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             {/* Cart */}
             <button
               onClick={() => { setActiveNav('cart'); onCartClick(); }}
-              className={`relative flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'cart' ? 'text-nie8-primary' : 'text-nie8-text/40'}`}
+              aria-label="Giỏ hàng"
+              className={`relative flex flex-col items-center gap-1 min-w-[56px] py-1 transition-colors ${activeNav === 'cart' ? 'text-nie8-primary' : 'text-nie8-text/60'}`}
             >
               <div className="relative">
                 <ShoppingBag size={22} strokeWidth={activeNav === 'cart' ? 2.5 : 1.8} />

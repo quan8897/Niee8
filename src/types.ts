@@ -10,6 +10,8 @@ export interface Product {
   stock_by_size?: Record<string, number>;
   is_set?: boolean;
   story_content?: string;
+  supplier_code?: string;
+  supplier_link?: string;
   created_at?: string;
 }
 

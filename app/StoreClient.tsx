@@ -11,11 +11,30 @@ import ProductGrid from '@/components/store/ProductGrid';
 import Footer from '@/components/store/Footer';
 import Cart from '@/components/store/Cart';
 import Checkout from '@/components/store/Checkout';
-import OrderTracking from '@/components/store/OrderTracking';
-import AIStylist from '@/components/store/AIStylist';
+import dynamic from 'next/dynamic';
+import { Product, CartItem, SavedCartItem, SiteSettings, Toast } from '@/types';
+import { getSupabaseClient } from '@/lib/supabase/client';
+import Header from '@/components/store/Header';
+import Hero from '@/components/store/Hero';
+import ProductGrid from '@/components/store/ProductGrid';
+import Footer from '@/components/store/Footer';
+import Cart from '@/components/store/Cart';
+import Checkout from '@/components/store/Checkout';
 import FloatingActions from '@/components/store/FloatingActions';
-import AuthModal from '@/components/store/AuthModal';
-import AdminDashboard from '@/components/admin/AdminDashboard';
+
+// Dynamic imports for heavy components
+const OrderTracking = dynamic(() => import('@/components/store/OrderTracking'), {
+  loading: () => <div className="min-h-screen bg-nie8-bg flex items-center justify-center"><div className="w-8 h-8 border-2 border-nie8-primary/20 border-t-nie8-primary rounded-full animate-spin" /></div>
+});
+const AIStylist = dynamic(() => import('@/components/store/AIStylist'), {
+  loading: () => null
+});
+const AuthModal = dynamic(() => import('@/components/store/AuthModal'), {
+  loading: () => null
+});
+const AdminDashboard = dynamic(() => import('@/components/admin/AdminDashboard'), {
+  loading: () => <div className="min-h-screen bg-nie8-bg flex items-center justify-center"><div className="w-8 h-8 border-2 border-nie8-primary/20 border-t-nie8-primary rounded-full animate-spin" /></div>
+});
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
   return (
@@ -313,7 +332,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       <div className="min-h-screen bg-nie8-bg flex flex-col items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
           <div className="w-16 h-16 border-4 border-nie8-primary/20 border-t-nie8-primary rounded-full animate-spin mx-auto mb-6" />
-          <h2 className="text-2xl font-serif italic text-nie8-text mb-2">niee8.</h2>
+          <h2 className="text-2xl font-serif italic text-nie8-text mb-2">nie8.</h2>
           <p className="text-nie8-text/40 text-xs uppercase tracking-[0.3em]">Minimalist Romantic</p>
         </motion.div>
       </div>

@@ -67,7 +67,9 @@ export default function AdminDashboard({
     stock_quantity: 0,
     stock_by_size: { S: 0, M: 0, L: 0, XL: 0 },
     is_set: true,
-    story_content: ''
+    story_content: '',
+    supplier_code: '',
+    supplier_link: ''
   });
 
   const [settingsForm, setSettingsForm] = useState<SiteSettings>(siteSettings || {
@@ -160,6 +162,43 @@ export default function AdminDashboard({
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
   };
 
+  const generateSemanticId = (category: string) => {
+    const categoryMap: Record<string, string> = {
+      'Áo': 'A',
+      'Quần': 'Q',
+      'Váy': 'V',
+      'Nguyên set (bộ)': 'S'
+    };
+    
+    const prefix = categoryMap[category] || 'X';
+    const year = new Date().getFullYear().toString().slice(-2);
+    const basePrefix = `N8-${prefix}${year}-`;
+    
+    // Tìm số thứ tự lớn nhất hiện có cho loại này
+    const relevantIds = products
+      .map(p => p.id)
+      .filter(id => id.startsWith(basePrefix));
+    
+    let maxNum = 0;
+    relevantIds.forEach(id => {
+      const parts = id.split('-');
+      if (parts.length === 3) {
+        const num = parseInt(parts[2]);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+    
+    const nextNum = (maxNum + 1).toString().padStart(4, '0');
+    return `${basePrefix}${nextNum}`;
+  };
+
+  // Tự động sinh mã ID khi đổi category trong form thêm mới
+  useEffect(() => {
+    if (isAdding && !editingId && formData.category) {
+      setFormData(prev => ({ ...prev, id: generateSemanticId(formData.category as string) }));
+    }
+  }, [formData.category, isAdding, editingId]);
+
   const handleBulkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setBulkError(null);
@@ -202,12 +241,13 @@ export default function AdminDashboard({
       onUpdateProduct({ ...formData, id: editingId } as Product);
       setEditingId(null);
     } else {
-      onAddProduct({ ...formData, id: Date.now().toString() } as Product);
+      const finalId = formData.id || generateSemanticId(formData.category || 'Áo');
+      onAddProduct({ ...formData, id: finalId } as Product);
       setIsAdding(false);
     }
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 3000);
-    setFormData({ name: '', price: '', images: [], description: '', category: 'Áo', stock_quantity: 0, stock_by_size: { S: 0, M: 0, L: 0, XL: 0 } });
+    setFormData({ name: '', price: '', images: [], description: '', category: 'Áo', stock_quantity: 0, stock_by_size: { S: 0, M: 0, L: 0, XL: 0 }, supplier_code: '', supplier_link: '' });
   };
 
   const handleSettingsSubmit = (e: React.FormEvent) => {
@@ -676,12 +716,53 @@ export default function AdminDashboard({
                       </form>
                     ) : (
                       <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40 ml-2">Mã sản phẩm (N8-ID)</label>
+                            <input 
+                              required type="text" 
+                              value={formData.id || ''} 
+                              onChange={e => setFormData({...formData, id: e.target.value.toUpperCase()})} 
+                              placeholder="VD: N8-A26-0001" 
+                              className="w-full bg-nie8-primary/5 border border-nie8-primary/20 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary font-bold text-nie8-primary" 
+                            />
+                          </div>
+                          
+                          <div className="space-y-4">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40 ml-2">Danh mục</label>
+                            <select value={formData.category || 'Áo'} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary font-bold">
+                              <option value="Áo">Áo</option>
+                              <option value="Quần">Quần</option>
+                              <option value="Váy">Váy</option>
+                              <option value="Nguyên set (bộ)">Nguyên set (bộ)</option>
+                            </select>
+                          </div>
+
                           <input required type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Tên sản phẩm" className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary" />
                           <input required type="text" value={formData.price || ''} onChange={e => setFormData({...formData, price: e.target.value})} placeholder="Giá (VND)" className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary" />
-                          <select value={formData.category || 'Áo'} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-nie8-primary">
-                            <option value="Áo">Áo</option><option value="Quần">Quần</option><option value="Váy">Váy</option>
-                          </select>
+
+                          {/* Sourcing Fields */}
+                          <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 bg-nie8-bg p-6 rounded-3xl border border-nie8-primary/5">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Mã Nhà Cung Cấp (Taobao/1688)</label>
+                              <input 
+                                type="text" 
+                                value={formData.supplier_code || ''} 
+                                onChange={e => setFormData({...formData, supplier_code: e.target.value})} 
+                                placeholder="Nhập mã gốc..." 
+                                className="w-full bg-white border border-nie8-primary/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-nie8-primary" 
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Link sản phẩm gốc</label>
+                              <input 
+                                type="url" 
+                                value={formData.supplier_link || ''} 
+                                onChange={e => setFormData({...formData, supplier_link: e.target.value})} 
+                                placeholder="Dán link Taobao/1688..." 
+                                className="w-full bg-white border border-nie8-primary/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-nie8-primary" 
+                              />
+                            </div>
+                          </div>
                           <div className="col-span-1 md:col-span-2 grid grid-cols-4 gap-4 bg-nie8-primary/5 p-4 rounded-2xl border border-nie8-primary/10">
                             <div className="col-span-4 text-[10px] font-bold uppercase tracking-widest text-nie8-text/40 mb-2">Tồn kho theo Size</div>
                             {['S', 'M', 'L', 'XL'].map(size => (

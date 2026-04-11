@@ -88,6 +88,8 @@ export default function Hero({ settings }: HeroProps) {
               className="w-full h-full object-cover transition-transform duration-[3s] hover:scale-110"
               containerClassName="w-full h-full"
               referrerPolicy="no-referrer"
+              fetchPriority="high"
+              loading="eager"
             />
             {/* Overlay Gradient nhẹ */}
             <div className="absolute inset-0 bg-gradient-to-tr from-nie8-primary/10 to-transparent pointer-events-none" />

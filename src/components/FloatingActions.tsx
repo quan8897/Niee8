@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Instagram } from 'lucide-react';
+import { Sparkles, Instagram, Facebook, Music } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface FloatingActionsProps {
@@ -27,7 +27,7 @@ export default function FloatingActions({ onAIClick }: FloatingActionsProps) {
 
       {/* Instagram */}
       <motion.a
-        href="https://instagram.com/"
+        href="https://www.instagram.com/nie8.studio/"
         target="_blank"
         rel="noopener noreferrer"
         whileHover={{ scale: 1.1 }}
@@ -38,6 +38,38 @@ export default function FloatingActions({ onAIClick }: FloatingActionsProps) {
         <Instagram size={24} className="scale-75 sm:scale-100" />
         <span className="absolute right-full mr-4 bg-white text-nie8-text text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden sm:block">
           Instagram
+        </span>
+      </motion.a>
+
+      {/* Facebook */}
+      <motion.a
+        href="https://www.facebook.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="w-10 h-10 sm:w-14 sm:h-14 bg-[#1877F2] text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30 relative group"
+        aria-label="Facebook"
+      >
+        <Facebook size={24} className="scale-75 sm:scale-100" />
+        <span className="absolute right-full mr-4 bg-white text-nie8-text text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden sm:block">
+          Facebook
+        </span>
+      </motion.a>
+
+      {/* TikTok */}
+      <motion.a
+        href="https://www.tiktok.com/@nie8.studio"
+        target="_blank"
+        rel="noopener noreferrer"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="w-10 h-10 sm:w-14 sm:h-14 bg-black text-white rounded-full flex items-center justify-center shadow-lg shadow-black/30 relative group"
+        aria-label="TikTok"
+      >
+        <Music size={24} className="scale-75 sm:scale-100" />
+        <span className="absolute right-full mr-4 bg-white text-nie8-text text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden sm:block">
+          TikTok
         </span>
       </motion.a>
     </div>

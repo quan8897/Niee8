@@ -1,4 +1,4 @@
-import { Instagram, Facebook, Mail, Phone, MapPin, Twitter } from 'lucide-react';
+import { Instagram, Facebook, Mail, Phone, MapPin, Music } from 'lucide-react';
 
 interface FooterProps {
   onAdminLogin?: () => void;
@@ -12,18 +12,18 @@ export default function Footer({ onAdminLogin }: FooterProps) {
           <div className="col-span-1 md:col-span-2 lg:col-span-1">
             <h2 className="text-2xl font-serif italic text-nie8-text mb-2 tracking-tighter lowercase">nie8</h2>
             <p className="text-[10px] text-nie8-primary font-medium uppercase tracking-widest mb-4">Minimalist Romantic & Craftsmanship</p>
-            <p className="text-nie8-text/60 mb-6 leading-relaxed text-xs">
+            <p className="text-nie8-text/80 mb-6 leading-relaxed text-xs">
               Nơi phong cách gặp gỡ sự vô tận. Chúng tôi tin vào vẻ đẹp của sự tối giản và chất lượng bền bỉ theo thời gian.
             </p>
             <div className="flex gap-3">
-              <a href="#" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
+              <a href="https://www.instagram.com/nie8.studio/" target="_blank" rel="noopener noreferrer" aria-label="Theo dõi Nie8 trên Instagram" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
                 <Instagram size={14} />
               </a>
-              <a href="#" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
+              <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Theo dõi Nie8 trên Facebook" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
                 <Facebook size={14} />
               </a>
-              <a href="#" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
-                <Twitter size={14} />
+              <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noopener noreferrer" aria-label="Theo dõi Nie8 trên TikTok" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
+                <Music size={14} />
               </a>
             </div>
           </div>
@@ -49,8 +49,8 @@ export default function Footer({ onAdminLogin }: FooterProps) {
           </div>
 
           <div>
-            <h4 className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-4">Liên hệ</h4>
-            <ul className="space-y-2 text-nie8-text/60 text-xs">
+            <h4 className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-4 text-nie8-primary">Liên hệ</h4>
+            <ul className="space-y-2 text-nie8-text/80 text-xs">
               <li className="flex items-start gap-2">
                 <MapPin size={14} className="text-nie8-primary mt-0.5" />
                 <span>123 Đường Thời Trang, Quận 1, TP. Hồ Chí Minh</span>
@@ -67,10 +67,10 @@ export default function Footer({ onAdminLogin }: FooterProps) {
           </div>
         </div>
 
-        <div className="pt-6 border-t border-nie8-primary/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[9px] uppercase tracking-[0.2em] text-nie8-text/40">
+        <div className="pt-6 border-t border-nie8-primary/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[9px] uppercase tracking-[0.2em] text-nie8-text/70">
           <p>© 2024 nie8. Tất cả quyền được bảo lưu.</p>
           <div className="flex gap-8">
-            <a href="#" className="hover:text-nie8-text transition-colors">Chính sách bảo mật</a>
+            <a href="#" className="hover:text-nie8-primary transition-colors">Chính sách bảo mật</a>
             <a href="#" className="hover:text-nie8-text transition-colors">Điều khoản dịch vụ</a>
           </div>
         </div>

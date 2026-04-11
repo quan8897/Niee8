@@ -1,5 +1,21 @@
 import type { Metadata } from 'next';
+import { Montserrat, Cormorant_Garamond } from 'next/font/google';
 import './globals.css';
+
+const montserrat = Montserrat({
+  subsets: ['vietnamese', 'latin'],
+  weight: ['300', '400', '500'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  subsets: ['vietnamese', 'latin'],
+  weight: ['300', '400', '500'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -29,7 +45,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    <html lang="vi" className={`${montserrat.variable} ${cormorantGaramond.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://vjbjovqyngmudgimdbbt.supabase.co" crossOrigin="anonymous" />
+      </head>
       <body>{children}</body>
     </html>
   );
