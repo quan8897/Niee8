@@ -22,8 +22,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     address: '',
     city: '',
     note: '',
-    paymentMethod: 'cod' as 'cod' | 'payos',
-    invoice: null as any
+    paymentMethod: 'cod' as 'cod' | 'payos'
   });
 
   // Phase 1 Simplification: invoice state removed (not needed for Lifestyle/Taobao model)
@@ -113,9 +112,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity, name: i.name, images: i.images, price: i.price })),
           paymentMethod: formData.paymentMethod,
           userId: user?.id,
-          note: formData.note 
-            + (formData.invoice ? `\n[Có yêu cầu xuất HĐ VAT, xem trong Invoice Info]` : ''),
-          invoice: formData.invoice || null,
+          note: formData.note,
           discountAmount: discountAmount,
           couponCode: appliedCoupon?.code || null
         })
@@ -374,8 +371,8 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                 </button>
              </div>
           </section>
-
         </div>
+      </div>
     </div>
   );
 }

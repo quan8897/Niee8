@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, invoice, discountAmount, couponCode } = body;
+    const { items, paymentMethod, customerName, customerPhone, customerAddress, customerCity, userId, totalAmount, note, discountAmount, couponCode } = body;
 
     // Biến môi trường
     const payosCid = process.env.PAYOS_CLIENT_ID;
@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
       p_total_amount: totalAmount,
       p_payment_method: paymentMethod,
       p_note: note || null,
-      p_invoice_info: invoice || null,
       p_discount_amount: discountAmount || 0,
       p_coupon_code: couponCode || null
     });
