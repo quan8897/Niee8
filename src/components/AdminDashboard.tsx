@@ -4,7 +4,7 @@ import {
   X, Plus, Trash2, Edit2, Save, Upload, Image as ImageIcon, 
   Settings, Package, Loader2, LogOut, LayoutDashboard, 
   Instagram, Calendar, TrendingUp, Users, MessageSquare, 
-  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus, ShoppingCart, RotateCcw, PackageCheck, Ban, Activity, History
+  ArrowRight, CheckCircle2, Clock, Sparkles, Send, Heart, ShoppingBag, PackagePlus, ShoppingCart, RotateCcw, PackageCheck, Ban, Activity, History, RefreshCw, AlertCircle, Search, ArrowUpRight
 } from 'lucide-react';
 import { Product, SiteSettings, Order, StockMovement } from '../types';
 import { supabase } from '../lib/supabase';
@@ -108,7 +108,10 @@ export default function AdminDashboard({
     show: boolean;
     orderId: string;
     items: any[];
-  }>({ show: false, orderId: '', items: [] });
+    scenario: 'restock' | 'damage' | 'exchange';
+    exchangeProductId?: string;
+    exchangeSize?: string;
+  }>({ show: false, orderId: '', items: [], scenario: 'restock' });
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
 
   // Activity Logs state
@@ -379,16 +382,19 @@ export default function AdminDashboard({
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
       const orderToUpdate = orders.find(o => o.id === orderId);
+      if (!orderToUpdate) return;
+
+      // Kích hoạt Modal cho các trạng thái cần xử lý tồn kho
+      const needsReturnLogic = ['cancelled', 'returned', 'discarded'].includes(status);
       
-      // Nếu trạng thái mới là cancelled và trạng thái cũ không phải cancelled
-      // Thay vì tự động hoàn kho, giờ chúng ta sẽ mở modal hỏi xác nhận
-      if (status === 'cancelled' && orderToUpdate && orderToUpdate.status !== 'cancelled') {
+      if (needsReturnLogic && orderToUpdate.status !== status) {
         setReturnConfirm({
           show: true,
           orderId: orderId,
-          items: orderToUpdate.items
+          items: orderToUpdate.items,
+          scenario: status === 'discarded' ? 'damage' : 'restock'
         });
-        return; // Dừng lại để chờ người dùng chọn trong modal
+        return;
       }
 
       await finalizeStatusUpdate(orderId, status);
@@ -413,13 +419,14 @@ export default function AdminDashboard({
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
-  const handleReturnAction = async (shouldRestock: boolean) => {
+  const handleReturnAction = async (scenario: 'restock' | 'damage') => {
     setIsProcessingReturn(true);
     try {
       const { orderId, items } = returnConfirm;
-      
-      if (shouldRestock) {
-        // Kịch bản A: Hàng còn tốt -> Hoàn kho
+      let finalStatus: Order['status'] = 'cancelled';
+
+      if (scenario === 'restock') {
+        // Hoàn kho sạch sẽ & Sẵn sàng hoàn tiền
         for (const item of items) {
           await supabase.rpc('restore_stock', {
             p_product_id: item.id,
@@ -428,23 +435,25 @@ export default function AdminDashboard({
             p_order_id: orderId
           });
         }
-      } else {
-        // Kịch bản B: Hàng hỏng -> Không hoàn kho, ghi sổ cái 'damage'
+        finalStatus = 'returned';
+      } else if (scenario === 'damage') {
+        // Hàng hỏng -> Ghi sổ cái 'damage', không cộng kho
         for (const item of items) {
           await supabase.from('stock_movements').insert({
             product_id: item.id,
             size: item.size || 'M',
-            quantity: -item.quantity, // Trừ đi nhưng ko restore
+            quantity: -item.quantity,
             type: 'damage',
-            note: `Hàng trả về từ đơn #${orderId.slice(-6)} bị hư hỏng/không thể dùng lại`,
+            note: `Hàng trả về từ đơn #${orderId.slice(-6)} bị hư hỏng`,
             reference_id: orderId
           });
         }
+        finalStatus = 'discarded';
       }
 
-      // Cuối cùng cập nhật trạng thái đơn hàng sang cancelled
-      await finalizeStatusUpdate(orderId, 'cancelled');
-      setReturnConfirm({ show: false, orderId: '', items: [] });
+      // Cập nhật trạng thái đơn cũ
+      await finalizeStatusUpdate(orderId, finalStatus);
+      setReturnConfirm({ show: false, orderId: '', items: [], scenario: 'restock' });
     } catch (error) {
       console.error('Error processing return action:', error);
     } finally {
@@ -503,37 +512,32 @@ export default function AdminDashboard({
                           product.name.toLowerCase().includes(stockSearchQuery.toLowerCase());
       return matchCategory && matchSearch;
     });
-  }, [stockMovements, stockFilterCategory, stockSearchQuery]);
-
-  const stockKPIs = useMemo(() => {
-    let sales = 0;
-    let returns = 0;
-    filteredMovements.forEach(m => {
-      if (m.type === 'sale') sales += Math.abs(m.quantity);
-      if (m.type === 'return') returns += Math.abs(m.quantity);
-    });
-    const returnRate = sales > 0 ? ((returns / sales) * 100).toFixed(1) : 0;
-    return { sales, returns, returnRate };
-  }, [filteredMovements]);
-
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'processing': return 'bg-blue-100 text-blue-700';
-      case 'shipping': return 'bg-purple-100 text-purple-700';
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'cancelled': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'pending': return 'bg-blue-100 text-blue-600';
+      case 'processing': return 'bg-amber-100 text-amber-600';
+      case 'shipping': return 'bg-indigo-100 text-indigo-600';
+      case 'completed': return 'bg-green-100 text-green-600';
+      case 'cancelled': return 'bg-red-100 text-red-600';
+      case 'returning': return 'bg-orange-100 text-orange-600';
+      case 'returned': return 'bg-emerald-100 text-emerald-600';
+      case 'discarded': return 'bg-stone-100 text-stone-600';
+      case 'exchanged': return 'bg-purple-100 text-purple-600';
+      default: return 'bg-gray-100 text-gray-600';
     }
   };
 
   const getStatusLabel = (status: Order['status']) => {
     switch (status) {
-      case 'pending': return 'Chờ xác nhận';
-      case 'processing': return 'Đang xử lý';
+      case 'pending': return 'Chờ thanh toán';
+      case 'processing': return 'Đang chuẩn bị';
       case 'shipping': return 'Đang giao';
       case 'completed': return 'Hoàn thành';
       case 'cancelled': return 'Đã hủy';
+      case 'returning': return 'Đang trả hàng';
+      case 'returned': return 'Đã trả hàng';
+      case 'discarded': return 'HÀNG HƯ HỎNG';
+      case 'exchanged': return 'ĐÃ ĐỔI HÀNG';
       default: return status;
     }
   };
@@ -633,24 +637,40 @@ export default function AdminDashboard({
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Cập nhật trạng thái</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {(['pending', 'processing', 'shipping', 'completed', 'cancelled'] as Order['status'][]).map(status => (
-                      <button
-                        key={status}
-                        onClick={() => updateOrderStatus(selectedOrder.id, status)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${
-                          selectedOrder.status === status 
-                            ? getStatusColor(status) + ' ring-2 ring-current ring-offset-2'
-                            : 'bg-nie8-bg text-nie8-text/40 hover:bg-nie8-bg/80'
-                        }`}
-                      >
-                        {getStatusLabel(status)}
-                      </button>
-                    ))}
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Cập nhật trạng thái</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Các trạng thái bán hàng cơ bản */}
+                      {(['pending', 'processing', 'shipping', 'completed', 'cancelled'] as Order['status'][]).map(status => (
+                        <button
+                          key={status}
+                          onClick={() => updateOrderStatus(selectedOrder.id, status)}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${
+                            selectedOrder.status === status 
+                              ? getStatusColor(status) + ' ring-2 ring-current ring-offset-2'
+                              : 'bg-nie8-bg text-nie8-text/40 hover:bg-nie8-bg/80'
+                          }`}
+                        >
+                          {getStatusLabel(status)}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Nút xử lý đổi trả chuyên sâu */}
+                    {(selectedOrder.status === 'completed' || selectedOrder.status === 'shipping' || selectedOrder.status === 'returning') && (
+                      <div className="pt-4 border-t border-nie8-primary/10 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => updateOrderStatus(selectedOrder.id, 'returning')}
+                          className={`px-4 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all ${
+                            selectedOrder.status === 'returning' ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                          }`}
+                        >
+                          <RotateCcw size={14} />
+                          Xác nhận trả hàng
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
               </div>
             </motion.div>
           </div>
@@ -1591,7 +1611,7 @@ export default function AdminDashboard({
         )}
       </AnimatePresence>
 
-      {/* Modal Xác nhận Tình trạng Trả hàng */}
+      {/* Modal Xác nhận Tình trạng Trả hàng (Nâng cấp) */}
       <AnimatePresence>
         {returnConfirm.show && (
           <motion.div
@@ -1600,49 +1620,72 @@ export default function AdminDashboard({
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6"
           >
-            <div className="absolute inset-0 bg-nie8-text/40 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-nie8-text/40 backdrop-blur-md" onClick={() => !isProcessingReturn && setReturnConfirm(prev => ({ ...prev, show: false }))} />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 text-center space-y-8"
+              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-10 space-y-8 overflow-hidden text-center"
             >
-              <div className="w-20 h-20 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto">
-                <RotateCcw size={32} />
+              <div className="w-16 h-16 bg-nie8-bg text-nie8-text rounded-full flex items-center justify-center mx-auto">
+                <RotateCcw size={24} />
               </div>
               
-              <div className="space-y-3">
-                <h3 className="text-2xl font-serif italic text-nie8-text">Xác nhận tình trạng hàng</h3>
-                <p className="text-sm text-nie8-text/60 leading-relaxed">
-                  Đơn hàng <strong>#{returnConfirm.orderId.slice(-6)}</strong> đang được hủy. 
-                  Bạn có muốn hoàn lại số sản phẩm này vào kho để bán tiếp không?
+              <div className="space-y-2">
+                <h3 className="text-2xl font-serif italic text-nie8-text">Xử lý Trả hàng</h3>
+                <p className="text-sm text-nie8-text/60">
+                  Đơn hàng <strong>#{returnConfirm.orderId.slice(-6)}</strong>. Hãy chọn kịch bản xử lý để hệ thống tự động hóa kho hàng:
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 pt-4">
+              <div className="grid grid-cols-1 gap-3">
+                {/* 1. Hoàn kho & Hoàn tiền */}
                 <button
-                  onClick={() => handleReturnAction(true)}
+                  onClick={() => handleReturnAction('restock')}
                   disabled={isProcessingReturn}
-                  className="w-full py-4 bg-green-500 text-white rounded-full font-bold uppercase tracking-widest shadow-lg shadow-green-500/20 flex items-center justify-center gap-2 hover:bg-green-600 transition-all"
+                  className="w-full p-4 bg-green-50 text-green-700 rounded-3xl flex items-center gap-4 hover:bg-green-100 transition-all text-left border border-green-200/50"
                 >
-                  {isProcessingReturn ? <Loader2 size={18} className="animate-spin" /> : <PackageCheck size={18} />}
-                  Hàng vẫn tốt (Hoàn kho)
+                  <div className="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center flex-shrink-0">
+                    <PackageCheck size={20} />
+                  </div>
+                  <div>
+                    <div className="font-bold">Hàng tốt - Hoàn tiền</div>
+                    <div className="text-xs opacity-70">Cộng lại món đã trả và Hoàn trả tiền</div>
+                  </div>
                 </button>
+
+                {/* 2. Hàng hư hỏng */}
                 <button
-                  onClick={() => handleReturnAction(false)}
+                  onClick={() => handleReturnAction('damage')}
                   disabled={isProcessingReturn}
-                  className="w-full py-4 bg-white text-red-500 border-2 border-red-500/10 rounded-full font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-50 transition-all"
+                  className="w-full p-4 bg-stone-50 text-stone-700 rounded-3xl flex items-center gap-4 hover:bg-stone-100 transition-all text-left border border-stone-200/50"
                 >
-                  <Ban size={18} />
-                  Hàng hư hỏng (Hủy bỏ)
-                </button>
-                <button
-                  onClick={() => setReturnConfirm({ show: false, orderId: '', items: [] })}
-                  className="w-full py-3 text-[10px] font-bold uppercase tracking-widest text-nie8-text/30 hover:text-nie8-text transition-all"
-                >
-                  Quay lại
+                  <div className="w-10 h-10 bg-stone-500 text-white rounded-full flex items-center justify-center flex-shrink-0">
+                    <Ban size={20} />
+                  </div>
+                  <div>
+                    <div className="font-bold">HÀNG LRI/HỎNG</div>
+                    <div className="text-xs opacity-70">Ghi log hao hụt - KHÔNG cộng lại kho</div>
+                  </div>
                 </button>
               </div>
+
+              <button
+                onClick={() => setReturnConfirm(prev => ({ ...prev, show: false }))}
+                disabled={isProcessingReturn}
+                className="w-full py-4 text-[10px] font-bold uppercase tracking-widest text-nie8-text/30 hover:text-nie8-text transition-all"
+              >
+                Hủy bỏ thao tác
+              </button>
+              
+              {isProcessingReturn && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4 text-center">
+                    <Loader2 className="animate-spin text-nie8-text" size={32} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-nie8-text">Đang dứt điểm hồ sơ...</span>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

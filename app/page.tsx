@@ -25,7 +25,40 @@ export default async function HomePage() {
     const products: Product[] = productsRes?.data || [];
     const settings: SiteSettings | null = settingsRes?.data || null;
 
-    return <StoreClient initialProducts={products} initialSettings={settings} />;
+    // Dữ liệu cấu trúc JSON-LD cho toàn bộ danh mục sản phẩm (Tối ưu SEO)
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      'name': 'Bộ sưu tập Thời trang NIE8 Studio',
+      'description': 'Khám phá các thiết kế Minimalist thanh lịch, tinh tế dành cho phái đẹp tại NIE8.',
+      'itemListElement': products.map((product, index) => ({
+        '@type': 'ListItem',
+        'position': index + 1,
+        'item': {
+          '@type': 'Product',
+          'url': `https://nie8studio.vn/product/${product.id}`,
+          'name': product.name,
+          'image': product.images[0],
+          'description': product.description,
+          'offers': {
+            '@type': 'Offer',
+            'price': product.price,
+            'priceCurrency': 'VND',
+            'availability': 'https://schema.org/InStock'
+          }
+        }
+      }))
+    };
+
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <StoreClient initialProducts={products} initialSettings={settings} />
+      </>
+    );
   } catch (error) {
     console.error('Core Page Error:', error);
     // Trả về giao diện trống an toàn thay vì crash 500

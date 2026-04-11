@@ -18,25 +18,48 @@ const cormorantGaramond = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://nie8studio.vn'),
   title: {
-    default: 'NIE8 — Giản Đơn & Thanh Lịch',
+    default: 'NIE8 — Giản Đơn & Thanh Lịch | Minimalist Fashion Studio',
     template: '%s — NIE8',
   },
-  description: 'Thương hiệu thời trang nữ phong cách Minimalist. Tinh tế, thanh lịch, tối giản. Khám phá bộ sưu tập mới nhất của NIE8.',
-  keywords: ['thời trang nữ', 'minimalist', 'nie8', 'váy', 'áo', 'quần', 'phong cách tối giản'],
+  description: 'Thương hiệu thời trang nữ phong cách Minimalist. Tinh tế, thanh lịch, tối giản. Khám phá bộ sưu tập đầm và phụ kiện thiết kế độc quyền của NIE8 Studio.',
+  keywords: ['thời trang nữ', 'minimalist', 'nie8 studio', 'váy thiết kế', 'áo lụa', 'quần tây thanh lịch', 'phong cách tối giản', 'nie8 vietnam'],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     locale: 'vi_VN',
     url: 'https://nie8studio.vn',
-    siteName: 'NIE8',
-    title: 'NIE8 — Giản Đơn & Thanh Lịch',
-    description: 'Thương hiệu thời trang nữ phong cách Minimalist.',
+    siteName: 'NIE8 Studio',
+    title: 'NIE8 — Giản Đơn & Thanh Lịch | Thời Trang Tối Giản',
+    description: 'Tinh tế trong từng đường nét. Khám phá phong cách Minimalist Romantic cùng NIE8.',
+    images: [{
+      url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=2070&auto=format&fit=crop',
+      width: 1200,
+      height: 630,
+      alt: 'NIE8 Studio — Minimalist Fashion Collection'
+    }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'NIE8 — Giản Đơn & Thanh Lịch',
+    description: 'Thương hiệu thời trang nữ phong cách Minimalist.',
+    images: ['https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=2070&auto=format&fit=crop'],
   },
-  robots: { index: true, follow: true },
+  robots: { 
+    index: true, 
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({

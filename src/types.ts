@@ -20,7 +20,7 @@ export interface StockMovement {
   product_id: string;
   size: string;
   quantity: number;
-  type: 'import' | 'sale' | 'return' | 'adjustment';
+  type: 'import' | 'sale' | 'return' | 'adjustment' | 'damage';
   reference_id?: string;
   note?: string;
   created_at: string;
@@ -69,7 +69,7 @@ export interface Order {
   customer_city: string;
   items: CartItem[];
   total_amount: number;
-  status: 'pending' | 'processing' | 'shipping' | 'completed' | 'cancelled';
+  status: 'pending' | 'processing' | 'shipping' | 'completed' | 'cancelled' | 'returning' | 'returned' | 'discarded' | 'exchanged';
   payment_method: string;
   created_at: string;
 }
