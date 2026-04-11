@@ -87,6 +87,9 @@ export default function ProductGrid({
       ? products
       : products.filter(p => p.category === activeCategory);
 
+    // Chỉ hiển thị sản phẩm có hình ảnh để bảo vệ tính thẩm mỹ của Lookbook
+    result = result.filter(p => p.images && p.images.length > 0);
+
     // Sắp xếp: Còn hàng lên đầu, hết hàng xuống cuối
     result = [...result].sort((a, b) => {
       const aOut = isProductOutOfStock(a) ? 1 : 0;
@@ -229,24 +232,30 @@ export default function ProductGrid({
             </motion.h2>
           </div>
           
-          <div className="flex flex-wrap gap-2 w-full md:w-auto overflow-x-auto pb-1 scroll-hide">
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-4 w-full md:w-auto overflow-x-auto pb-1 scroll-hide">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-widest uppercase transition-all ${
+                className={`whitespace-nowrap text-[11px] sm:text-xs font-bold tracking-[0.25em] uppercase transition-all relative py-1 ${
                   activeCategory === cat
-                    ? 'bg-nie8-primary text-white shadow-lg shadow-nie8-primary/20'
-                    : 'text-nie8-text/40 hover:text-nie8-text border border-nie8-text/10'
+                    ? 'text-nie8-text'
+                    : 'text-nie8-text/40 hover:text-nie8-text/70'
                 }`}
               >
                 {cat}
+                {activeCategory === cat && (
+                  <motion.div 
+                    layoutId="activeCategory"
+                    className="absolute -bottom-1 left-0 right-0 h-[1.5px] bg-nie8-primary"
+                  />
+                )}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-6 w-full md:w-auto overflow-x-auto pb-1 scroll-hide border-t border-nie8-text/5 pt-4 md:border-none md:pt-0">
-            <span className="text-[9px] font-bold text-nie8-text/20 uppercase tracking-[0.2em]">Sắp xếp theo:</span>
+          <div className="flex items-center gap-6 w-full md:w-auto overflow-x-auto pb-1 scroll-hide border-t border-nie8-text/5 pt-6 md:border-none md:pt-0">
+            <span className="text-[9px] font-bold text-nie8-text/50 uppercase tracking-[0.25em]">Sắp xếp:</span>
             {[
               { id: 'sales-desc', label: 'Bán chạy' },
               { id: 'likes-desc', label: 'Yêu thích' },
@@ -256,11 +265,12 @@ export default function ProductGrid({
               <button
                 key={sort.id}
                 onClick={() => setActiveSort(sort.id as any)}
-                className={`whitespace-nowrap text-[10px] uppercase tracking-widest transition-all ${
-                  activeSort === sort.id ? 'text-nie8-primary font-bold' : 'text-nie8-text/30 hover:text-nie8-text'
+                className={`whitespace-nowrap text-[10px] uppercase tracking-[0.15em] transition-all relative group ${
+                  activeSort === sort.id ? 'text-nie8-text font-bold' : 'text-nie8-text/40 hover:text-nie8-text/70'
                 }`}
               >
                 {sort.label}
+                <span className={`absolute -bottom-1 left-0 w-0 h-[1px] bg-nie8-text/20 transition-all duration-300 group-hover:w-full ${activeSort === sort.id ? 'w-full bg-nie8-primary/40' : ''}`} />
               </button>
             ))}
           </div>

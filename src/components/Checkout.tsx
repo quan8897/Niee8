@@ -481,13 +481,13 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                         className={`relative group rounded-2xl border-2 transition-all p-5 flex gap-4 ${isApplied ? 'border-gray-900 bg-gray-50' : isLocked ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-gray-300 cursor-pointer'}`}
                         onClick={() => !isLocked && handleApplyCoupon(coupon.code)}
                       >
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${coupon.category === 'shipping' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${coupon.category === 'shipping' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
                           <Ticket size={24} />
                         </div>
                         <div className="flex-grow">
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-bold text-gray-900 uppercase tracking-wider">{coupon.code}</h4>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${coupon.category === 'shipping' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${coupon.category === 'shipping' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
                               {coupon.category === 'shipping' ? 'Freeship' : 'Voucher Shop'}
                             </span>
                           </div>
@@ -499,7 +499,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                               <Info size={12} /> Chỉ dành cho thành viên - Đăng nhập ngay
                             </div>
                           ) : isLockedByMin ? (
-                            <div className="mt-3 flex items-center gap-1.5 text-blue-500 font-bold text-[10px] uppercase tracking-wider bg-blue-50/50 w-fit px-2 py-1 rounded">
+                            <div className="mt-3 flex items-center gap-1.5 text-orange-500 font-bold text-[10px] uppercase tracking-wider bg-orange-50/50 w-fit px-2 py-1 rounded">
                               <Sparkles size={12} /> Mua thêm {formatVND(diffToMin)} để nhận mã này
                             </div>
                           ) : null}
