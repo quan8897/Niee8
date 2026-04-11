@@ -508,6 +508,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
         <Footer onAdminLogin={() => setIsAuthModalOpen(true)} />
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onSuccess={() => showToast('Đăng nhập thành công!', 'success')} />
         <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={updateCartQuantity} onRemoveItem={removeCartItem} onCheckout={() => { setIsCartOpen(false); setCurrentView('checkout'); }} />
+        <FloatingActions />
       </motion.div>
     </AnimatePresence>
   );
