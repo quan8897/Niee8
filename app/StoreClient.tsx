@@ -178,7 +178,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       window.history.replaceState({}, '', window.location.pathname);
     } else if (paymentStatus === 'cancel' && orderId) {
       const token = params.get('token');
-      showToast('Đang xử lý hủy đơn hàng...', 'info');
+      showToast('Đang hủy thanh toán...', 'info');
       
       // Sử dụng API Route bảo mật thay vì gọi RPC trực tiếp từ Client
       fetch('/api/cancel-order', {
@@ -189,7 +189,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          showToast('Đã hủy đơn và hoàn trả sản phẩm vào kho ✓', 'error');
+          showToast('Thanh toán đã được hủy theo yêu cầu. Hẹn gặp lại bạn!', 'info');
           refreshProducts(); 
         } else {
           showToast(data.error || 'Cảnh báo: Không thể xác thực việc hủy đơn.', 'error');

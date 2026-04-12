@@ -40,16 +40,18 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [allCoupons, setAllCoupons] = useState<any[]>([]);
+  // Draft selections for the modal
+  const [tempAppliedCoupons, setTempAppliedCoupons] = useState<any[]>([]);
 
   const shippingFee = 2000; // Fixed 2000 VND for test
   
   // Calculate total discount from multiple coupons
   // Calculate separate discounts for shop items and shipping
-  const calculateDiscounts = () => {
+  const calculateDiscountsFor = (coupons: any[]) => {
     let shipDiscount = 0;
     let shopDiscount = 0;
 
-    appliedCoupons.forEach(coupon => {
+    coupons.forEach(coupon => {
       let currentDiscount = 0;
       const isShipping = coupon.category === 'shipping';
       const basis = isShipping ? shippingFee : total;
@@ -63,7 +65,6 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         }
       }
       
-      // Cap individual coupon at its specific sub-total
       if (isShipping) {
         shipDiscount = Math.min(currentDiscount, shippingFee);
       } else {
@@ -74,7 +75,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     return { shipDiscount, shopDiscount };
   };
 
-  const { shipDiscount, shopDiscount } = calculateDiscounts();
+  const { shipDiscount, shopDiscount } = calculateDiscountsFor(appliedCoupons);
   const discountAmount = shipDiscount + shopDiscount;
   const finalTotal = (total - shopDiscount) + (shippingFee - shipDiscount);
 
@@ -94,10 +95,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       if (error || !data) throw new Error('Mã không hợp lệ.');
       
       const now = new Date();
-      if (data.expires_at && new Date(data.expires_at) < now) {
-        throw new Error('Mã này đã hết hạn sử dụng.');
-      }
-
+      if (data.expires_at && new Date(data.expires_at) < now) throw new Error('Mã này đã hết hạn sử dụng.');
       if (!data.is_active) throw new Error('Mã này đã bị vô hiệu hóa.');
       if (data.usage_limit && data.usage_count >= data.usage_limit) throw new Error('Mã này đã hết lượt sử dụng.');
       if (data.require_auth && !user) throw new Error('Mã này chỉ dành cho thành viên đã đăng nhập.');
@@ -105,23 +103,38 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         throw new Error(`Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ để áp dụng mã này.`);
       }
 
-      // Stacking logic: Max 1 shipping + Max 1 shop (anything else)
       const isNewShipping = data.category === 'shipping';
-      setAppliedCoupons(prev => {
+      const toggleCoupon = (prev: any[]) => {
+        const isAlreadySelected = prev.some(c => c.code === data.code);
+        if (isAlreadySelected) {
+          return prev.filter(c => c.code !== data.code);
+        }
         const filtered = prev.filter(c => {
           const isExistingShipping = c.category === 'shipping';
           return isNewShipping ? !isExistingShipping : isExistingShipping;
         });
         return [...filtered, data];
-      });
-      setCouponCode('');
+      };
+
+      if (codeFromModal) {
+        setTempAppliedCoupons(toggleCoupon);
+      } else {
+        setAppliedCoupons(toggleCoupon);
+        setCouponCode('');
+        showStatus("Áp dụng mã thành công!", "success");
+      }
       setCouponError(null);
-      setIsVoucherModalOpen(false);
     } catch (err: any) {
       setCouponError(err.message);
     } finally {
       setIsApplyingCoupon(false);
     }
+  };
+
+  const confirmVouchers = () => {
+    setAppliedCoupons(tempAppliedCoupons);
+    setIsVoucherModalOpen(false);
+    showStatus("Đã cập nhật các ưu đãi của bạn ✓", "success");
   };
 
   const removeCoupon = (code: string) => {
@@ -413,7 +426,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
              <div className="flex flex-col gap-3">
                 <div 
-                  onClick={() => setIsVoucherModalOpen(true)}
+                  onClick={() => { setTempAppliedCoupons(appliedCoupons); setIsVoucherModalOpen(true); }}
                   className="w-full flex justify-between items-center bg-nie8-bg/20 rounded-xl px-4 py-3 cursor-pointer group active:scale-[0.98] transition-all"
                 >
                   <div className="flex items-center gap-3">
@@ -422,7 +435,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                   </div>
                   <div className="flex items-center gap-2">
                     {appliedCoupons.length > 0 ? (
-                      <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-tighter">Đã chọn {appliedCoupons.length} mã</span>
+                      <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-tighter">-{formatVND(discountAmount)}</span>
                     ) : (
                       <span className="text-[11px] font-bold text-gray-400">Chọn hoặc nhập mã</span>
                     )}
@@ -549,26 +562,23 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                 <button onClick={() => setIsVoucherModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
               </div>
 
-              <div className="p-6 overflow-y-auto space-y-4">
+              <div className="p-6 overflow-y-auto flex-grow space-y-4 pb-32">
                 {allCoupons.length === 0 ? (
                   <p className="text-center text-gray-400 py-10 italic">Hiện không có mã giảm giá khả dụng.</p>
                 ) : (
                   allCoupons.map((coupon) => {
-                    const isApplied = appliedCoupons.some(c => c.code === coupon.code);
+                    const isApplied = tempAppliedCoupons.some(c => c.code === coupon.code);
                     const isMemberOnly = coupon.require_auth && !user;
                     const diffToMin = coupon.min_order_amount ? parseFloat(coupon.min_order_amount) - total : 0;
                     const isLockedByMin = diffToMin > 0;
                     const isExpired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
-                    
-                    // Nếu mã đã hết hạn thì ẩn luôn khỏi danh sách cho sạch sẽ (theo ý bạn)
                     if (isExpired) return null;
-                    
                     const isLocked = isMemberOnly || isLockedByMin;
 
                     return (
                       <div 
                         key={coupon.code} 
-                        className={`relative group rounded-2xl border-2 transition-all p-5 flex gap-4 ${isApplied ? 'border-gray-900 bg-gray-50' : isLocked ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-gray-300 cursor-pointer'}`}
+                        className={`relative group rounded-2xl border-2 transition-all p-5 flex gap-4 ${isApplied ? 'border-nie8-primary bg-nie8-bg/20' : isLocked ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-gray-300 cursor-pointer'}`}
                         onClick={() => !isLocked && handleApplyCoupon(coupon.code)}
                       >
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${coupon.category === 'shipping' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
@@ -592,21 +602,38 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                             <div className="mt-3 flex items-center gap-1.5 text-orange-500 font-bold text-[10px] uppercase tracking-wider bg-orange-50/50 w-fit px-2 py-1 rounded">
                               <Sparkles size={12} /> Mua thêm {formatVND(diffToMin)} để nhận mã này
                             </div>
-                          ) : isExpired ? (
-                            <div className="mt-3 flex items-center gap-1.5 text-gray-400 font-bold text-[10px] uppercase tracking-wider bg-gray-100 w-fit px-2 py-1 rounded">
-                              <AlertCircle size={12} /> Mã đã hết hạn sử dụng
-                            </div>
                           ) : null}
                         </div>
                         <div className="flex flex-col justify-center">
-                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isApplied ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`}>
-                             {isApplied && <CheckCircle2 size={12} className="text-white" />}
+                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isApplied ? 'bg-nie8-primary border-nie8-primary scale-110 shadow-lg' : 'border-gray-300'}`}>
+                             {isApplied && <CheckCircle2 size={14} className="text-white" />}
                            </div>
                         </div>
                       </div>
                     );
                   })
                 )}
+              </div>
+
+              {/* STICKY FOOTER IN MODAL */}
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Tổng cộng giảm</span>
+                    <span className="text-xl font-black text-emerald-600">
+                      -{formatVND(calculateDiscountsFor(tempAppliedCoupons).shipDiscount + calculateDiscountsFor(tempAppliedCoupons).shopDiscount)}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-gray-400">Đã chọn {tempAppliedCoupons.length} voucher</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={confirmVouchers}
+                  className="w-full bg-nie8-text text-white py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] active:scale-[0.98] transition-all shadow-xl shadow-nie8-text/10"
+                >
+                  Đồng ý
+                </button>
               </div>
             </motion.div>
           </div>
