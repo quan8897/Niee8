@@ -1594,10 +1594,10 @@ export default function AdminDashboard({
                 <form id="restock-form" onSubmit={handleRestockSubmit} className="space-y-8">
                   <div className="grid grid-cols-2 gap-4">
                     {['S', 'M', 'L', 'XL'].map(s => (
-                      <div key={s} className="bg-nie8-bg/50 p-4 rounded-3xl border border-nie8-primary/5 space-y-3">
+                      <div key={s} className="bg-nie8-bg/80 p-5 rounded-3xl border border-nie8-primary/10 space-y-4 shadow-sm">
                         <div className="flex justify-between items-center px-1">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Size {s}</span>
-                          <span className="text-[10px] text-nie8-text/30">Cần: {restockProduct.stock_by_size?.[s] || 0}</span>
+                          <span className="text-xs font-black uppercase tracking-wider text-nie8-text">Size {s}</span>
+                          <span className="text-xs font-bold text-nie8-text/60">Tồn cũ: <span className="text-nie8-text">{restockProduct.stock_by_size?.[s] || 0}</span></span>
                         </div>
                         <input 
                           type="number" 
@@ -1605,21 +1605,22 @@ export default function AdminDashboard({
                           value={restockQuantities[s] || ''} 
                           onChange={e => setRestockQuantities(prev => ({ ...prev, [s]: parseInt(e.target.value) || 0 }))}
                           placeholder="0"
-                          className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-nie8-primary text-xl font-bold text-center"
+                          className="w-full bg-white border-2 border-nie8-primary/10 rounded-2xl px-4 py-4 focus:outline-none focus:border-nie8-primary text-3xl font-black text-center text-nie8-text placeholder:text-nie8-text/10"
                         />
-                        <div className="text-[9px] text-center text-nie8-text/40 italic">
-                          Sau nhập: <span className="text-nie8-primary font-bold">{(restockProduct.stock_by_size?.[s] || 0) + (restockQuantities[s] || 0)}</span>
+                        <div className="text-[11px] text-center font-bold text-nie8-text/50 uppercase tracking-tighter">
+                          Tổng tồn sau nhập: <span className="text-nie8-primary text-sm font-black">{(restockProduct.stock_by_size?.[s] || 0) + (restockQuantities[s] || 0)}</span>
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {/* Summary Total */}
-                  <div className="bg-nie8-primary/5 p-4 rounded-2xl flex justify-between items-center border border-nie8-primary/10">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-nie8-primary">Tổng số lượng nhập thêm</span>
-                    <span className="text-xl font-serif italic text-nie8-primary">
-                      {Object.values(restockQuantities).reduce((a, b) => a + b, 0)} sản phẩm
-                    </span>
+                  <div className="bg-nie8-primary text-white p-6 rounded-[32px] flex justify-between items-center shadow-xl shadow-nie8-primary/20">
+                    <span className="text-xs font-black uppercase tracking-widest opacity-80">Tổng số nhập thêm</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-black">{Object.values(restockQuantities).reduce((a, b) => a + b, 0)}</span>
+                      <span className="text-xs font-bold opacity-60 italic">sản phẩm</span>
+                    </div>
                   </div>
                 </form>
               </div>
