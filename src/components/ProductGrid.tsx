@@ -599,25 +599,28 @@ export default function ProductGrid({
                           return (
                             <button
                               key={size}
+                              disabled={isOutOfStock}
                               onClick={() => {
-                                setSelectedSize(size);
-                                if (quantity > sizeStock && sizeStock > 0) {
-                                  setQuantity(sizeStock);
-                                } else if (sizeStock === 0) {
-                                  setQuantity(1);
+                                if (!isOutOfStock) {
+                                  setSelectedSize(size);
+                                  if (quantity > sizeStock && sizeStock > 0) {
+                                    setQuantity(sizeStock);
+                                  }
                                 }
                               }}
-                              className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 relative ${
+                              className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 relative overflow-hidden ${
                                 selectedSize === size
-                                  ? 'border-nie8-primary bg-nie8-primary text-white'
+                                  ? 'border-nie8-primary bg-nie8-primary text-white shadow-md'
                                   : isOutOfStock
-                                    ? 'border-nie8-text/5 bg-nie8-text/5 text-nie8-text/30 cursor-not-allowed'
+                                    ? 'border-nie8-text/5 bg-nie8-text/5 text-nie8-text/20 cursor-not-allowed opacity-50'
                                     : 'border-nie8-text/15 text-nie8-text/70 hover:border-nie8-primary/50'
                               }`}
                             >
                               {selectedProduct.is_set ? `Set ${size}` : size}
                               {isOutOfStock && (
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-nie8-secondary/40 rounded-full border border-white" />
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                  <div className="w-[140%] h-[1px] bg-nie8-text/20 -rotate-45" />
+                                </div>
                               )}
                             </button>
                           );
@@ -745,12 +748,10 @@ export default function ProductGrid({
 
                       </div>
                     ) : (
-                      <div className="py-4">
-                        <div className="flex items-center gap-2 text-nie8-text/30 font-bold text-xs uppercase tracking-widest mb-2">
-                           Size {selectedSize} hiện đang hết hàng
-                        </div>
-                        <div className="p-4 bg-nie8-bg rounded-2xl border border-nie8-primary/5 text-nie8-text/40 text-[10px] font-medium leading-relaxed">
-                          Sản phẩm này hiện đã hết hàng. Bạn có thể chọn size khác hoặc nhắn tin trực tiếp cho Nie8 qua Instagram để được hỗ trợ nhanh nhất.
+                      <div className="py-2">
+                        <div className="flex items-center justify-center gap-2 bg-stone-100/50 py-3 rounded-2xl text-nie8-text/40 font-bold text-[10px] uppercase tracking-[0.2em]">
+                           <X size={12} className="text-nie8-primary/40" />
+                           {selectedSize} hiện đang hết hàng - Vui lòng chọn size khác
                         </div>
                       </div>
                     )}
