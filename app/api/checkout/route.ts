@@ -43,11 +43,28 @@ export async function POST(request: NextRequest) {
       p_coupon_codes: couponCodes || []
     });
 
-    if (rpcError) throw new Error(`Database Error: ${rpcError.message}`);
-    if (rpcResult?.success === false) return NextResponse.json({ 
-        error_code: rpcResult.error_code, 
-        error: rpcResult.error 
-    }, { status: 400 });
+    if (rpcResult?.success === false) {
+        // Chuyển đổi mã lỗi kỹ thuật thành thông báo thân thiện với khách hàng
+        const getFriendlyMessage = (code: string, originalError: string) => {
+            switch (code) {
+                case 'OUT_OF_STOCK':
+                    return 'Rất tiếc, sản phẩm này vừa mới hết hàng. Bạn vui lòng chọn mẫu khác nhé!';
+                case 'COUPON_INVALID':
+                    return 'Mã giảm giá này không còn hiệu lực hoặc đã hết lượt sử dụng.';
+                case 'PRODUCT_NOT_FOUND':
+                    return 'Sản phẩm không còn tồn tại trong cửa hàng.';
+                case 'INVALID_QUANTITY':
+                    return 'Số lượng sản phẩm không hợp lệ.';
+                default:
+                    return 'Đã xảy ra lỗi nhỏ trong quá trình xử lý, bạn vui lòng thử lại sau giây lát nhé.';
+            }
+        };
+
+        return NextResponse.json({ 
+            error_code: rpcResult.error_code, 
+            error: getFriendlyMessage(rpcResult.error_code, rpcResult.error) 
+        }, { status: 400 });
+    }
 
     // 2. Tạo link thanh toán PayOS (nếu chọn phương thức payos)
     if (paymentMethod === 'payos') {

@@ -123,19 +123,28 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     setAppliedCoupons(prev => prev.filter(c => c.code !== code));
   };
 
+  const [statusMessage, setStatusMessage] = useState<{ text: string, type: 'error' | 'success' | 'info' } | null>(null);
+
+  const showStatus = (text: string, type: 'error' | 'success' | 'info' = 'error') => {
+    setStatusMessage({ text, type });
+    // Tự động ẩn sau 5 giây
+    setTimeout(() => setStatusMessage(null), 5000);
+  };
+
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (isProcessing) return;
     if (!formData.name || !formData.phone || !formData.address || !formData.city) {
-      alert("Vui lòng điền đầy đủ thông tin giao hàng gồm: Họ tên, SDT, Quốc gia, Phường Xã");
+      showStatus("Vui lòng điền đầy đủ thông tin giao hàng nhé.");
       return;
     }
     if (items.length === 0) {
-      alert("Giỏ hàng của bạn đang trống!");
+      showStatus("Giỏ hàng của bạn đang trống.");
       return;
     }
     
     setIsProcessing(true);
+    setStatusMessage(null);
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -145,7 +154,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           customerPhone: formData.phone,
           customerAddress: formData.address,
           customerCity: formData.city,
-          totalAmount: finalTotal, // Final total after discount and shipping fee
+          totalAmount: finalTotal, 
           items: items.map(i => ({ id: i.id, size: i.size, quantity: i.quantity, name: i.name, images: i.images, price: i.price })),
           paymentMethod: formData.paymentMethod,
           userId: user?.id,
@@ -156,31 +165,11 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         })
       });
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const textError = await response.text();
-        throw new Error('Server returned HTML 500 page');
-      }
-
       const data = await response.json();
       
       if (!response.ok) {
-        // Ánh xạ mã lỗi từ Server sang thông báo tiếng Việt
-        const errorMessages: Record<string, string> = {
-          'OUT_OF_STOCK': 'Rất tiếc, một sản phẩm trong giỏ hàng vừa hết hàng. Vui lòng kiểm tra lại.',
-          'PRODUCT_NOT_FOUND': 'Sản phẩm không còn tồn tại trong hệ thống.',
-          'COUPON_INVALID': 'Mã giảm giá không hợp lệ hoặc đã hết lượt sử dụng.',
-          'SYSTEM_ERROR': 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.'
-        };
-        
-        const message = (data.error_code && data.error_code !== 'SYSTEM_ERROR') 
-          ? errorMessages[data.error_code] 
-          : (data.error || 'Yêu cầu bị từ chối');
-        throw new Error(message);
+        throw new Error(data.error || 'Đã xảy ra lỗi trong quá trình thanh toán.');
       }
-
-      // UPDATE: Không cần insert activity_logs và increment_coupon_usage ở đây 
-      // vì RPC secure_checkout trên Server đã thực hiện tự động và an toàn hơn.
 
       if (data.checkoutUrl) {
         localStorage.setItem('nie8_temp_phone', formData.phone);
@@ -190,7 +179,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       }
     } catch (error: any) {
       console.error('Checkout Error:', error);
-      alert(error.message);
+      showStatus(error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -237,8 +226,27 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       </div>
       
       <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT COLUMN: FORMS */}
+        {/* RIGHT COLUMN: CART & SUMMARY (Mobile First: summary can be on top or specific order) */}
+        
         <div className="lg:col-span-7 space-y-6">
+          {/* Status Message Display */}
+          <AnimatePresence>
+            {statusMessage && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                className={`p-4 rounded-xl flex items-start gap-3 border ${
+                  statusMessage.type === 'error' 
+                    ? 'bg-rose-50 border-rose-100 text-rose-800' 
+                    : 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                }`}
+              >
+                <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+                <span className="text-sm font-medium">{statusMessage.text}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
           {/* Default Login prompt if not signed in */}
           {!user && (
