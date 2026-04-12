@@ -1,2 +1,1 @@
-// File này đã được loại bỏ.
-export {};
+// DEPRECATED: Redundant Vite main entry point.

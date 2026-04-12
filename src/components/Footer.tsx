@@ -15,17 +15,21 @@ export default function Footer({ onAdminLogin }: FooterProps) {
             <p className="text-nie8-text/80 mb-6 leading-relaxed text-xs">
               Nơi phong cách gặp gỡ sự vô tận. Chúng tôi tin vào vẻ đẹp của sự tối giản và chất lượng bền bỉ theo thời gian.
             </p>
-            <div className="flex gap-3">
-              <a href="https://www.instagram.com/nie8.studio/" target="_blank" rel="noopener noreferrer" aria-label="Theo dõi Nie8 trên Instagram" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
+            <div className="flex gap-4">
+              <a href="https://www.instagram.com/nie8.studio/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all text-nie8-text/60">
                 <Instagram size={14} />
               </a>
-              <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Theo dõi Nie8 trên Facebook" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
+              <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all text-nie8-text/60">
                 <Facebook size={14} />
               </a>
-              <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noopener noreferrer" aria-label="Theo dõi Nie8 trên TikTok" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-colors">
+              <a href="https://zalo.me/" target="_blank" rel="noopener noreferrer" aria-label="Zalo" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all text-nie8-text/60">
+                <span className="text-[8px] font-black italic">ZALO</span>
+              </a>
+              <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all text-nie8-text/60">
                 <Music size={14} />
               </a>
             </div>
+ Broadway minimalism
           </div>
 
           <div>

@@ -445,7 +445,7 @@ export default function StoreClient({ initialProducts, initialSettings }: StoreC
   return (
     <AnimatePresence mode="wait">
       <motion.div key="page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }} className="min-h-screen flex flex-col bg-nie8-bg">
-        <motion.div className="fixed top-0 left-0 right-0 h-[2px] bg-nie8-primary origin-left z-[60]" style={{ scaleX }} />
+        <motion.div className="fixed top-0 left-0 right-0 h-[1.5px] sm:h-[2px] bg-nie8-primary/40 sm:bg-nie8-primary origin-left z-[60]" style={{ scaleX }} />
         <ToastContainer toasts={toasts} onRemove={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
 
         <Header

@@ -99,7 +99,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
               <button
                 onClick={onTrackOrderClick}
                 aria-label="Theo dõi đơn hàng"
-                className="text-nie8-text hover:text-nie8-primary transition-colors"
+                className="hidden lg:flex text-nie8-text hover:text-nie8-primary transition-colors"
               >
                 <Package size={20} />
               </button>
@@ -115,11 +115,11 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
               >
                 <Heart size={18} />
               </button>
-              {/* Cart button — luôn hiển thị, kể cả mobile */}
+              {/* Cart button — Ẩn trên mobile vì đã có Bottom Nav */}
               <button
                 onClick={onCartClick}
                 aria-label="Giỏ hàng"
-                className="relative text-nie8-text hover:text-nie8-primary transition-colors"
+                className="hidden lg:flex relative text-nie8-text hover:text-nie8-primary transition-colors"
               >
                 <ShoppingBag size={20} />
                 <AnimatePresence>
@@ -229,7 +229,13 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
 
               {/* Menu footer */}
               <div className="p-6 border-t border-nie8-primary/10">
-                <p className="text-xs text-nie8-text/30 uppercase tracking-widest">© 2024 nie8</p>
+                <div className="flex items-center gap-6 mb-4">
+                  <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><Facebook size={18} /></a>
+                  <a href="https://www.instagram.com/nie8.studio/" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><Instagram size={18} /></a>
+                  <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><TikTokIcon size={18} className="fill-current" /></a>
+                  <a href="https://zalo.me/" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><ZaloIcon size={20} /></a>
+                </div>
+                <p className="text-[10px] text-nie8-text/30 uppercase tracking-[0.2em]">© 2024 nie8 studio. minimalist romantic.</p>
               </div>
             </motion.div>
           </>
