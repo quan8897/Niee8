@@ -64,8 +64,8 @@ export default function ProductGrid({
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
-  const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc' | 'sales-desc' | 'likes-desc'>('default');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
   const touchStartX = useRef<number>(0);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -490,20 +490,25 @@ export default function ProductGrid({
                   >
                   {/* Main image với swipe */}
                   <AnimatePresence mode="wait">
-                    <motion.div
-                      key={activeImageIndex}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="w-full h-full sm:h-[520px]"
-                    >
-                      <LazyImage
-                        src={selectedProduct.images[activeImageIndex]}
-                        alt={selectedProduct.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </motion.div>
+                      <motion.div
+                        key={activeImageIndex}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="w-full h-full sm:h-[520px] cursor-zoom-in relative"
+                        onClick={() => setIsImageZoomed(true)}
+                      >
+                        <LazyImage
+                          src={selectedProduct.images[activeImageIndex]}
+                          alt={selectedProduct.name}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Icon gợi ý soi vải trên mobile */}
+                        <div className="absolute bottom-4 right-4 bg-white/20 backdrop-blur-md text-white p-2.5 rounded-full sm:hidden border border-white/30">
+                           <Sparkles size={18} className="animate-pulse" />
+                        </div>
+                      </motion.div>
                   </AnimatePresence>
 
                   {/* Image dots indicator */}
@@ -608,18 +613,18 @@ export default function ProductGrid({
                                   }
                                 }
                               }}
-                              className={`min-w-[44px] h-11 px-3 rounded-xl border-2 text-sm font-bold transition-all active:scale-95 relative overflow-hidden ${
+                              className={`min-w-[54px] h-12 px-3 rounded-2xl border-2 text-sm font-bold transition-all active:scale-95 relative overflow-hidden flex items-center justify-center ${
                                 selectedSize === size
-                                  ? 'border-nie8-primary bg-nie8-primary text-white shadow-md'
+                                  ? 'border-nie8-primary bg-nie8-primary text-white shadow-lg'
                                   : isOutOfStock
-                                    ? 'border-nie8-text/5 bg-nie8-text/5 text-nie8-text/20 cursor-not-allowed opacity-50'
-                                    : 'border-nie8-text/15 text-nie8-text/70 hover:border-nie8-primary/50'
+                                    ? 'border-nie8-text/5 bg-nie8-text/5 text-nie8-text/10 cursor-not-allowed'
+                                    : 'border-nie8-text/10 bg-white text-nie8-text/70'
                               }`}
                             >
                               {selectedProduct.is_set ? `Set ${size}` : size}
                               {isOutOfStock && (
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                  <div className="w-[140%] h-[1px] bg-nie8-text/20 -rotate-45" />
+                                  <div className="w-[180%] h-[1.5px] bg-nie8-text/30 -rotate-45" />
                                 </div>
                               )}
                             </button>
@@ -653,14 +658,27 @@ export default function ProductGrid({
                     </div>
 
                     {/* Description & Story */}
-                    <div className="mb-4">
+                    <div className="mb-4 space-y-4">
                       {selectedProduct.story_content && (
-                        <div className="mb-4 p-4 bg-nie8-bg rounded-2xl border-l-4 border-nie8-primary italic text-nie8-text/80 text-sm leading-relaxed">
+                        <div className="p-4 bg-nie8-bg/50 rounded-2xl border-l-[3px] border-nie8-primary italic text-nie8-text/70 text-[11px] leading-relaxed">
                           "{selectedProduct.story_content}"
                         </div>
                       )}
-                      <span className="text-xs font-bold uppercase tracking-wider text-nie8-text block mb-2">Chi tiết bộ đồ</span>
-                      <p className="text-sm text-nie8-text/70 leading-relaxed">{selectedProduct.description}</p>
+                      
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-nie8-text block">Chi tiết</span>
+                        <p className="text-xs text-nie8-text/60 leading-relaxed font-medium">{selectedProduct.description}</p>
+                      </div>
+
+                      {/* Thông số size làm siêu gọn */}
+                      <div className="bg-nie8-bg/30 rounded-2xl p-4 flex gap-4 items-center border border-nie8-primary/5">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-nie8-primary pr-4 border-r border-nie8-primary/10">Bảng size</div>
+                        <div className="flex gap-4 text-[10px] font-bold text-nie8-text/60">
+                          <span>S: 64.5cm</span>
+                          <span>M: 65.5cm</span>
+                          <span>L: 66.5cm</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Outfit Suggestions — chỉ render khi sản phẩm vẫn còn tồn tại và còn hàng */}
@@ -695,15 +713,6 @@ export default function ProductGrid({
                       );
                     })()}
 
-                    {/* Size info */}
-                    <div className="bg-nie8-bg rounded-2xl p-4 mb-2">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-nie8-secondary mb-2">Thông số size</p>
-                      <div className="grid grid-cols-3 gap-1 text-xs text-nie8-text/70">
-                        <span>S: Dài 64,5cm</span>
-                        <span>M: Dài 65,5cm</span>
-                        <span>L: Dài 66,5cm</span>
-                      </div>
-                    </div>
 
                     </div>
                   </div>
@@ -765,6 +774,47 @@ export default function ProductGrid({
               </motion.div>
             </div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Selective Zoom: Lightbox soi chi tiết vải */}
+      <AnimatePresence>
+        {isImageZoomed && selectedProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center"
+          >
+            <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[210] bg-gradient-to-b from-black/80 to-transparent">
+               <div className="text-white">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Chế độ soi chi tiết</p>
+                  <h3 className="text-sm font-serif italic">{selectedProduct.name}</h3>
+               </div>
+               <button 
+                onClick={() => setIsImageZoomed(false)}
+                className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="w-full h-full overflow-auto flex items-center justify-center bg-black">
+               <motion.img 
+                 initial={{ scale: 0.8, opacity: 0 }}
+                 animate={{ scale: 1, opacity: 1 }}
+                 src={selectedProduct.images[activeImageIndex]} 
+                 className="max-w-none w-full h-auto" 
+                 referrerPolicy="no-referrer"
+               />
+            </div>
+
+            <div className="absolute bottom-10 left-0 right-0 text-center pointer-events-none z-[210]">
+               <div className="inline-block px-6 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
+                  <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.3em]">Dùng 2 ngón tay để soi vải</p>
+               </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </section>
