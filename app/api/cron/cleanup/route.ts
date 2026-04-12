@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 // Bảo vệ bằng CRON_SECRET — chỉ Vercel Cron hoặc internal calls mới gọi được
 export async function GET(request: NextRequest) {
@@ -11,14 +11,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    // Service Role client — không cần Cookie, bypass RLS hoàn toàn
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    // Tìm đơn hàng PayOS pending quá 15 phút (Chuẩn SLA mới)
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
     const { data: expiredOrders, error } = await supabase
       .from('orders')
-      .select('id, items, coupon_code')
+      .select('id')
       .eq('status', 'pending')
       .eq('payment_method', 'payos')
       .lt('created_at', fifteenMinutesAgo);
@@ -29,18 +32,12 @@ export async function GET(request: NextRequest) {
     }
 
     let cancelledCount = 0;
-
     for (const order of expiredOrders) {
-      // Hủy đơn hàng và hoàn kho AN TOÀN bằng Tướng Quân RPC cancel_order_safe
       const { error: cancelError } = await supabase.rpc('cancel_order_safe', {
         p_order_id: order.id
       });
-
-      if (!cancelError) {
-        cancelledCount++;
-      } else {
-        console.error(`Lỗi khi hủy đơn ${order.id}:`, cancelError);
-      }
+      if (!cancelError) cancelledCount++;
+      else console.error(`Lỗi khi hủy đơn ${order.id}:`, cancelError);
     }
 
     console.log(`[Cron Cleanup] Đã hủy ${cancelledCount} đơn hàng hết hạn`);

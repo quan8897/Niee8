@@ -49,7 +49,7 @@ CREATE OR REPLACE FUNCTION secure_checkout(
     p_customer_address TEXT,
     p_customer_city TEXT,
     p_items JSONB,
-    p_total_amount NUMERIC, -- Chỉ dùng để đối soát, không dùng để ghi DB
+    p_client_total NUMERIC, -- Đổi từ p_total_amount để khớp với API
     p_payment_method TEXT,
     p_note TEXT DEFAULT NULL,
     p_discount_amount NUMERIC DEFAULT 0,
@@ -132,14 +132,14 @@ BEGIN
     v_calculated_total := v_calculated_total + p_shipping_fee - p_discount_amount;
 
     -- Cảnh báo nếu giá Client gửi lên chênh lệch > 1% so với giá DB tính (Dấu hiệu thao túng)
-    IF ABS(v_calculated_total - p_total_amount) > (v_calculated_total * 0.01) THEN
+    IF ABS(v_calculated_total - p_client_total) > (v_calculated_total * 0.01) THEN
         INSERT INTO public.error_logs (origin, error_message, details)
         VALUES ('secure_checkout_warn', 'Phát hiện chênh lệch giá đáng kể!', 
                 jsonb_build_object(
                     'order_id', p_order_id, 
-                    'client_total', p_total_amount, 
+                    'client_total', p_client_total, 
                     'db_calculated_total', v_calculated_total,
-                    'diff_percentage', CASE WHEN v_calculated_total > 0 THEN ROUND((ABS(v_calculated_total - p_total_amount) / v_calculated_total * 100)::numeric, 2) ELSE 0 END
+                    'diff_percentage', CASE WHEN v_calculated_total > 0 THEN ROUND((ABS(v_calculated_total - p_client_total) / v_calculated_total * 100)::numeric, 2) ELSE 0 END
                 ));
     END IF;
 
