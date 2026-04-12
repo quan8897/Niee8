@@ -165,7 +165,7 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
                           </div>
                           {/* Price */}
                           <p className="font-bold text-nie8-text text-sm">
-                            {formatVND(parseFloat(item.price.replace(/[^0-9]/g, '')) * item.quantity)}
+                            {formatVND(parseFloat(String(item.price).replace(/[^0-9]/g, '')) * item.quantity)}
                           </p>
                         </div>
                       </div>
