@@ -53,11 +53,30 @@ export async function POST(request: NextRequest) {
       throw updateError;
     }
 
-    // 3. Xử lý kết quả
+    // 3. Xử lý kết quả & Đối soát bất thường (Reconciliation - Chống AV-07)
     if (!updatedOrders || updatedOrders.length === 0) {
       // Đơn hàng không tồn tại hoặc đã được xử lý (idempotency)
-      console.log(`[PayOS Webhook] OrderCode ${orderCode} already processed or mismatch.`);
-      return NextResponse.json({ success: true, message: 'Already processed or no pending order found.' });
+      // HOẶC tiền về nhưng đơn đã bị hủy trước đó (Webhook trễ)
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('id, status, total_amount')
+        .eq('payos_order_code', orderCode)
+        .single();
+
+      if (existingOrder?.status === 'cancelled' && isSuccess) {
+        // ⚠️ TRƯỜNG HỢP BIÊN: Tiền đã về nhưng đơn bị hủy (do Cron hoặc khách hủy thủ công)
+        console.warn(`[PayOS Anomaly] Tiền về cho đơn đã hủy: ${existingOrder.id}`);
+        await supabase.from('payment_anomalies').insert({
+          payos_order_code: orderCode,
+          order_id: existingOrder.id,
+          order_status: 'cancelled',
+          payment_code: code,
+          amount: existingOrder.total_amount,
+          notes: 'Tiền đã về tài khoản nhưng đơn hàng đã ở trạng thái Cancelled (có thể do thanh toán muộn > 15p).'
+        });
+      }
+
+      return NextResponse.json({ success: true, message: 'Already processed or logged as anomaly.' });
     }
 
     console.log(`[PayOS Webhook] Successfully updated order ${updatedOrders[0].id} to ${newStatus}`);

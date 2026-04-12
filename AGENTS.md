@@ -10,8 +10,8 @@ Dưới đây là các quy tắc mà AI phải tuân thủ nghiêm ngặt trong 
 *(Người dùng có thể thêm các quy tắc khác vào file này)*
 5 "Khi viết code cho tính năng tư vấn (RAG), AI phải đảm bảo logic chỉ truy xuất và sử dụng thông tin thực tế từ cơ sở dữ liệu sản phẩm.
  Không được tự ý thêm thắt các đặc tính không có thật của vải hoặc kiểu dáng để tránh làm sai lệch mong đợi của khách hàng.
- 6. Luôn sử dụng bộ công nghệ hiện có: React (Vite), TypeScript, Tailwind CSS và Firebase. Tuyệt đối không cài đặt thêm thư viện mới (dependencies) 
- trừ khi có sự đồng ý của người dùng. Ưu tiên sử dụng các Component đã có sẵn trong src/components để tái sử dụng
+ 6. Luôn sử dụng bộ công nghệ hiện có: Next.js (App Router), TypeScript, Tailwind CSS và Supabase. Tuyệt đối không cài đặt thêm thư viện mới (dependencies) 
+ trừ khi có sự đồng ý của người dùng. Ưu tiên sử dụng các Component đã có sẵn trong src/components hoặc components để tái sử dụng
  7. Mọi thay đổi về giao diện phải tuân thủ bảng màu Nâu - Be tông lạnh và phong cách tối giản (Minimalism).
   Khi viết Tailwind CSS, hãy đảm bảo tính thẩm mỹ thanh lịch, sử dụng khoảng trắng hợp lý và font chữ đồng nhất với thiết kế ban đầu.
   8. "Mỗi đoạn code mới hoặc thay đổi quan trọng phải đi kèm với giải thích ngắn gọn về logic (tại sao làm vậy). Comment 

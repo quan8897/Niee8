@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const payos = new PayOS({ clientId: payosCid, apiKey: payosKey, checksumKey: payosCs });
     const supabase = createClient(sbUrl, sbSvcKey);
 
-    // 1. Ghi đơn hàng và trừ kho an toàn qua RPC
+    // 1. Ghi đơn hàng và trừ kho an toàn qua RPC (Đã bao gồm khóa hàng & tính lại giá)
     const { data: rpcResult, error: rpcError } = await supabase.rpc('secure_checkout', {
       p_order_id: orderId,
       p_user_id: userId || null,
@@ -35,10 +35,11 @@ export async function POST(request: NextRequest) {
       p_customer_address: customerAddress,
       p_customer_city: customerCity,
       p_items: items,
-      p_client_total: totalAmount, // Chỉ gửi để DB đối soát chênh lệch
+      p_client_total: totalAmount,      // Chỉ gửi để DB đối soát chênh lệch
       p_payment_method: paymentMethod,
       p_note: note || null,
-      p_client_shipping_fee: shippingFee || 0,
+      p_discount_amount: discountAmount || 0,
+      p_shipping_fee: shippingFee || 0,
       p_coupon_codes: couponCodes || []
     });
 
