@@ -14,16 +14,16 @@ interface CartProps {
 
 export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem, onCheckout }: CartProps) {
   const total = items.reduce((sum, item) => {
-    // Chấp nhận cả định dạng 250000 hoặc 250.000
-    const price = parseFloat(item.price.replace(/[^0-9]/g, ''));
+    const price = typeof item.price === 'number' ? item.price : parseFloat(String(item.price).replace(/[^0-9]/g, '') || '0');
     return sum + price * item.quantity;
   }, 0);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Format tiền VND
-  const formatVND = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  const formatVND = (val: number | string) => {
+    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9]/g, '') || '0');
+    return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
   };
 
   // Lock scroll khi cart mở

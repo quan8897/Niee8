@@ -27,6 +27,25 @@ ALTER TABLE public.products
 ADD COLUMN IF NOT EXISTS sales_count BIGINT DEFAULT 0,
 ADD COLUMN IF NOT EXISTS likes_count BIGINT DEFAULT 0;
 
+-- [1.1] MIGRATION: CHUẨN HÓA KIỂU DỮ LIỆU GIÁ (TEXT -> NUMERIC)
+-- Bước này cực kỳ quan trọng để đảm bảo tính toán tài chính chính xác
+DO $$ 
+BEGIN
+  -- Kiểm tra nếu cột price hiện tại là kiểu text hoặc varchar
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'products' AND column_name = 'price' AND data_type IN ('text', 'character varying')
+  ) THEN
+    -- Làm sạch dữ liệu (xóa ký tự không phải số) và cast sang NUMERIC
+    ALTER TABLE public.products 
+    ALTER COLUMN price TYPE NUMERIC 
+    USING (regexp_replace(price, '[^0-9]', '', 'g'))::NUMERIC;
+    
+    -- Thiết lập mặc định
+    ALTER TABLE public.products ALTER COLUMN price SET DEFAULT 0;
+  END IF;
+END $$;
+
 -- Mở rộng bảng Nhật ký để biết AI hay Admin đã thực hiện
 ALTER TABLE public.activity_logs 
 ADD COLUMN IF NOT EXISTS performed_by UUID REFERENCES auth.users(id);

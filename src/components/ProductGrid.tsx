@@ -104,13 +104,17 @@ export default function ProductGrid({
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
     } else if (activeSort === 'price-asc') {
-      result = [...result].sort((a, b) =>
-        parseFloat(a.price.replace(/[^0-9]/g, '')) - parseFloat(b.price.replace(/[^0-9]/g, ''))
-      );
+      result = [...result].sort((a, b) => {
+        const pA = typeof a.price === 'number' ? a.price : parseFloat(String(a.price).replace(/[^0-9]/g, '') || '0');
+        const pB = typeof b.price === 'number' ? b.price : parseFloat(String(b.price).replace(/[^0-9]/g, '') || '0');
+        return pA - pB;
+      });
     } else if (activeSort === 'price-desc') {
-      result = [...result].sort((a, b) =>
-        parseFloat(b.price.replace(/[^0-9]/g, '')) - parseFloat(a.price.replace(/[^0-9]/g, ''))
-      );
+      result = [...result].sort((a, b) => {
+        const pA = typeof a.price === 'number' ? a.price : parseFloat(String(a.price).replace(/[^0-9]/g, '') || '0');
+        const pB = typeof b.price === 'number' ? b.price : parseFloat(String(b.price).replace(/[^0-9]/g, '') || '0');
+        return pB - pA;
+      });
     } else if (activeSort === 'sales-desc') {
       result = [...result].sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0));
     } else if (activeSort === 'likes-desc') {
@@ -150,10 +154,9 @@ export default function ProductGrid({
 
 
   // Format tiền VND
-  const formatVND = (priceStr: string) => {
-    const amount = parseFloat(priceStr.replace(/[^0-9]/g, ''));
-    if (isNaN(amount)) return priceStr;
-    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  const formatVND = (val: number | string) => {
+    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9]/g, '') || '0');
+    return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
   };
 
   const toggleWishlist = async (id: string, e: React.MouseEvent) => {
