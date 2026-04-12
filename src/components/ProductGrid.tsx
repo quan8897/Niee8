@@ -64,6 +64,7 @@ export default function ProductGrid({
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Tất cả');
+  const [activeSort, setActiveSort] = useState<'default' | 'new' | 'price-asc' | 'price-desc' | 'sales-desc' | 'likes-desc'>('default');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
   const touchStartX = useRef<number>(0);

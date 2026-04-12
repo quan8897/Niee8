@@ -220,7 +220,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
   const formatVND = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + 'đ';
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pt-24 pb-20 px-4 sm:px-8 font-sans">
+    <div className="min-h-screen sm:bg-[#F8F9FA] bg-gray-50 pt-20 sm:pt-24 pb-20 px-0 sm:px-4 lg:px-8 font-sans transition-colors duration-300">
       {/* Status Message Display - FIXED TOAST for better Visibility on Mobile */}
       <AnimatePresence>
         {statusMessage && (
@@ -262,65 +262,105 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           )}
 
           {/* Shipping Form */}
-          <section className="bg-white p-8 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Thông tin giao hàng</h2>
-            <div className="space-y-4">
-              <input type="text" placeholder="Nhập họ và tên" required className="w-full bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm focus:border-stone-400 focus:ring-0 outline-none transition-colors" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+          <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
+            <h2 className="text-sm sm:text-lg font-black text-gray-900 mb-4 sm:mb-6 flex items-center gap-2 uppercase tracking-widest">
+              <MapPin size={16} className="text-nie8-primary" />
+              Thông tin giao hàng
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="sm:col-span-2">
+                <input type="text" placeholder="Họ và tên" required className="w-full bg-nie8-bg/20 border-none rounded-xl py-3 px-4 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-nie8-primary/20 outline-none transition-all" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+              </div>
               <div className="relative">
-                <input type="tel" placeholder="Nhập số điện thoại" required className="w-full bg-white border border-gray-200 rounded-lg py-3 px-4 pr-12 text-sm focus:border-stone-400 focus:ring-0 outline-none transition-colors" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                   {/* Fake VN flag */}
-                   <div className="w-6 h-4 bg-red-600 flex items-center justify-center rounded-[2px] overflow-hidden"><div className="text-yellow-400 text-[10px] leading-none">★</div></div>
+                <input type="tel" placeholder="Số điện thoại" required className="w-full bg-nie8-bg/20 border-none rounded-xl py-3 px-4 pr-12 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-nie8-primary/20 outline-none transition-all" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-60">
+                   <div className="w-5 h-3 bg-red-600 flex items-center justify-center rounded-[1px] overflow-hidden"><div className="text-yellow-400 text-[8px] leading-none">★</div></div>
                 </div>
               </div>
-              <input type="email" placeholder="Nhập email (không bắt buộc)" className="w-full bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm focus:border-stone-400 focus:ring-0 outline-none transition-colors" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-              
-              <select className="w-full bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm focus:border-stone-400 focus:ring-0 outline-none appearance-none text-gray-700 disabled:bg-gray-50" disabled>
-                <option value="VN">Quốc gia: Vietnam</option>
-              </select>
-
-              <input type="text" placeholder="Tỉnh/TP, Quận/Huyện, Phường/Xã" required className="w-full bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm focus:border-stone-400 focus:ring-0 outline-none transition-colors" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} />
-              <textarea placeholder="Địa chỉ, tên đường" required rows={2} className="w-full bg-white border border-gray-200 rounded-lg py-3 px-4 text-sm focus:border-stone-400 focus:ring-0 outline-none transition-colors resize-none" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+              <input type="email" placeholder="Email (không bắt buộc)" className="w-full bg-nie8-bg/20 border-none rounded-xl py-3 px-4 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-nie8-primary/20 outline-none transition-all" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+              <input type="text" placeholder="Tỉnh/TP, Quận/Huyện, Phường/Xã" required className="sm:col-span-2 w-full bg-nie8-bg/20 border-none rounded-xl py-3 px-4 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-nie8-primary/20 outline-none transition-all" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} />
+              <textarea placeholder="Địa chỉ chi tiết, tên đường, số nhà..." required rows={2} className="sm:col-span-2 w-full bg-nie8-bg/20 border-none rounded-xl py-3 px-4 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-nie8-primary/20 outline-none transition-all resize-none" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
             </div>
           </section>
 
           {/* Delivery Method */}
-          <section className="bg-white p-8 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Phương thức giao hàng</h2>
-            <div className="w-full bg-gray-50 border border-gray-200 rounded-lg py-4 px-4 text-sm text-gray-500 flex justify-between">
-              <span>Phí vận chuyển siêu tốc (Test)</span>
-              <span className="font-medium text-gray-900">{formatVND(shippingFee)}</span>
+          <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
+            <div className="flex items-center justify-between group cursor-pointer lg:cursor-default">
+              <div className="flex items-center gap-2">
+                <Truck size={16} className="text-nie8-primary" />
+                <span className="text-[13px] sm:text-base font-black text-gray-900 uppercase tracking-widest">Vận chuyển</span>
+              </div>
+              <div className="flex items-center gap-2 text-right">
+                <div className="flex flex-col items-end">
+                   <span className="text-[11px] font-bold text-gray-900">Siêu tốc (Test)</span>
+                   <span className="text-[10px] text-gray-400 font-medium italic">Nhận hàng trong 24h</span>
+                </div>
+                <span className="text-[13px] font-black text-nie8-primary ml-2">{formatVND(shippingFee)}</span>
+                <ChevronRight size={14} className="text-gray-300 lg:hidden" />
+              </div>
             </div>
           </section>
 
           {/* Payment Method */}
-          <section className="bg-white p-8 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Phương thức thanh toán</h2>
-            <div className="space-y-3">
-              <label className={`w-full flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer ${formData.paymentMethod === 'cod' ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}>
+          <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
+            <h2 className="text-sm sm:text-lg font-black text-gray-900 mb-4 sm:mb-6 uppercase tracking-widest flex items-center gap-2">
+              <CreditCard size={16} className="text-nie8-primary" />
+              Thanh toán
+            </h2>
+            
+            {/* Desktop View: Grid of boxes */}
+            <div className="hidden sm:grid grid-cols-2 gap-4">
+              <label className={`flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer ${formData.paymentMethod === 'cod' ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}>
                 <input type="radio" name="payment" className="hidden" checked={formData.paymentMethod === 'cod'} onChange={() => setFormData({...formData, paymentMethod: 'cod'})} />
                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center mr-3 ${formData.paymentMethod === 'cod' ? 'border-4 border-gray-900 bg-white' : 'border-gray-300'}`}></div>
-                <div className="flex-grow flex items-center gap-3">
-                  <div className="w-8 h-6 bg-zinc-200 rounded flex items-center justify-center shadow-sm"><span className="text-[8px] font-bold">COD</span></div>
-                  <span className="text-sm font-medium text-gray-800">Thanh toán khi giao hàng (COD)</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-6 bg-zinc-200 rounded flex items-center justify-center"><span className="text-[8px] font-bold">COD</span></div>
+                  <span className="text-sm font-medium">Tiền mặt</span>
                 </div>
               </label>
-
-              <label className={`w-full flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer ${formData.paymentMethod === 'payos' ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}>
+              <label className={`flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer ${formData.paymentMethod === 'payos' ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}>
                 <input type="radio" name="payment" className="hidden" checked={formData.paymentMethod === 'payos'} onChange={() => setFormData({...formData, paymentMethod: 'payos'})} />
                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center mr-3 ${formData.paymentMethod === 'payos' ? 'border-4 border-gray-900 bg-white' : 'border-gray-300'}`}></div>
-                <div className="flex-grow flex items-center gap-3">
-                  <div className="w-8 h-6 bg-emerald-500 rounded flex items-center justify-center shadow-sm"><CreditCard size={12} className="text-white"/></div>
-                  <span className="text-sm font-medium text-gray-800">Chuyển khoản qua QR - PayOS</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-6 bg-emerald-500 rounded flex items-center justify-center"><CreditCard size={12} className="text-white"/></div>
+                  <span className="text-sm font-medium">Chuyển khoản QR</span>
                 </div>
               </label>
+            </div>
+
+            {/* Mobile View: Compact list rows */}
+            <div className="sm:hidden space-y-2">
+              <div 
+                onClick={() => setFormData({...formData, paymentMethod: 'cod'})}
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all ${formData.paymentMethod === 'cod' ? 'border-nie8-primary bg-nie8-bg/20' : 'border-gray-100 bg-white'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-6 bg-zinc-200 rounded flex items-center justify-center shadow-sm"><span className="text-[8px] font-black">COD</span></div>
+                  <span className="text-xs font-bold text-gray-800">Thanh toán khi nhận hàng</span>
+                </div>
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentMethod === 'cod' ? 'border-4 border-nie8-primary bg-white' : 'border-gray-200'}`}></div>
+              </div>
+
+              <div 
+                onClick={() => setFormData({...formData, paymentMethod: 'payos'})}
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all ${formData.paymentMethod === 'payos' ? 'border-nie8-primary bg-nie8-bg/20' : 'border-gray-100 bg-white'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-6 bg-emerald-500 rounded flex items-center justify-center shadow-sm"><CreditCard size={12} className="text-white"/></div>
+                  <span className="text-xs font-bold text-gray-800">Chuyển khoản Qua QR</span>
+                </div>
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentMethod === 'payos' ? 'border-4 border-nie8-primary bg-white' : 'border-gray-200'}`}></div>
+              </div>
             </div>
           </section>
 
 
           {/* Order Note */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm">
-             <input type="text" placeholder="Ghi chú đơn hàng" className="w-full bg-transparent border-none py-2 text-sm focus:ring-0 outline-none" value={formData.note} onChange={(e) => setFormData({...formData, note: e.target.value})} />
+          <section className="bg-white p-4 sm:p-6 sm:rounded-2xl shadow-sm border-b sm:border-none">
+             <div className="flex items-center gap-2">
+                <Info size={16} className="text-gray-400" />
+                <input type="text" placeholder="Ghi chú đơn hàng..." className="w-full bg-transparent border-none py-1 text-xs sm:text-sm focus:ring-0 outline-none font-medium" value={formData.note} onChange={(e) => setFormData({...formData, note: e.target.value})} />
+             </div>
           </section>
         </div>
 
@@ -328,12 +368,14 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         <div className="lg:col-span-5 space-y-6">
           
           {/* Cart Items */}
-          <section className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-6 flex justify-between">Giỏ hàng <span className="bg-nie8-bg text-nie8-text text-sm w-6 h-6 flex items-center justify-center rounded-full">{items.length}</span></h2>
-            <div className="space-y-6 max-h-[40vh] overflow-y-auto pr-2 scroll-hide">
+          <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
+            <h2 className="text-sm sm:text-lg font-black text-gray-900 mb-4 sm:mb-6 flex justify-between items-center uppercase tracking-widest">
+              <span>Sản phẩm ({items.length})</span>
+            </h2>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
               {items.map((item, idx) => (
-                <div key={idx} className="flex gap-4">
-                  <div className="w-16 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border">
+                <div key={idx} className="flex gap-3 py-2 border-b border-gray-50 last:border-none">
+                  <div className="w-16 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border border-black/5 shadow-sm">
                     <img 
                       src={item.images?.[0] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000'} 
                       alt={item.name} 
@@ -341,64 +383,49 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                       referrerPolicy="no-referrer"
                     />
                   </div>
-                  <div className="flex-grow flex flex-col justify-between py-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900 line-clamp-1 pr-2">{item.name}</h4>
-                        <p className="text-xs text-gray-500 mt-1">{item.category} / <span className="font-bold text-gray-800">{item.size}</span></p>
+                  <div className="flex-grow flex flex-col justify-between py-0.5 min-w-0">
+                    <div>
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="text-[13px] font-bold text-gray-900 truncate">{item.name}</h4>
+                        <button onClick={() => onRemoveItem && onRemoveItem(item.id, item.size)} className="text-gray-300 hover:text-rose-500 transition-colors"><Trash2 size={14} /></button>
                       </div>
-                      <button onClick={() => onRemoveItem && onRemoveItem(item.id, item.size)} className="text-gray-400 hover:text-red-500 transition-colors p-1"><Trash2 size={16} /></button>
+                      <p className="text-[10px] sm:text-xs text-gray-400 font-medium uppercase tracking-tighter mt-0.5">Size: <span className="text-nie8-primary font-black">{item.size}</span> | {item.category}</p>
                     </div>
-                    <div className="flex items-center justify-between mt-2">
-                       <p className="text-sm font-bold text-gray-900">{formatVND(parseFloat(item.price.replace(/[^0-9]/g, '')))}</p>
-                       <div className="flex items-center border border-gray-200 rounded-md">
-                         <button onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, -1)} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30" disabled={item.quantity <= 1}><Minus size={14} /></button>
-                         <span className="w-8 text-center text-sm font-medium leading-8">{item.quantity}</span>
-                         <button onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, 1)} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Plus size={14} /></button>
+                    <div className="flex items-center justify-between mt-1">
+                       <p className="text-[13px] font-black text-nie8-text">{formatVND(parseFloat(item.price.replace(/[^0-9]/g, '')))}</p>
+                       <div className="flex items-center bg-nie8-bg/40 rounded-lg p-0.5">
+                         <button onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, -1)} className="w-6 h-6 flex items-center justify-center text-gray-600 active:scale-90" disabled={item.quantity <= 1}><Minus size={12} /></button>
+                         <span className="min-w-[24px] text-center text-xs font-black">{item.quantity}</span>
+                         <button onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, 1)} className="w-6 h-6 flex items-center justify-center text-gray-600 active:scale-90"><Plus size={12} /></button>
                        </div>
                     </div>
                   </div>
                 </div>
               ))}
-              {items.length === 0 && <p className="text-center text-gray-400 text-sm py-4">Giỏ hàng trống.</p>}
+              {items.length === 0 && <p className="text-center text-gray-400 text-[13px] py-10 italic">Giỏ hàng đang trống...</p>}
             </div>
           </section>
 
           {/* Promo Code */}
-          <section className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm">
-             <h2 className="text-lg font-bold text-gray-900 mb-4">Mã khuyến mãi</h2>
-             
-             {appliedCoupons.length > 0 && (
-                <div className="space-y-2 mb-4">
-                   {appliedCoupons.map(coupon => {
-                    const isShipping = coupon.category === 'shipping';
-                    return (
-                      <div key={coupon.code} className={`flex items-center justify-between border rounded-xl p-4 ${isShipping ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
-                        <div className={`flex items-center gap-3 ${isShipping ? 'text-blue-700' : 'text-orange-700'}`}>
-                          <Ticket size={20} />
-                          <div>
-                            <p className="font-bold text-sm uppercase">{coupon.code}</p>
-                            <p className="text-xs opacity-80">
-                              {coupon.category === 'shipping' ? 'Giảm phí vận chuyển' : 
-                               `Đã giảm ${coupon.discount_amount ? formatVND(parseFloat(coupon.discount_amount)) : `${coupon.discount_percent}%`}`}
-                            </p>
-                          </div>
-                        </div>
-                        <button onClick={() => removeCoupon(coupon.code)} className="text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
-                      </div>
-                    );
-                  })}
-                </div>
-             )}
-
+          <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
              <div className="flex flex-col gap-3">
-                <button 
+                <div 
                   onClick={() => setIsVoucherModalOpen(true)}
-                  className="w-full flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                  className="w-full flex justify-between items-center bg-nie8-bg/20 rounded-xl px-4 py-3 cursor-pointer group active:scale-[0.98] transition-all"
                 >
-                  <span className="flex items-center gap-2"><Ticket size={16} /> Chọn mã</span>
-                  <ChevronRight size={16} />
-                </button>
+                  <div className="flex items-center gap-3">
+                    <Ticket size={18} className="text-nie8-primary" />
+                    <span className="text-[13px] font-black text-gray-900 uppercase tracking-widest">Mã khuyến mãi</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {appliedCoupons.length > 0 ? (
+                      <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 uppercase tracking-tighter">Đã chọn {appliedCoupons.length} mã</span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-gray-400">Chọn hoặc nhập mã</span>
+                    )}
+                    <ChevronRight size={14} className="text-gray-300" />
+                  </div>
+                </div>
                 
                 <div className="flex gap-2">
                   <input 
@@ -421,41 +448,42 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           </section>
 
           {/* Summary */}
-          <section className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm">
-             <h2 className="text-lg font-bold text-gray-900 mb-6">Tóm tắt đơn hàng</h2>
-             <div className="space-y-4">
-               <div className="flex justify-between text-sm text-gray-600">
-                 <span>Tổng tiền hàng</span>
-                 <span className="font-medium text-gray-900">{formatVND(total)}</span>
+          <section className="bg-white p-4 sm:p-8 sm:rounded-2xl shadow-sm border-b sm:border-none">
+             <h2 className="text-sm sm:text-lg font-black text-gray-900 mb-4 sm:mb-6 uppercase tracking-widest flex items-center gap-2">
+                <Receipt size={16} className="text-nie8-primary" />
+                Tổng quan
+             </h2>
+             <div className="space-y-3 sm:space-y-4">
+               <div className="flex justify-between text-xs sm:text-sm text-gray-500">
+                 <span className="font-bold">Tiền hàng ({items.length} món)</span>
+                 <span className="font-black text-gray-900">{formatVND(total)}</span>
                </div>
                {discountAmount > 0 && (
-                 <div className="flex justify-between text-sm text-green-600">
-                   <span>Giảm giá</span>
-                   <span className="font-medium">- {formatVND(discountAmount)}</span>
+                 <div className="flex justify-between text-xs sm:text-sm text-emerald-600">
+                   <span className="font-bold">Giảm giá voucher</span>
+                   <span className="font-black">- {formatVND(discountAmount)}</span>
                  </div>
                )}
-               <div className="flex justify-between text-sm text-gray-600">
-                 <span>Phí vận chuyển</span>
-                 <span className="font-medium text-gray-900">+ {formatVND(shippingFee)}</span>
+               <div className="flex justify-between text-xs sm:text-sm text-gray-500">
+                 <span className="font-bold">Phí vận chuyển</span>
+                 <span className="font-black text-gray-900">+ {formatVND(shippingFee)}</span>
                </div>
                
-               <div className="pt-6 mt-2 border-t border-gray-100">
-                 <div className="flex justify-between items-end mb-1">
-                   <span className="text-gray-900 font-bold">Tổng thanh toán</span>
-                   <span className="text-2xl font-bold text-gray-900">{formatVND(finalTotal)}</span>
+               <div className="pt-4 mt-2 sm:pt-6 border-t border-gray-50">
+                 <div className="flex justify-between items-baseline mb-1">
+                   <span className="text-gray-900 text-sm sm:text-base font-black uppercase tracking-tight">Thanh toán</span>
+                   <span className="text-xl sm:text-2xl font-black text-nie8-primary">{formatVND(finalTotal)}</span>
                  </div>
+                 <p className="text-[10px] text-gray-400 italic text-right">Đã bao gồm VAT (nếu có)</p>
                </div>
 
                <button 
                   onClick={() => handleSubmit()}
                   disabled={isProcessing || items.length === 0}
-                  className="hidden lg:flex w-full mt-6 bg-black text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-xl shadow-gray-200 hover:shadow-2xl hover:translate-y-[-2px] transition-all items-center justify-center gap-3 active:scale-[0.98] disabled:bg-gray-400"
+                  className="hidden lg:flex w-full mt-6 bg-nie8-text text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-nie8-text/10 hover:shadow-2xl hover:translate-y-[-2px] transition-all items-center justify-center gap-3 active:scale-[0.98] disabled:bg-gray-400"
                >
                   {isProcessing ? <Loader2 size={24} className="animate-spin" /> : 'Hoàn tất đặt hàng'}
                </button>
-
-               <div className="mt-6 flex items-center justify-center gap-6 opacity-40 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default">
-                  {/* Security/Trust Badges */}
                   <div className="flex flex-col items-center">
                     <span className="text-[8px] font-bold uppercase mb-1">Secure by</span>
                     <img src="https://pay.payos.vn/assets/img/logo-payos.svg" alt="PayOS" className="h-4" />
@@ -477,17 +505,20 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       </div>
 
       {/* SHOPEE-STYLE STICKY BOTTOM BAR (Mobile Only) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-[100] flex items-center justify-between shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 z-[100] flex items-center justify-between shadow-[0_-8px_30px_rgb(0,0,0,0.08)]">
         <div className="flex flex-col">
-          <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Tổng cộng</span>
-          <span className="text-lg font-bold text-gray-900">{formatVND(finalTotal)}</span>
+          <div className="flex items-center gap-1">
+             <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Tổng cộng</span>
+             {discountAmount > 0 && <span className="text-[8px] px-1 bg-emerald-500 text-white font-bold rounded-sm">-{formatVND(discountAmount)}</span>}
+          </div>
+          <span className="text-xl font-black text-nie8-primary">{formatVND(finalTotal)}</span>
         </div>
         <button 
           onClick={() => handleSubmit()}
           disabled={isProcessing || items.length === 0}
-          className="bg-black text-white px-8 py-3.5 rounded-xl font-bold uppercase text-sm tracking-widest active:scale-95 transition-all disabled:bg-gray-300 flex items-center gap-2"
+          className="bg-nie8-text text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] active:scale-95 transition-all disabled:bg-gray-300 shadow-xl shadow-nie8-text/10 flex items-center gap-2"
         >
-          {isProcessing ? <Loader2 size={18} className="animate-spin" /> : 'Đặt hàng'}
+          {isProcessing ? <Loader2 size={16} className="animate-spin" /> : 'Đặt hàng ngay'}
         </button>
       </div>
 
