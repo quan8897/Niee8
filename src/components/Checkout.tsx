@@ -221,36 +221,41 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pt-24 pb-20 px-4 sm:px-8 font-sans">
+      {/* Status Message Display - FIXED TOAST for better Visibility on Mobile */}
+      <AnimatePresence>
+        {statusMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-5 left-4 right-4 z-[200] flex justify-center pointer-events-none"
+          >
+            <div className={`p-4 rounded-2xl shadow-2xl flex items-start gap-3 border pointer-events-auto max-w-md w-full ${
+              statusMessage.type === 'error' 
+                ? 'bg-white border-rose-100 text-rose-800' 
+                : 'bg-white border-emerald-100 text-emerald-800'
+            }`}>
+              <AlertCircle size={20} className={`flex-shrink-0 mt-0.5 ${statusMessage.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`} />
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-bold">{statusMessage.type === 'error' ? 'Thông báo' : 'Thành công'}</span>
+                <span className="text-xs font-medium opacity-90">{statusMessage.text}</span>
+              </div>
+              <button onClick={() => setStatusMessage(null)} className="ml-auto text-gray-400"><X size={16} /></button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-6xl mx-auto flex items-center justify-between mb-8 cursor-pointer" onClick={onBack}>
          <div className="text-xl font-serif italic text-nie8-text hover:text-nie8-primary transition-colors flex items-center gap-2"><ArrowLeft size={20} /> nie8.</div>
       </div>
       
       <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-8 items-start">
-        {/* RIGHT COLUMN: CART & SUMMARY (Mobile First: summary can be on top or specific order) */}
-        
         <div className="lg:col-span-7 space-y-6">
-          {/* Status Message Display */}
-          <AnimatePresence>
-            {statusMessage && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                className={`p-4 rounded-xl flex items-start gap-3 border ${
-                  statusMessage.type === 'error' 
-                    ? 'bg-rose-50 border-rose-100 text-rose-800' 
-                    : 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                }`}
-              >
-                <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
-                <span className="text-sm font-medium">{statusMessage.text}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
           
           {/* Default Login prompt if not signed in */}
           {!user && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between">
+            <div className="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between border border-gray-50">
               <span className="text-sm font-medium text-gray-700">Đăng nhập để mua hàng tiện lợi và nhận nhiều ưu đãi hơn nữa</span>
               <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-2 rounded-lg font-medium text-sm transition-colors">Đăng nhập</button>
             </div>

@@ -157,7 +157,18 @@ BEGIN
     );
 
 EXCEPTION WHEN OTHERS THEN
-    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+    DECLARE
+        v_err_code TEXT;
+    BEGIN
+        v_err_code := CASE
+            WHEN SQLERRM LIKE 'OUT_OF_STOCK%' THEN 'OUT_OF_STOCK'
+            WHEN SQLERRM LIKE 'PRODUCT_NOT_FOUND%' THEN 'PRODUCT_NOT_FOUND'
+            WHEN SQLERRM LIKE 'COUPON_INVALID%' THEN 'COUPON_INVALID'
+            WHEN SQLERRM LIKE 'INVALID_QUANTITY%' THEN 'INVALID_QUANTITY'
+            ELSE 'SYSTEM_ERROR'
+        END;
+        RETURN jsonb_build_object('success', false, 'error_code', v_err_code, 'error', SQLERRM);
+    END;
 END;
 $$;
 
