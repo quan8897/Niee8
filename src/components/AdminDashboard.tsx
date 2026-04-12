@@ -195,9 +195,9 @@ export default function AdminDashboard({
   };
 
 
-  const formatVND = (priceStr: string) => {
-    const amount = parseFloat(priceStr.replace(/[^0-9]/g, ''));
-    if (isNaN(amount)) return priceStr;
+  const formatVND = (val: string | number) => {
+    const amount = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9]/g, ''));
+    if (isNaN(amount)) return String(val);
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
   };
 
@@ -672,7 +672,7 @@ export default function AdminDashboard({
                           <p className="text-sm font-bold">{item.name}</p>
                           <p className="text-[10px] text-nie8-text/40 font-bold uppercase tracking-widest">Size: {item.size} × {item.quantity}</p>
                         </div>
-                        <p className="text-sm font-bold text-nie8-primary">{new Intl.NumberFormat('vi-VN').format(parseFloat(item.price.replace(/[^0-9]/g, '')) * item.quantity)}đ</p>
+                        <p className="text-sm font-bold text-nie8-primary">{new Intl.NumberFormat('vi-VN').format(parseFloat(String(item.price).replace(/[^0-9]/g, '')) * item.quantity)}đ</p>
                       </div>
                     ))}
                   </div>
