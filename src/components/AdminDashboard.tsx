@@ -61,8 +61,7 @@ export default function AdminDashboard({
   // Restock Modal State
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [restockProduct, setRestockProduct] = useState<Product | null>(null);
-  const [restockSize, setRestockSize] = useState<string>('M');
-  const [restockQuantity, setRestockQuantity] = useState<number>(0);
+  const [restockQuantities, setRestockQuantities] = useState<Record<string, number>>({ S: 0, M: 0, L: 0, XL: 0 });
   const [isRestocking, setIsRestocking] = useState(false);
 
   // Stock Ledger State
@@ -121,8 +120,7 @@ export default function AdminDashboard({
 
   const openRestockModal = (product: Product) => {
     setRestockProduct(product);
-    setRestockSize('M');
-    setRestockQuantity(0);
+    setRestockQuantities({ S: 0, M: 0, L: 0, XL: 0 });
     setShowRestockModal(true);
   };
 
@@ -130,18 +128,22 @@ export default function AdminDashboard({
 
   const handleRestockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!restockProduct || restockQuantity <= 0) return;
+    const activeRestocks = Object.entries(restockQuantities).filter(([_, qty]) => qty > 0);
+    if (!restockProduct || activeRestocks.length === 0) return;
     
     setIsRestocking(true);
     try {
-      // 1. Update product stock
+      // 1. Calculate new stock
       const currentStockBySize = restockProduct.stock_by_size || { S: 0, M: 0, L: 0, XL: 0 };
-      const newStockBySize = {
-        ...currentStockBySize,
-        [restockSize]: (currentStockBySize[restockSize] || 0) + restockQuantity
-      };
+      const newStockBySize = { ...currentStockBySize };
+      
+      activeRestocks.forEach(([size, qty]) => {
+        newStockBySize[size] = (currentStockBySize[size] || 0) + qty;
+      });
+
       const newTotalStock = Object.values(newStockBySize).reduce((a, b) => a + b, 0);
       
+      // 2. Batch update product stock
       const { error: updateError } = await supabase
         .from('products')
         .update({
@@ -152,24 +154,27 @@ export default function AdminDashboard({
         
       if (updateError) throw updateError;
 
-      // 2. Insert into stock_movements
+      // 3. Batch insert stock movements & logs
+      const movements = activeRestocks.map(([size, qty]) => ({
+        product_id: restockProduct.id,
+        size,
+        quantity: qty,
+        type: 'import',
+        note: `Nhập kho thủ công từ Dashboard`
+      }));
+
       const { error: movementError } = await supabase
         .from('stock_movements')
-        .insert({
-          product_id: restockProduct.id,
-          size: restockSize,
-          quantity: restockQuantity,
-          type: 'import',
-          note: `Nhập kho thủ công từ Dashboard`
-        });
+        .insert(movements);
         
-      if (movementError) console.error('Error logging stock movement:', movementError);
+      if (movementError) console.error('Error logging movements:', movementError);
  
-      // Ghi nhật ký hệ thống: Nhập kho thủ công
+      // Ghi nhật ký tập trung
+      const logDetails = activeRestocks.map(([size, qty]) => `${qty} size ${size}`).join(', ');
       await supabase.from('activity_logs').insert({
         product_id: restockProduct.id,
         action: 'Nhập kho thủ công',
-        details: `Nhập thêm ${restockQuantity} sản phẩm size ${restockSize} cho: ${restockProduct.name}`
+        details: `Nhập thêm tổng cộng cho: ${restockProduct.name}. Chi tiết: ${logDetails}`
       });
  
       onUpdateProduct({
@@ -1587,47 +1592,34 @@ export default function AdminDashboard({
                 </div>
 
                 <form id="restock-form" onSubmit={handleRestockSubmit} className="space-y-8">
-                  <div className="flex flex-col gap-6">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40 ml-1">Kích thước (Size)</label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {['S', 'M', 'L', 'XL'].map(s => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setRestockSize(s)}
-                            className={`py-4 rounded-2xl border-2 text-sm font-bold transition-all ${
-                              restockSize === s 
-                                ? 'border-nie8-primary bg-nie8-primary text-white shadow-lg' 
-                                : 'border-nie8-primary/10 bg-white text-nie8-text/60 hover:border-nie8-primary/30'
-                            }`}
-                          >
-                            {s}
-                            <div className={`text-[8px] mt-1 ${restockSize === s ? 'text-white/60' : 'text-nie8-text/30'}`}>
-                               Còn: {restockProduct.stock_by_size?.[s] || 0}
-                            </div>
-                          </button>
-                        ))}
+                  <div className="grid grid-cols-2 gap-4">
+                    {['S', 'M', 'L', 'XL'].map(s => (
+                      <div key={s} className="bg-nie8-bg/50 p-4 rounded-3xl border border-nie8-primary/5 space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Size {s}</span>
+                          <span className="text-[10px] text-nie8-text/30">Cần: {restockProduct.stock_by_size?.[s] || 0}</span>
+                        </div>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={restockQuantities[s] || ''} 
+                          onChange={e => setRestockQuantities(prev => ({ ...prev, [s]: parseInt(e.target.value) || 0 }))}
+                          placeholder="0"
+                          className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-4 py-3 focus:outline-none focus:border-nie8-primary text-xl font-bold text-center"
+                        />
+                        <div className="text-[9px] text-center text-nie8-text/40 italic">
+                          Sau nhập: <span className="text-nie8-primary font-bold">{(restockProduct.stock_by_size?.[s] || 0) + (restockQuantities[s] || 0)}</span>
+                        </div>
                       </div>
-                    </div>
+                    ))}
+                  </div>
 
-                    <div className="bg-nie8-bg/50 p-6 rounded-[32px] border border-nie8-primary/5 space-y-4">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-nie8-text/40">Số lượng nhập thêm</label>
-                        <span className="text-[10px] bg-nie8-primary/10 text-nie8-primary px-2 py-1 rounded-lg font-bold">Size {restockSize}</span>
-                      </div>
-                      <input 
-                        type="number" 
-                        min="1"
-                        required
-                        value={restockQuantity || ''} 
-                        onChange={e => setRestockQuantity(parseInt(e.target.value) || 0)}
-                        className="w-full bg-white border border-nie8-primary/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-nie8-primary text-2xl font-bold placeholder:text-nie8-text/10"
-                        placeholder="VD: 50"
-                        autoFocus
-                      />
-                      <p className="text-[10px] text-nie8-text/40 italic text-center">Tồn kho sau khi nhập: <span className="text-nie8-primary font-bold">{(restockProduct.stock_by_size?.[restockSize] || 0) + restockQuantity}</span></p>
-                    </div>
+                  {/* Summary Total */}
+                  <div className="bg-nie8-primary/5 p-4 rounded-2xl flex justify-between items-center border border-nie8-primary/10">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-nie8-primary">Tổng số lượng nhập thêm</span>
+                    <span className="text-xl font-serif italic text-nie8-primary">
+                      {Object.values(restockQuantities).reduce((a, b) => a + b, 0)} sản phẩm
+                    </span>
                   </div>
                 </form>
               </div>
@@ -1637,11 +1629,11 @@ export default function AdminDashboard({
                 <button 
                   type="submit" 
                   form="restock-form"
-                  disabled={isRestocking || restockQuantity <= 0}
+                  disabled={isRestocking || Object.values(restockQuantities).every(q => q <= 0)}
                   className="flex-1 py-4 bg-green-500 text-white rounded-full font-bold uppercase tracking-widest shadow-lg shadow-green-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isRestocking ? <Loader2 size={16} className="animate-spin" /> : <PackagePlus size={16} />}
-                  Xác nhận
+                  Xác nhận nhập kho
                 </button>
               </div>
             </motion.div>
