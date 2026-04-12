@@ -238,6 +238,71 @@ END;
 $$;
 
 
+-- [3.1] HÀM HOÀN KHO (TỰ ĐỘNG GỌI BỞI TRIGGER)
+CREATE OR REPLACE FUNCTION public.restore_stock(
+    p_product_id TEXT,
+    p_size TEXT,
+    p_quantity INTEGER,
+    p_order_id TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    UPDATE public.products
+    SET stock_by_size = jsonb_set(
+          COALESCE(stock_by_size, '{"S":0,"M":0,"L":0,"XL":0}'::jsonb),
+          array[p_size],
+          to_jsonb(COALESCE((stock_by_size->>p_size)::INTEGER, 0) + p_quantity)
+        ),
+        stock_quantity = stock_quantity + p_quantity,
+        updated_at = NOW()
+    WHERE id = p_product_id;
+
+    -- Ghi log sổ cái hoàn kho
+    INSERT INTO public.stock_movements (product_id, size, quantity, type, reference_id, note)
+    VALUES (p_product_id, p_size, p_quantity, 'return', p_order_id, '[TỰ ĐỘNG] Hoàn kho khi đơn hàng bị hủy.');
+END;
+$$;
+
+
+-- [3.2] TRIGGER — CHỐNG HOÀN KHO KÉP & ĐẢM BẢO HOÀN KHO TUYỆT ĐỐI
+CREATE OR REPLACE FUNCTION trigger_restore_stock_on_cancel()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    item JSONB;
+BEGIN
+    -- Chỉ kích hoạt khi status thay đổi SANG 'cancelled' (Đảm bảo không hoàn kho 2 lần)
+    IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
+        FOR item IN SELECT * FROM jsonb_array_elements(OLD.items)
+        LOOP
+            PERFORM public.restore_stock(
+                item->>'id',
+                item->>'size',
+                (item->>'quantity')::INTEGER,
+                OLD.id
+            );
+        END LOOP;
+        
+        -- Log hoạt động hệ thống
+        INSERT INTO public.activity_logs (action, details)
+        VALUES ('auto_restock', 'Đơn hàng ' || OLD.id || ' đã được hoàn kho tự động.');
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_order_cancelled ON public.orders;
+CREATE TRIGGER on_order_cancelled
+    AFTER UPDATE OF status ON public.orders
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_restore_stock_on_cancel();
+
+
 -- [4] HÀM XỬ LÝ LIGHT-WEIGHT LIKE (Kết nối với nút Tim có sẵn)
 CREATE OR REPLACE FUNCTION handle_product_like(p_id TEXT, p_increment INTEGER)
 RETURNS VOID
