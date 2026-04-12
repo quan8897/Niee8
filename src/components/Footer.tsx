@@ -1,4 +1,6 @@
 import { Instagram, Facebook, Mail, Phone, MapPin, Music } from 'lucide-react';
+import ZaloIcon from './icons/ZaloIcon';
+import TikTokIcon from './icons/TikTokIcon';
 
 interface FooterProps {
   onAdminLogin?: () => void;
@@ -23,10 +25,10 @@ export default function Footer({ onAdminLogin }: FooterProps) {
                 <Facebook size={14} />
               </a>
               <a href="https://zalo.me/" target="_blank" rel="noopener noreferrer" aria-label="Zalo" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all text-nie8-text/60">
-                <span className="text-[8px] font-black italic">ZALO</span>
+                <ZaloIcon size={14} />
               </a>
               <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="w-8 h-8 rounded-full border border-nie8-text/10 flex items-center justify-center hover:bg-nie8-primary hover:text-white transition-all text-nie8-text/60">
-                <Music size={14} />
+                <TikTokIcon size={14} className="fill-current" />
               </a>
             </div>
  Broadway minimalism

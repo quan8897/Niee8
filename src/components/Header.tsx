@@ -1,6 +1,8 @@
-import { ShoppingBag, Search, Menu, Heart, Home, User as UserIcon, X, Package } from 'lucide-react';
+import { ShoppingBag, Search, Menu, Heart, Home, User as UserIcon, X, Package, Facebook, Instagram } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
+import ZaloIcon from './icons/ZaloIcon';
+import TikTokIcon from './icons/TikTokIcon';
 
 interface HeaderProps {
   onCartClick: () => void;
