@@ -39,7 +39,25 @@ CREATE TABLE IF NOT EXISTS public.products (
 ALTER TABLE public.products DROP CONSTRAINT IF EXISTS check_stock_not_negative;
 ALTER TABLE public.products ADD CONSTRAINT check_stock_not_negative CHECK (stock_quantity >= 0);
 
--- [2] HỆ THỐNG ĐƠN HÀNG & THANH TOÁN (Orders)
+-- [2] HỆ THỐNG ĐƠN HÀNG & THANH TOÁN (Orders & Coupons)
+CREATE TABLE IF NOT EXISTS public.coupons (
+    code TEXT PRIMARY KEY,
+    category TEXT CHECK (category IN ('total', 'shipping')) DEFAULT 'total',
+    discount_percent INT CHECK (discount_percent >= 0 AND discount_percent <= 100),
+    discount_amount NUMERIC CHECK (discount_amount >= 0),
+    max_discount_amount NUMERIC, 
+    min_order_amount NUMERIC DEFAULT 0,
+    usage_limit INT, 
+    usage_count INT DEFAULT 0,
+    expires_at TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT check_discount_type CHECK (
+        (discount_percent IS NOT NULL AND discount_amount IS NULL) OR 
+        (discount_percent IS NULL AND discount_amount IS NOT NULL)
+    )
+);
+
 CREATE TABLE IF NOT EXISTS public.orders (
     id TEXT PRIMARY KEY,
     user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -60,6 +78,12 @@ CREATE TABLE IF NOT EXISTS public.orders (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE OR REPLACE FUNCTION increment_coupon_usage(p_code TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+    UPDATE public.coupons SET usage_count = usage_count + 1 WHERE code = p_code And is_active = true;
+END; $$;
 
 -- [3] QUẢN LÝ KHO, NHẬT KÝ & YÊU THÍCH (Ledgers)
 CREATE TABLE IF NOT EXISTS public.stock_movements (

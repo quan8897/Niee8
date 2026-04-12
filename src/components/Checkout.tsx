@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 const formatVND = (val: number | string) => {
-  const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9]/g, '')) || 0 : val;
+  const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9]/g, '') || '0');
+  if (isNaN(num)) return String(val);
   return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
 };
 
@@ -57,12 +58,22 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       const isShipping = coupon.category === 'shipping';
       const basis = isShipping ? shippingFee : total;
 
-      if (coupon.discount_amount) {
-        currentDiscount = parseFloat(coupon.discount_amount);
-      } else if (coupon.discount_percent) {
-        currentDiscount = (basis * coupon.discount_percent) / 100;
-        if (coupon.max_discount_amount) {
-          currentDiscount = Math.min(currentDiscount, parseFloat(coupon.max_discount_amount));
+      // Safe parse for numeric values from DB (handling possible dots or text)
+      const cleanParse = (val: any) => {
+        if (typeof val === 'number') return val;
+        return parseFloat(String(val || '0').replace(/\./g, '').replace(/[^0-9.-]+/g, '')) || 0;
+      };
+
+      const discountAmountVal = cleanParse(coupon.discount_amount);
+      const discountPercentVal = cleanParse(coupon.discount_percent);
+      const maxDiscountVal = cleanParse(coupon.max_discount_amount);
+
+      if (discountAmountVal > 0) {
+        currentDiscount = discountAmountVal;
+      } else if (discountPercentVal > 0) {
+        currentDiscount = (basis * discountPercentVal) / 100;
+        if (maxDiscountVal > 0) {
+          currentDiscount = Math.min(currentDiscount, maxDiscountVal);
         }
       }
       
@@ -102,8 +113,11 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       if (!data.is_active) throw new Error('Mã này đã bị vô hiệu hóa.');
       if (data.usage_limit && data.usage_count >= data.usage_limit) throw new Error('Mã này đã hết lượt sử dụng.');
       if (data.require_auth && !user) throw new Error('Mã này chỉ dành cho thành viên đã đăng nhập.');
-      if (data.min_order_amount && total < parseFloat(data.min_order_amount)) {
-        throw new Error(`Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ để áp dụng mã này.`);
+      if (data.min_order_amount) {
+        const minAmount = typeof data.min_order_amount === 'number' ? data.min_order_amount : parseFloat(String(data.min_order_amount).replace(/\./g, '')) || 0;
+        if (total < minAmount) {
+          throw new Error(`Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(minAmount)}đ để áp dụng mã này.`);
+        }
       }
 
       const isNewShipping = data.category === 'shipping';
@@ -434,7 +448,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                       <p className="text-[10px] sm:text-xs text-gray-400 font-medium uppercase tracking-tighter mt-0.5">Size: <span className="text-nie8-primary font-black">{item.size}</span> | {item.category}</p>
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                       <p className="text-[13px] font-black text-nie8-text">{formatVND(parseFloat(item.price.replace(/[^0-9]/g, '')))}</p>
+                       <p className="text-[13px] font-black text-nie8-text">{formatVND(item.price)}</p>
                        <div className="flex items-center bg-nie8-bg/40 rounded-lg p-0.5">
                          <button 
                            onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, -1)} 
@@ -614,7 +628,9 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                   allCoupons.map((coupon) => {
                     const isApplied = tempAppliedCoupons.some(c => c.code === coupon.code);
                     const isMemberOnly = coupon.require_auth && !user;
-                    const diffToMin = coupon.min_order_amount ? parseFloat(coupon.min_order_amount) - total : 0;
+                    
+                    const minOrderAmount = typeof coupon.min_order_amount === 'number' ? coupon.min_order_amount : parseFloat(String(coupon.min_order_amount || '0').replace(/\./g, '')) || 0;
+                    const diffToMin = minOrderAmount - total;
                     const isLockedByMin = diffToMin > 0;
                     const isExpired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
                     if (isExpired) return null;
@@ -640,7 +656,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                             </span>
                           </div>
                           <p className="text-sm font-bold text-gray-800 mb-0.5 truncate">{coupon.name || 'Ưu đãi Đặc biệt'}</p>
-                          <p className="text-[11px] text-gray-500 leading-tight line-clamp-2">{coupon.description || `Giảm ngay cho đơn hàng từ ${formatVND(coupon.min_order_amount || 0)}`}</p>
+                          <p className="text-[11px] text-gray-500 leading-tight line-clamp-2">{coupon.description || `Giảm ngay cho đơn hàng từ ${formatVND(minOrderAmount)}`}</p>
                           
                           {isMemberOnly ? (
                             <div className="mt-2.5 flex items-center gap-1.5 text-rose-500 font-bold text-[9px] uppercase tracking-wider bg-rose-50/50 w-fit px-2 py-1 rounded">
@@ -648,7 +664,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                             </div>
                           ) : isLockedByMin ? (
                             <div className="mt-2.5 flex items-center gap-1.5 text-orange-600 font-bold text-[9px] uppercase tracking-wider bg-orange-50/50 w-fit px-2 py-1 rounded">
-                              <Sparkles size={10} /> Mua thêm {formatVND(diffToMin)}
+                              <Sparkles size={10} /> Mua thêm {formatVND(Math.max(0, diffToMin))}
                             </div>
                           ) : null}
                         </div>
