@@ -501,11 +501,10 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                       <CheckCircle2 size={10} className="text-blue-500" /> SSL
                     </div>
                   </div>
-               </div>
-             </div>
-          </section>
+                </div>
+             </section>
+          </div>
         </div>
-      </div>
 
       {/* SHOPEE-STYLE STICKY BOTTOM BAR (Mobile Only) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 z-[100] flex items-center justify-between shadow-[0_-8px_30px_rgb(0,0,0,0.08)]">
