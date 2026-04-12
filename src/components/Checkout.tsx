@@ -42,6 +42,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
   const [allCoupons, setAllCoupons] = useState<any[]>([]);
   // Draft selections for the modal
   const [tempAppliedCoupons, setTempAppliedCoupons] = useState<any[]>([]);
+  const [checkingVoucherCode, setCheckingVoucherCode] = useState<string | null>(null);
 
   const shippingFee = 2000; // Fixed 2000 VND for test
   
@@ -83,9 +84,11 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
     const codeToUse = (codeFromModal || couponCode).trim().toUpperCase();
     if (!codeToUse) return;
     
+    if (codeFromModal) setCheckingVoucherCode(codeFromModal);
     setIsApplyingCoupon(true);
     setCouponError(null);
     try {
+      // ALWAYS FETCH FROM SERVER AS REQUESTED BY USER
       const { data, error } = await supabase
         .from('coupons')
         .select('*')
@@ -106,9 +109,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       const isNewShipping = data.category === 'shipping';
       const toggleCoupon = (prev: any[]) => {
         const isAlreadySelected = prev.some(c => c.code === data.code);
-        if (isAlreadySelected) {
-          return prev.filter(c => c.code !== data.code);
-        }
+        if (isAlreadySelected) return prev.filter(c => c.code !== data.code);
         const filtered = prev.filter(c => {
           const isExistingShipping = c.category === 'shipping';
           return isNewShipping ? !isExistingShipping : isExistingShipping;
@@ -126,8 +127,10 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       setCouponError(null);
     } catch (err: any) {
       setCouponError(err.message);
+      if (codeFromModal) showStatus(err.message, "error");
     } finally {
       setIsApplyingCoupon(false);
+      setCheckingVoucherCode(null);
     }
   };
 
@@ -219,6 +222,16 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       return () => clearTimeout(timer);
     }
   }, [currentOrderId, onComplete, formData.phone]);
+
+  // Lock scroll when voucher modal is open to prevent scroll bleed
+  useEffect(() => {
+    if (isVoucherModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isVoucherModalOpen]);
 
   if (currentOrderId) {
     return (
@@ -549,7 +562,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsVoucherModalOpen(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm touch-none"
             />
             <motion.div 
               initial={{ y: "100%" }}
@@ -576,40 +589,47 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                     const isLocked = isMemberOnly || isLockedByMin;
 
                     return (
-                      <div 
+                      <motion.button 
                         key={coupon.code} 
-                        className={`relative group rounded-2xl border-2 transition-all p-5 flex gap-4 ${isApplied ? 'border-nie8-primary bg-nie8-bg/20' : isLocked ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-gray-300 cursor-pointer'}`}
+                        type="button"
+                        whileTap={{ scale: 0.97 }}
+                        className={`w-full text-left relative group rounded-2xl border-2 transition-all p-5 flex gap-4 select-none outline-none ${isApplied ? 'border-nie8-primary bg-nie8-bg/20 shadow-sm' : isLocked ? 'border-gray-50 opacity-50 grayscale' : 'border-gray-100 hover:border-gray-200 active:bg-gray-50 cursor-pointer'}`}
                         onClick={() => !isLocked && handleApplyCoupon(coupon.code)}
+                        disabled={isLocked || !!checkingVoucherCode}
                       >
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${coupon.category === 'shipping' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${coupon.category === 'shipping' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
                           <Ticket size={24} />
                         </div>
-                        <div className="flex-grow">
+                        <div className="flex-grow min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-gray-900 uppercase tracking-wider">{coupon.code}</h4>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${coupon.category === 'shipping' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                            <h4 className="font-bold text-gray-900 uppercase tracking-wider text-sm">{coupon.code}</h4>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap ${coupon.category === 'shipping' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
                               {coupon.category === 'shipping' ? 'Freeship' : 'Voucher Shop'}
                             </span>
                           </div>
-                          <p className="text-sm font-medium text-gray-800 mb-1">{coupon.name || 'Ưu đãi Đặc biệt'}</p>
-                          <p className="text-xs text-gray-500 leading-relaxed">{coupon.description || `Giảm ngay cho đơn hàng từ ${formatVND(coupon.min_order_amount || 0)}`}</p>
+                          <p className="text-sm font-bold text-gray-800 mb-0.5 truncate">{coupon.name || 'Ưu đãi Đặc biệt'}</p>
+                          <p className="text-[11px] text-gray-500 leading-tight line-clamp-2">{coupon.description || `Giảm ngay cho đơn hàng từ ${formatVND(coupon.min_order_amount || 0)}`}</p>
                           
                           {isMemberOnly ? (
-                            <div className="mt-3 flex items-center gap-1.5 text-rose-500 font-bold text-[10px] uppercase tracking-wider bg-rose-50/50 w-fit px-2 py-1 rounded">
-                              <Info size={12} /> Chỉ dành cho thành viên - Đăng nhập ngay
+                            <div className="mt-2.5 flex items-center gap-1.5 text-rose-500 font-bold text-[9px] uppercase tracking-wider bg-rose-50/50 w-fit px-2 py-1 rounded">
+                              <Info size={10} /> Chỉ cho thành viên
                             </div>
                           ) : isLockedByMin ? (
-                            <div className="mt-3 flex items-center gap-1.5 text-orange-500 font-bold text-[10px] uppercase tracking-wider bg-orange-50/50 w-fit px-2 py-1 rounded">
-                              <Sparkles size={12} /> Mua thêm {formatVND(diffToMin)} để nhận mã này
+                            <div className="mt-2.5 flex items-center gap-1.5 text-orange-600 font-bold text-[9px] uppercase tracking-wider bg-orange-50/50 w-fit px-2 py-1 rounded">
+                              <Sparkles size={10} /> Mua thêm {formatVND(diffToMin)}
                             </div>
                           ) : null}
                         </div>
-                        <div className="flex flex-col justify-center">
-                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isApplied ? 'bg-nie8-primary border-nie8-primary scale-110 shadow-lg' : 'border-gray-300'}`}>
-                             {isApplied && <CheckCircle2 size={14} className="text-white" />}
+                        <div className="flex flex-col justify-center flex-shrink-0">
+                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isApplied ? 'bg-nie8-primary border-nie8-primary scale-110' : 'border-gray-200'}`}>
+                             {checkingVoucherCode === coupon.code ? (
+                               <Loader2 size={12} className="animate-spin text-white" />
+                             ) : isApplied ? (
+                               <CheckCircle2 size={14} className="text-white" />
+                             ) : null}
                            </div>
                         </div>
-                      </div>
+                      </motion.button>
                     );
                   })
                 )}
