@@ -3,6 +3,11 @@ import { Truck, CreditCard, ChevronRight, MapPin, Phone, User, CheckCircle2, Ale
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
+const formatVND = (val: number | string) => {
+  const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9]/g, '')) || 0 : val;
+  return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
+};
+
 interface CheckoutProps {
   items: any[];
   total: number;
@@ -216,8 +221,6 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
       </div>
     );
   }
-
-  const formatVND = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + 'đ';
 
   return (
     <div className="min-h-screen sm:bg-[#F8F9FA] bg-gray-50 pt-20 sm:pt-24 pb-20 px-0 sm:px-4 lg:px-8 font-sans transition-colors duration-300">
