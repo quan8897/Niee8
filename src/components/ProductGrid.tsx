@@ -384,6 +384,7 @@ export default function ProductGrid({
 
                         <button 
                           onClick={(e) => toggleWishlist(product.id, e)}
+                          aria-label={wishlist.has(product.id) ? "Xóa khỏi danh sách yêu thích" : "Thêm vào danh sách yêu thích"}
                           className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-nie8-text/40 hover:text-red-500 transition-all z-10 border border-white/50"
                         >
                           <Heart size={18} className={wishlist.has(product.id) ? 'fill-red-500 text-red-500' : ''} />
@@ -423,6 +424,7 @@ export default function ProductGrid({
             <button
               onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
               disabled={currentPage === 1}
+              aria-label="Trang trước"
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-nie8-text/20 flex items-center justify-center disabled:opacity-30 active:bg-nie8-primary active:text-white transition-colors"
             >
               <ChevronLeft size={18} />
@@ -445,6 +447,7 @@ export default function ProductGrid({
             <button
               onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
               disabled={currentPage === totalPages}
+              aria-label="Trang sau"
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-nie8-text/20 flex items-center justify-center disabled:opacity-30 active:bg-nie8-primary active:text-white transition-colors"
             >
               <ChevronRight size={18} />
@@ -530,12 +533,14 @@ export default function ProductGrid({
                     <>
                       <button
                         onClick={() => setActiveImageIndex(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length)}
+                        aria-label="Ảnh trước"
                         className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md z-20"
                       >
                         <ChevronLeft size={16} />
                       </button>
                       <button
                         onClick={() => setActiveImageIndex(prev => (prev + 1) % selectedProduct.images.length)}
+                        aria-label="Ảnh sau"
                         className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full items-center justify-center shadow-md z-20"
                       >
                         <ChevronRight size={16} />
@@ -546,13 +551,17 @@ export default function ProductGrid({
                   {/* Close button */}
                   <button
                     onClick={closeModal}
+                    aria-label="Đóng chi tiết sản phẩm"
                     className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md z-20"
                   >
                     <X size={18} />
                   </button>
 
                   {/* Share button */}
-                  <button className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md z-20">
+                  <button 
+                    aria-label="Chia sẻ sản phẩm"
+                    className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md z-20"
+                  >
                     <Share2 size={16} />
                   </button>
                 </div>
@@ -640,6 +649,7 @@ export default function ProductGrid({
                       <div className="flex items-center gap-0 border border-nie8-text/15 rounded-xl w-fit overflow-hidden">
                         <button
                           onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                          aria-label="Giảm số lượng"
                           className="w-11 h-11 flex items-center justify-center text-nie8-text hover:bg-nie8-primary/5 transition-colors active:bg-nie8-primary/10"
                         >
                           <Minus size={16} />
@@ -648,6 +658,7 @@ export default function ProductGrid({
                         <button
                           onClick={() => setQuantity(q => Math.min(q + 1, selectedProduct.stock_by_size?.[selectedSize] || 0))}
                           disabled={quantity >= (selectedProduct.stock_by_size?.[selectedSize] || 0)}
+                          aria-label="Tăng số lượng"
                           className="w-11 h-11 flex items-center justify-center text-nie8-text hover:bg-nie8-primary/5 transition-colors active:bg-nie8-primary/10 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Plus size={16} />
@@ -727,6 +738,7 @@ export default function ProductGrid({
                         {/* Wishlist button */}
                         <button
                           onClick={(e) => toggleWishlist(selectedProduct.id, e)}
+                          aria-label={wishlist.has(selectedProduct.id) ? "Xóa khỏi danh sách yêu thích" : "Thêm vào danh sách yêu thích"}
                           className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-nie8-text/15 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
                         >
                           <Heart
@@ -794,6 +806,7 @@ export default function ProductGrid({
                </div>
                <button 
                 onClick={() => setIsImageZoomed(false)}
+                aria-label="Đóng chế độ soi vải"
                 className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
               >
                 <X size={24} />

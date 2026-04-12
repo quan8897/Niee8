@@ -275,8 +275,15 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
         )}
       </AnimatePresence>
 
-      <div className="max-w-6xl mx-auto flex items-center justify-between mb-8 cursor-pointer" onClick={onBack}>
-         <div className="text-xl font-serif italic text-nie8-text hover:text-nie8-primary transition-colors flex items-center gap-2"><ArrowLeft size={20} /> nie8.</div>
+      <div className="max-w-6xl mx-auto flex items-center justify-between mb-8">
+         <button 
+           onClick={onBack}
+           aria-label="Quay lại trang chủ"
+           className="text-xl font-serif italic text-nie8-text hover:text-nie8-primary transition-colors flex items-center gap-2 group outline-none"
+         >
+           <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" /> 
+           nie8.
+         </button>
       </div>
       
       <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-8 items-start">
@@ -416,16 +423,35 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                     <div>
                       <div className="flex justify-between items-start gap-2">
                         <h4 className="text-[13px] font-bold text-gray-900 truncate">{item.name}</h4>
-                        <button onClick={() => onRemoveItem && onRemoveItem(item.id, item.size)} className="text-gray-300 hover:text-rose-500 transition-colors"><Trash2 size={14} /></button>
+                        <button 
+                          onClick={() => onRemoveItem && onRemoveItem(item.id, item.size)} 
+                          aria-label="Xóa sản phẩm khỏi giỏ hàng"
+                          className="text-gray-300 hover:text-rose-500 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                       <p className="text-[10px] sm:text-xs text-gray-400 font-medium uppercase tracking-tighter mt-0.5">Size: <span className="text-nie8-primary font-black">{item.size}</span> | {item.category}</p>
                     </div>
                     <div className="flex items-center justify-between mt-1">
                        <p className="text-[13px] font-black text-nie8-text">{formatVND(parseFloat(item.price.replace(/[^0-9]/g, '')))}</p>
                        <div className="flex items-center bg-nie8-bg/40 rounded-lg p-0.5">
-                         <button onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, -1)} className="w-6 h-6 flex items-center justify-center text-gray-600 active:scale-90" disabled={item.quantity <= 1}><Minus size={12} /></button>
+                         <button 
+                           onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, -1)} 
+                           aria-label="Giảm số lượng"
+                           className="w-6 h-6 flex items-center justify-center text-gray-600 active:scale-90" 
+                           disabled={item.quantity <= 1}
+                         >
+                           <Minus size={12} />
+                         </button>
                          <span className="min-w-[24px] text-center text-xs font-black">{item.quantity}</span>
-                         <button onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, 1)} className="w-6 h-6 flex items-center justify-center text-gray-600 active:scale-90"><Plus size={12} /></button>
+                         <button 
+                           onClick={() => onUpdateQuantity && onUpdateQuantity(item.id, item.size, 1)} 
+                           aria-label="Tăng số lượng"
+                           className="w-6 h-6 flex items-center justify-center text-gray-600 active:scale-90"
+                         >
+                           <Plus size={12} />
+                         </button>
                        </div>
                     </div>
                   </div>
@@ -572,7 +598,13 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
                 <h3 className="text-xl font-bold text-gray-900 tracking-tight">Chọn mã giảm giá</h3>
-                <button onClick={() => setIsVoucherModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
+                <button 
+                  onClick={() => setIsVoucherModalOpen(false)} 
+                  aria-label="Đóng bảng mã giảm giá"
+                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
               <div className="p-6 overflow-y-auto flex-grow space-y-4 pb-32">

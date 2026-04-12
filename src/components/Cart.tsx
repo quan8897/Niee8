@@ -75,6 +75,7 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
               </div>
               <button
                 onClick={onClose}
+                aria-label="Đóng giỏ hàng"
                 className="w-9 h-9 rounded-full border border-nie8-primary/20 flex items-center justify-center text-nie8-text hover:bg-nie8-primary hover:text-white transition-all active:scale-95"
               >
                 <X size={18} />
@@ -128,6 +129,7 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
                             <h3 className="font-serif italic text-sm sm:text-base text-nie8-text leading-tight line-clamp-2">{item.name}</h3>
                             <button
                               onClick={() => onRemoveItem(item.id, item.size || '')}
+                              aria-label="Xóa sản phẩm khỏi giỏ hàng"
                               className="text-nie8-text/20 hover:text-red-400 transition-colors flex-shrink-0 p-1 -mt-1 -mr-1 active:scale-90"
                             >
                               <X size={16} />
@@ -147,6 +149,7 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
                           <div className="flex items-center border border-nie8-primary/15 rounded-xl overflow-hidden">
                             <button
                               onClick={() => onUpdateQuantity(item.id, item.size || '', -1)}
+                              aria-label="Giảm số lượng"
                               className="w-8 h-8 flex items-center justify-center text-nie8-text/60 hover:bg-nie8-primary/5 active:bg-nie8-primary/10 transition-colors"
                             >
                               {item.quantity === 1 ? <Trash2 size={13} className="text-red-400" /> : <Minus size={13} />}
@@ -154,6 +157,7 @@ export default function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemov
                             <span className="w-7 text-center text-sm font-bold">{item.quantity}</span>
                             <button
                               onClick={() => onUpdateQuantity(item.id, item.size || '', 1)}
+                              aria-label="Tăng số lượng"
                               className="w-8 h-8 flex items-center justify-center text-nie8-text/60 hover:bg-nie8-primary/5 active:bg-nie8-primary/10 transition-colors"
                             >
                               <Plus size={13} />

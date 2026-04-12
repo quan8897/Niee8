@@ -70,6 +70,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
             {/* Logo — center */}
             <button 
               onClick={() => onNavigate?.('home')} 
+              aria-label="Trang chủ nie8"
               className="absolute left-1/2 -translate-x-1/2 text-2xl sm:text-3xl font-serif italic tracking-tighter text-nie8-text flex items-center gap-1 group"
             >
               NIE<span className="text-nie8-primary group-hover:italic">8</span>
@@ -166,6 +167,7 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
                 <span className="text-2xl font-serif italic text-nie8-text">nie8</span>
                 <button
                   onClick={() => setIsMenuOpen(false)}
+                  aria-label="Đóng menu"
                   className="w-9 h-9 rounded-full border border-nie8-primary/20 flex items-center justify-center"
                 >
                   <X size={18} />
@@ -232,10 +234,10 @@ export default function Header({ onCartClick, cartCount, isAdmin, onAdminClick, 
               {/* Menu footer */}
               <div className="p-6 border-t border-nie8-primary/10">
                 <div className="flex items-center gap-6 mb-4">
-                  <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><Facebook size={18} /></a>
-                  <a href="https://www.instagram.com/nie8.studio/" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><Instagram size={18} /></a>
-                  <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><TikTokIcon size={18} className="fill-current" /></a>
-                  <a href="https://zalo.me/" target="_blank" rel="noreferrer" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><ZaloIcon size={20} /></a>
+                  <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook nie8" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><Facebook size={18} /></a>
+                  <a href="https://www.instagram.com/nie8.studio/" target="_blank" rel="noreferrer" aria-label="Instagram nie8" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><Instagram size={18} /></a>
+                  <a href="https://www.tiktok.com/@nie8.studio" target="_blank" rel="noreferrer" aria-label="TikTok nie8" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><TikTokIcon size={18} className="fill-current" /></a>
+                  <a href="https://zalo.me/" target="_blank" rel="noreferrer" aria-label="Zalo nie8" className="text-nie8-text/40 hover:text-nie8-primary transition-colors"><ZaloIcon size={20} /></a>
                 </div>
                 <p className="text-[10px] text-nie8-text/30 uppercase tracking-[0.2em]">© 2024 nie8 studio. minimalist romantic.</p>
               </div>
