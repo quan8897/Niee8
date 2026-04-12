@@ -44,25 +44,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (rpcResult?.success === false) {
-        // Chuyển đổi mã lỗi kỹ thuật thành thông báo thân thiện với khách hàng
+        // Chuyển đổi mã lỗi thành lời nhắn "Chốt" của shop
         const getFriendlyMessage = (code: string, originalError: string) => {
             switch (code) {
                 case 'OUT_OF_STOCK':
-                    return 'Rất tiếc, sản phẩm này vừa mới hết hàng. Bạn vui lòng chọn mẫu khác nhé!';
+                    return 'Rất tiếc, sản phẩm vừa hết hàng. Có khách hàng đã hoàn tất thanh toán trước một chút!';
                 case 'COUPON_INVALID':
-                    return 'Mã giảm giá này không còn hiệu lực hoặc đã hết lượt sử dụng.';
+                    return 'Mã giảm giá này vừa hết lượt hoặc không còn hiệu lực rồi bạn ơi.';
                 case 'PRODUCT_NOT_FOUND':
-                    return 'Sản phẩm không còn tồn tại trong cửa hàng.';
+                    return 'Sản phẩm này hiện tại shop không còn kinh doanh nữa.';
                 case 'INVALID_QUANTITY':
-                    return 'Số lượng sản phẩm không hợp lệ.';
+                    return 'Số lượng sản phẩm bạn chọn không hợp lệ rồi.';
                 default:
-                    return 'Đã xảy ra lỗi nhỏ trong quá trình xử lý, bạn vui lòng thử lại sau giây lát nhé.';
+                    return 'Đã xảy ra một lỗi nhỏ, bạn vui lòng nhấn Đặt hàng lại sau giây lát nhé.';
             }
         };
 
         return NextResponse.json({ 
-            error_code: rpcResult.error_code, 
-            error: getFriendlyMessage(rpcResult.error_code, rpcResult.error) 
+            error_code: rpcResult.error_code || 'SYSTEM_ERROR', 
+            error: getFriendlyMessage(rpcResult.error_code || 'SYSTEM_ERROR', rpcResult.error) 
         }, { status: 400 });
     }
 

@@ -449,7 +449,7 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
                <button 
                   onClick={() => handleSubmit()}
                   disabled={isProcessing || items.length === 0}
-                  className="w-full mt-6 bg-black text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-xl shadow-gray-200 hover:shadow-2xl hover:translate-y-[-2px] transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:bg-gray-400"
+                  className="hidden lg:flex w-full mt-6 bg-black text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-xl shadow-gray-200 hover:shadow-2xl hover:translate-y-[-2px] transition-all items-center justify-center gap-3 active:scale-[0.98] disabled:bg-gray-400"
                >
                   {isProcessing ? <Loader2 size={24} className="animate-spin" /> : 'Hoàn tất đặt hàng'}
                </button>
@@ -475,6 +475,24 @@ export default function Checkout({ items, total, onBack, onComplete, user, onUpd
           </section>
         </div>
       </div>
+
+      {/* SHOPEE-STYLE STICKY BOTTOM BAR (Mobile Only) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-[100] flex items-center justify-between shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-col">
+          <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Tổng cộng</span>
+          <span className="text-lg font-bold text-gray-900">{formatVND(finalTotal)}</span>
+        </div>
+        <button 
+          onClick={() => handleSubmit()}
+          disabled={isProcessing || items.length === 0}
+          className="bg-black text-white px-8 py-3.5 rounded-xl font-bold uppercase text-sm tracking-widest active:scale-95 transition-all disabled:bg-gray-300 flex items-center gap-2"
+        >
+          {isProcessing ? <Loader2 size={18} className="animate-spin" /> : 'Đặt hàng'}
+        </button>
+      </div>
+
+      {/* Add padding at the bottom for mobile to prevent content being hidden by sticky bar */}
+      <div className="lg:hidden h-20" />
 
       {/* VOUCHER MODAL */}
       <AnimatePresence>
